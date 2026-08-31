@@ -316,7 +316,9 @@ export class PixiRenderer implements Renderer {
     this.#lastFrameTime = now;
 
     this.#sky(s);
-    this.#world.position.set(s.camera.x, s.camera.y);
+    // Impact shake rides on the camera, so the HUD and the sky stay still.
+    const shake = this.#effects.shakeOffset(now);
+    this.#world.position.set(s.camera.x + shake.x, s.camera.y + shake.y);
     this.#ground(s);
     this.#drawPowerups(s);
     this.#drawFx(now);

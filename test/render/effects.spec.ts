@@ -57,3 +57,62 @@ describe('Effects', () => {
     expect(effects.active(0)).toHaveLength(0);
   });
 });
+
+describe('Effects camera shake', () => {
+  const enhanced = (): Effects => new Effects({ shake: true });
+
+  it('stays perfectly still in faithful mode', () => {
+    const effects = new Effects();
+    effects.consume([{ t: 'fx', id: 'superBreak', x: 0, y: 955 }], 0);
+    expect(effects.shakeOffset(0)).toEqual({ x: 0, y: 0 });
+    expect(effects.shakeOffset(50)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('is deterministic - the same impact time gives the same offset', () => {
+    const a = enhanced();
+    const b = enhanced();
+    a.consume([BREAK], 1234);
+    b.consume([BREAK], 1234);
+    for (const at of [1234, 1290, 1400, 1489]) {
+      expect(a.shakeOffset(at)).toEqual(b.shakeOffset(at));
+    }
+  });
+
+  it('decays to exactly zero and stays there', () => {
+    const effects = enhanced();
+    effects.consume([BREAK], 0);
+    const early = Math.abs(effects.shakeOffset(20).x) + Math.abs(effects.shakeOffset(20).y);
+    const late = Math.abs(effects.shakeOffset(200).x) + Math.abs(effects.shakeOffset(200).y);
+    expect(early).toBeGreaterThan(late);
+    expect(effects.shakeOffset(260)).toEqual({ x: 0, y: 0 });
+    expect(effects.shakeOffset(10_000)).toEqual({ x: 0, y: 0 });
+  });
+
+  it('never exceeds the impact amplitude', () => {
+    const effects = enhanced();
+    effects.consume([{ t: 'fx', id: 'superBreak', x: 0, y: 955 }], 0);
+    for (let at = 0; at < 260; at += 3) {
+      const { x, y } = effects.shakeOffset(at);
+      expect(Math.abs(x)).toBeLessThanOrEqual(5);
+      expect(Math.abs(y)).toBeLessThanOrEqual(5);
+    }
+  });
+
+  it('does not let a light bounce cut a superbounce short', () => {
+    const effects = enhanced();
+    effects.consume([{ t: 'fx', id: 'superBreak', x: 0, y: 955 }], 0);
+    const strong = effects.shakeOffset(30);
+    effects.consume([{ t: 'fx', id: 'bounceFx', x: 0, y: 955 }], 30);
+    expect(effects.shakeOffset(30)).toEqual(strong);
+  });
+
+  it('shakes on a faceplant, which carries no fx cue of its own', () => {
+    const effects = enhanced();
+    effects.consume([{ t: 'shotDone', feet: 40, outcome: 'faceplant' }], 0);
+    expect(effects.shakeOffset(20)).not.toEqual({ x: 0, y: 0 });
+
+    const cheered = enhanced();
+    cheered.consume([{ t: 'shotDone', feet: 40, outcome: 'cheer' }], 0);
+    expect(cheered.shakeOffset(20)).toEqual({ x: 0, y: 0 });
+  });
+});

@@ -85,8 +85,10 @@ export class GameRenderer implements Renderer {
     this.#sky(ctx, s);
 
     // World space. The camera offsets are the original's negative container
-    // offsets, so they apply directly as a translation.
-    ctx.setTransform(d, 0, 0, d, s.camera.x * d, s.camera.y * d);
+    // offsets, so they apply directly as a translation. Impact shake rides on
+    // top of them, so the HUD and the sky stay still while the world jolts.
+    const shake = this.#effects.shakeOffset(now);
+    ctx.setTransform(d, 0, 0, d, (s.camera.x + shake.x) * d, (s.camera.y + shake.y) * d);
     this.#ground(ctx, s);
     this.#powerups(ctx, s);
     this.#fx(ctx, now);

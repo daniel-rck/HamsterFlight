@@ -11,6 +11,31 @@ const FX_SPRITE: Record<FxId, SpriteId> = {
 /** Impact clips animate on the original stage rate, like every other sprite. */
 const FX_FPS = 19;
 
+/**
+ * How hard each impact hits the camera, in stage pixels on a 600x400 view.
+ * A faceplant carries no fx cue of its own but is the most violent thing that
+ * happens to the hamster, so it gets one here.
+ */
+const SHAKE_AMPLITUDE: Record<FxId | 'faceplant', number> = {
+  bounceFx: 1.5,
+  break: 3,
+  superBreak: 5,
+  faceplant: 4,
+};
+
+const SHAKE_MS = 260;
+const TAU = Math.PI * 2;
+/** Coprime-ish frequencies, so x and y do not trace a line. */
+const SHAKE_FREQ_X = 6.1;
+const SHAKE_FREQ_Y = 8.7;
+
+export interface ShakeOffset {
+  readonly x: number;
+  readonly y: number;
+}
+
+const NO_SHAKE: ShakeOffset = { x: 0, y: 0 };
+
 export interface ActiveFx {
   readonly sprite: SpriteId;
   readonly frame: number;
@@ -39,22 +64,75 @@ interface LiveFx {
  * physics path reads them, exactly as `porting-notes.md` requires of clouds and
  * bushes. Time enters through the caller so this module stays testable.
  */
-export class Effects {
-  #live: LiveFx[] = [];
+export interface EffectsOptions {
+  /**
+   * Camera shake on impact. Off in faithful mode: the original stage never
+   * moved, so this is the one thing here that is an addition rather than a
+   * restoration.
+   */
+  readonly shake?: boolean;
+}
 
-  /** Takes one tick's events. Anything that is not an `fx` cue is ignored. */
+export class Effects {
+  readonly #shakeEnabled: boolean;
+  #live: LiveFx[] = [];
+  #shakeStartedMs = 0;
+  #shakeAmplitude = 0;
+
+  constructor(options: EffectsOptions = {}) {
+    this.#shakeEnabled = options.shake ?? false;
+  }
+
+  /** Takes one tick's events. Cues this layer has no use for are ignored. */
   consume(events: readonly SimEvent[], nowMs: number): void {
     for (const event of events) {
-      if (event.t !== 'fx') continue;
-      const sprite = FX_SPRITE[event.id];
-      this.#live.push({
-        sprite,
-        x: event.x,
-        y: event.y,
-        frames: SPRITES[sprite].frames,
-        startedMs: nowMs,
-      });
+      if (event.t === 'fx') {
+        const sprite = FX_SPRITE[event.id];
+        this.#live.push({
+          sprite,
+          x: event.x,
+          y: event.y,
+          frames: SPRITES[sprite].frames,
+          startedMs: nowMs,
+        });
+        this.#shake(SHAKE_AMPLITUDE[event.id], nowMs);
+      } else if (event.t === 'shotDone' && event.outcome === 'faceplant') {
+        this.#shake(SHAKE_AMPLITUDE.faceplant, nowMs);
+      }
     }
+  }
+
+  /**
+   * A jolt only replaces the one in flight if it is at least as strong as what
+   * is left of it, so a light bounce cannot cut a superbounce short.
+   */
+  #shake(amplitude: number, nowMs: number): void {
+    if (!this.#shakeEnabled) return;
+    if (amplitude < this.#remainingShake(nowMs)) return;
+    this.#shakeStartedMs = nowMs;
+    this.#shakeAmplitude = amplitude;
+  }
+
+  #remainingShake(nowMs: number): number {
+    const t = (nowMs - this.#shakeStartedMs) / SHAKE_MS;
+    if (t < 0 || t >= 1) return 0;
+    const decay = (1 - t) ** 2;
+    return this.#shakeAmplitude * decay;
+  }
+
+  /**
+   * Where to displace the world this frame, in stage pixels. Deterministic:
+   * two decaying sinusoids off the impact time, no clock and no randomness, so
+   * a given seed and command stream shake identically every replay.
+   */
+  shakeOffset(nowMs: number): ShakeOffset {
+    const amplitude = this.#remainingShake(nowMs);
+    if (amplitude === 0) return NO_SHAKE;
+    const t = (nowMs - this.#shakeStartedMs) / SHAKE_MS;
+    return {
+      x: amplitude * Math.sin(t * TAU * SHAKE_FREQ_X),
+      y: amplitude * Math.cos(t * TAU * SHAKE_FREQ_Y) * 0.7,
+    };
   }
 
   /** What to draw this frame. Clips that have run out are dropped here. */
@@ -74,5 +152,6 @@ export class Effects {
   /** Drop everything in flight - on a restart, or when the tab comes back. */
   clear(): void {
     this.#live.length = 0;
+    this.#shakeAmplitude = 0;
   }
 }
