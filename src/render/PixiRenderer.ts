@@ -13,6 +13,7 @@ import {
 } from 'pixi.js';
 import type { AssetBundle, Sprite as SpriteAsset } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
+import type { Effects } from '@/render/effects/Effects.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
@@ -53,6 +54,7 @@ export class PixiRenderer implements Renderer {
   readonly #app: Application;
   readonly #canvas: HTMLCanvasElement;
   readonly #assets: AssetBundle;
+  readonly #effects: Effects;
   readonly #stress: number;
   #showHitboxes: boolean;
   #elapsed = 0;
@@ -76,6 +78,7 @@ export class PixiRenderer implements Renderer {
   readonly #bushes = new Container();
   readonly #markers = new Container();
   readonly #powerups = new Container();
+  readonly #fxLayer = new Container();
   readonly #debugBoxes = new Graphics();
   readonly #pillow = new Sprite();
   readonly #shadowPivot = new Container();
@@ -87,6 +90,7 @@ export class PixiRenderer implements Renderer {
   // Pools and retained HUD pieces.
   readonly #bushPool: Sprite[] = [];
   readonly #powerupPool: Sprite[] = [];
+  readonly #fxPool: Sprite[] = [];
   readonly #markerTicks: Sprite[] = [];
   readonly #markerLabels: Text[] = [];
   readonly #panelBg = solidRect();
@@ -108,11 +112,13 @@ export class PixiRenderer implements Renderer {
     app: Application,
     canvas: HTMLCanvasElement,
     assets: AssetBundle,
+    effects: Effects,
     options: RendererOptions,
   ) {
     this.#app = app;
     this.#canvas = canvas;
     this.#assets = assets;
+    this.#effects = effects;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
 
@@ -144,6 +150,7 @@ export class PixiRenderer implements Renderer {
   static async create(
     canvas: HTMLCanvasElement,
     assets: AssetBundle,
+    effects: Effects,
     options: RendererOptions = {},
   ): Promise<PixiRenderer> {
     const app = new Application();
@@ -162,7 +169,7 @@ export class PixiRenderer implements Renderer {
       // The sim never reads the pointer; input is bound to the canvas element.
       eventMode: 'none',
     });
-    return new PixiRenderer(app, canvas, assets, options);
+    return new PixiRenderer(app, canvas, assets, effects, options);
   }
 
   // -- scene construction ----------------------------------------------------
@@ -193,6 +200,7 @@ export class PixiRenderer implements Renderer {
       this.#pillow,
       this.#markers,
       this.#powerups,
+      this.#fxLayer,
       this.#shadowPivot,
       this.#hamsterPivot,
       this.#debugBoxes,
@@ -311,6 +319,7 @@ export class PixiRenderer implements Renderer {
     this.#world.position.set(s.camera.x, s.camera.y);
     this.#ground(s);
     this.#drawPowerups(s);
+    this.#drawFx(now);
     this.#drawHamster(s);
     this.#drawHud(s);
     if (this.#showHitboxes) this.#drawHitboxes(s);
@@ -393,6 +402,22 @@ export class PixiRenderer implements Renderer {
       }
     }
     hideFrom(this.#powerupPool, used);
+  }
+
+  /** Impact clips, behind the hamster so it stays readable through them. */
+  #drawFx(now: number): void {
+    let used = 0;
+    for (const fx of this.#effects.active(now)) {
+      const asset = this.#assets.get(fx.sprite);
+      if (asset === undefined) continue;
+      const texture = this.#texture(asset, fx.frame);
+      if (texture === undefined) continue;
+      const sprite = poolAt(this.#fxPool, used++, this.#fxLayer, () => new Sprite());
+      sprite.texture = texture;
+      sprite.position.set(fx.x + asset.meta.ox, fx.y + asset.meta.oy);
+      sprite.visible = true;
+    }
+    hideFrom(this.#fxPool, used);
   }
 
   #drawHamster(s: SimSnapshot): void {
@@ -594,9 +619,10 @@ const GLIDE_X = C.VIEW_W - GLIDE_W - 14;
 export function createPixiRenderer(
   canvas: HTMLCanvasElement,
   assets: AssetBundle,
+  effects: Effects,
   options: RendererOptions = {},
 ): Promise<Renderer> {
-  return PixiRenderer.create(canvas, assets, options);
+  return PixiRenderer.create(canvas, assets, effects, options);
 }
 
 function dpr(): number {

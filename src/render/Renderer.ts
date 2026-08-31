@@ -1,4 +1,5 @@
 import type { AssetBundle } from '@/assets/AssetLoader.ts';
+import type { Effects } from '@/render/effects/Effects.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 
 export interface RendererOptions {
@@ -36,5 +37,6 @@ export interface Renderer {
 export type RendererFactory = (
   canvas: HTMLCanvasElement,
   assets: AssetBundle,
+  effects: Effects,
   options?: RendererOptions,
 ) => Promise<Renderer>;

@@ -1,5 +1,6 @@
 import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
+import type { Effects } from '@/render/effects/Effects.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
@@ -34,6 +35,7 @@ export class GameRenderer implements Renderer {
   readonly #ctx: CanvasRenderingContext2D;
   readonly #canvas: HTMLCanvasElement;
   readonly #assets: AssetBundle;
+  readonly #effects: Effects;
   readonly #stress: number;
   #dpr = 1;
   #showHitboxes: boolean;
@@ -41,12 +43,18 @@ export class GameRenderer implements Renderer {
   #elapsed = 0;
   #lastFrameTime = 0;
 
-  constructor(canvas: HTMLCanvasElement, assets: AssetBundle, options: RendererOptions = {}) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    assets: AssetBundle,
+    effects: Effects,
+    options: RendererOptions = {},
+  ) {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (ctx === null) throw new Error('2D canvas context unavailable');
     this.#ctx = ctx;
     this.#canvas = canvas;
     this.#assets = assets;
+    this.#effects = effects;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.resize();
@@ -81,6 +89,7 @@ export class GameRenderer implements Renderer {
     ctx.setTransform(d, 0, 0, d, s.camera.x * d, s.camera.y * d);
     this.#ground(ctx, s);
     this.#powerups(ctx, s);
+    this.#fx(ctx, now);
     this.#hamster(ctx, s);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -146,6 +155,14 @@ export class GameRenderer implements Renderer {
       const x = feet * C.PX_PER_FOOT;
       ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
       if (feet % 50 === 0) ctx.fillText(`${feet}ft`, x + 3, C.GROUND_Y - 10);
+    }
+  }
+
+  /** Impact clips, behind the hamster so it stays readable through them. */
+  #fx(ctx: CanvasRenderingContext2D, now: number): void {
+    for (const fx of this.#effects.active(now)) {
+      const sprite = this.#assets.get(fx.sprite);
+      if (sprite !== undefined) this.#blit(ctx, sprite, fx.frame, fx.x, fx.y);
     }
   }
 
@@ -350,7 +367,8 @@ function mix(a: readonly number[], b: readonly number[], t: number): string {
 export function createCanvasRenderer(
   canvas: HTMLCanvasElement,
   assets: AssetBundle,
+  effects: Effects,
   options: RendererOptions = {},
 ): Promise<Renderer> {
-  return Promise.resolve(new GameRenderer(canvas, assets, options));
+  return Promise.resolve(new GameRenderer(canvas, assets, effects, options));
 }

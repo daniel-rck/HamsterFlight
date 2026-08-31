@@ -3,6 +3,7 @@ import { FrameProfiler } from '@/app/FrameProfiler.ts';
 import { defaultRendererFor, modeFromUrl } from '@/app/GameMode.ts';
 import { loadSprites } from '@/assets/AssetLoader.ts';
 import { InputController } from '@/input/InputController.ts';
+import { Effects } from '@/render/effects/Effects.ts';
 import { createCanvasRenderer } from '@/render/GameRenderer.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { Simulation } from '@/sim/index.ts';
@@ -28,13 +29,20 @@ async function pickRenderer(
   name: string,
   canvas: HTMLCanvasElement,
   assets: Awaited<ReturnType<typeof loadSprites>>,
+  effects: Effects,
   options: RendererOptions,
 ): Promise<{ renderer: Renderer; backend: string }> {
   if (name === 'pixi') {
     const { createPixiRenderer } = await import('@/render/PixiRenderer.ts');
-    return { renderer: await createPixiRenderer(canvas, assets, options), backend: 'pixi' };
+    return {
+      renderer: await createPixiRenderer(canvas, assets, effects, options),
+      backend: 'pixi',
+    };
   }
-  return { renderer: await createCanvasRenderer(canvas, assets, options), backend: 'canvas2d' };
+  return {
+    renderer: await createCanvasRenderer(canvas, assets, effects, options),
+    backend: 'canvas2d',
+  };
 }
 
 /** Renderer-only decoration multiplier; never touches the simulation. */
@@ -68,7 +76,8 @@ async function boot(): Promise<void> {
 
   const sim = new Simulation({ seed });
   const stress = stressFromUrl(params);
-  const { renderer, backend } = await pickRenderer(rendererName, canvas, assets, {
+  const effects = new Effects();
+  const { renderer, backend } = await pickRenderer(rendererName, canvas, assets, effects, {
     showHitboxes: params.has('debug'),
     stress,
   });
@@ -92,7 +101,8 @@ async function boot(): Promise<void> {
 
   const loop = new FixedTimestepLoop({
     step: () => {
-      sim.step(input.drain());
+      // The event stream used to be discarded here. Impact clips ride on it.
+      effects.consume(sim.step(input.drain()), performance.now());
     },
     // Physics snaps at 20 Hz - the original stage ran at 19 fps with no
     // tweening - but sprite animation and the sky run on real time, so every
@@ -115,6 +125,8 @@ async function boot(): Promise<void> {
     if (document.hidden) {
       loop.stop();
     } else {
+      // Clips started before the tab went away would all expire at once.
+      effects.clear();
       loop.resync();
       loop.start();
     }
