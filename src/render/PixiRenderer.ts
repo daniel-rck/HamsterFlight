@@ -1,5 +1,6 @@
 import {
   Application,
+  BlurFilter,
   CanvasTextMetrics,
   Container,
   Graphics,
@@ -13,6 +14,7 @@ import {
 } from 'pixi.js';
 import type { AssetBundle, Sprite as SpriteAsset } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
+import { AtmosphereFilter } from '@/render/effects/AtmosphereFilter.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { C } from '@/sim/constants.ts';
@@ -74,6 +76,8 @@ export class PixiRenderer implements Renderer {
   readonly #skyBottom: Sprite;
   readonly #skyTop: Sprite;
   readonly #stars: Graphics;
+  /** Sky plus world. Filters hang here so the HUD is never blurred or tinted. */
+  readonly #scene = new Container();
   readonly #world = new Container();
   readonly #bushes = new Container();
   readonly #markers = new Container();
@@ -86,6 +90,11 @@ export class PixiRenderer implements Renderer {
   readonly #hamsterPivot = new Container();
   readonly #hamster = new Sprite();
   readonly #hud = new Container();
+
+  readonly #motionBlur = new BlurFilter({ strength: 0, quality: 2, resolution: 0.5 });
+  readonly #atmosphere = new AtmosphereFilter();
+  /** Which filters are attached, so the array is only rebuilt when it changes. */
+  #filterMask = 0;
 
   // Pools and retained HUD pieces.
   readonly #bushPool: Sprite[] = [];
@@ -183,7 +192,8 @@ export class PixiRenderer implements Renderer {
       layer.height = C.VIEW_H;
     }
     sky.addChild(this.#skyBottom, this.#skyTop, this.#stars);
-    stage.addChild(sky);
+    this.#scene.addChild(sky);
+    stage.addChild(this.#scene);
 
     // Ground is two slabs the width of the whole course; static, so built once.
     const ground = new Container();
@@ -205,7 +215,7 @@ export class PixiRenderer implements Renderer {
       this.#hamsterPivot,
       this.#debugBoxes,
     );
-    stage.addChild(this.#world);
+    this.#scene.addChild(this.#world);
 
     this.#hud.addChild(
       this.#panelBg,
@@ -305,6 +315,9 @@ export class PixiRenderer implements Renderer {
     this.#textures.clear();
     for (const source of this.#sources.values()) source.destroy();
     this.#sources.clear();
+    this.#scene.filters = [];
+    this.#motionBlur.destroy();
+    this.#atmosphere.destroy();
     this.#app.destroy({ removeView: false }, { children: true });
   }
 
@@ -324,10 +337,56 @@ export class PixiRenderer implements Renderer {
     this.#drawFx(now);
     this.#drawHamster(s);
     this.#drawHud(s);
+    this.#applyFilters(s, now);
     if (this.#showHitboxes) this.#drawHitboxes(s);
     else this.#debugBoxes.clear();
 
     this.#app.renderer.render(this.#app.stage);
+  }
+
+  /**
+   * The whole reason this backend is the default: Canvas2D has no shader path.
+   *
+   * Filters are attached only while they have something to do. An attached
+   * filter costs a full-screen render-target ping-pong every frame whatever its
+   * strength, and it breaks the single-draw-call batching the atlas buys - so
+   * at rest the scene carries none at all.
+   */
+  #applyFilters(s: SimSnapshot, now: number): void {
+    const speed = clamp((Math.abs(s.hamster.xvel) - MOTION_BLUR_FROM) / MOTION_BLUR_SPAN, 0, 1);
+    const altitude = clamp((C.GROUND_Y - s.hamster.y) / Math.abs(C.SPACE_BG_Y), 0, 1);
+    const aberration = this.#effects.aberration(now);
+
+    const flying = s.phaseKind === 'flying';
+    const blurring = flying && speed > 0;
+    const shading = flying && (altitude > 0.02 || aberration > 0);
+
+    if (blurring) {
+      this.#motionBlur.strengthX = speed * MOTION_BLUR_MAX;
+      // Horizontal only: the hamster travels sideways, so blurring vertically
+      // would just smear the ground line.
+      this.#motionBlur.strengthY = 0;
+    }
+    if (shading) {
+      const uniforms = this.#atmosphere.uniforms;
+      uniforms.uAberration = aberration;
+      uniforms.uAltitude = altitude;
+      // Aberration radiates from where the hamster is on screen.
+      uniforms.uCentre[0] = clamp((s.hamster.x + s.camera.x) / C.VIEW_W, 0, 1);
+      uniforms.uCentre[1] = clamp((s.hamster.y + s.camera.y) / C.VIEW_H, 0, 1);
+    }
+
+    const mask = (blurring ? 1 : 0) | (shading ? 2 : 0);
+    if (mask === this.#filterMask) return;
+    this.#filterMask = mask;
+    if (mask === 0) {
+      this.#scene.filters = [];
+      return;
+    }
+    const active = [];
+    if (blurring) active.push(this.#motionBlur);
+    if (shading) active.push(this.#atmosphere);
+    this.#scene.filters = active;
   }
 
   #sky(s: SimSnapshot): void {
@@ -614,6 +673,11 @@ export class PixiRenderer implements Renderer {
 }
 
 // -- module helpers ----------------------------------------------------------
+
+/** Below this the hamster is not moving fast enough for the smear to read. */
+const MOTION_BLUR_FROM = 32;
+const MOTION_BLUR_SPAN = 38;
+const MOTION_BLUR_MAX = 7;
 
 const GLIDE_W = 110;
 const GLIDE_X = C.VIEW_W - GLIDE_W - 14;

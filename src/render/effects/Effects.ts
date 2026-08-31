@@ -24,6 +24,17 @@ const SHAKE_AMPLITUDE: Record<FxId | 'faceplant', number> = {
 };
 
 const SHAKE_MS = 260;
+
+/**
+ * A hard impact also throws the colour channels apart for a moment. Only the
+ * two breaking impacts, not the light bounce, and longer than the shake so the
+ * eye reads it as a lens reacting rather than a second jolt.
+ */
+const ABERRATION_MS = 320;
+const ABERRATION_STRENGTH: Partial<Record<FxId, number>> = {
+  break: 0.55,
+  superBreak: 1,
+};
 const TAU = Math.PI * 2;
 /** Coprime-ish frequencies, so x and y do not trace a line. */
 const SHAKE_FREQ_X = 6.1;
@@ -78,6 +89,8 @@ export class Effects {
   #live: LiveFx[] = [];
   #shakeStartedMs = 0;
   #shakeAmplitude = 0;
+  #aberrationStartedMs = 0;
+  #aberrationStrength = 0;
 
   constructor(options: EffectsOptions = {}) {
     this.#shakeEnabled = options.shake ?? false;
@@ -96,6 +109,11 @@ export class Effects {
           startedMs: nowMs,
         });
         this.#shake(SHAKE_AMPLITUDE[event.id], nowMs);
+        const aberration = ABERRATION_STRENGTH[event.id];
+        if (aberration !== undefined && aberration >= this.aberration(nowMs)) {
+          this.#aberrationStartedMs = nowMs;
+          this.#aberrationStrength = aberration;
+        }
       } else if (event.t === 'shotDone' && event.outcome === 'faceplant') {
         this.#shake(SHAKE_AMPLITUDE.faceplant, nowMs);
       }
@@ -149,9 +167,21 @@ export class Effects {
     return out;
   }
 
+  /**
+   * How far apart to throw the colour channels, 0 to 1. Decays linearly, and
+   * like the shake it is a pure function of the impact time - no clock, no
+   * randomness, so a replay looks identical.
+   */
+  aberration(nowMs: number): number {
+    const t = (nowMs - this.#aberrationStartedMs) / ABERRATION_MS;
+    if (t < 0 || t >= 1) return 0;
+    return this.#aberrationStrength * (1 - t);
+  }
+
   /** Drop everything in flight - on a restart, or when the tab comes back. */
   clear(): void {
     this.#live.length = 0;
     this.#shakeAmplitude = 0;
+    this.#aberrationStrength = 0;
   }
 }
