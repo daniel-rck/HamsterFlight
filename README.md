@@ -18,6 +18,14 @@ npm run verify       # lint, sim purity, typecheck, tests, build
 Click or press <kbd>Space</kbd> to jump, click again to hit the pillow, then
 hold to glide. <kbd>P</kbd> pauses. Append `?seed=12345` to replay an exact run.
 
+| query parameter | effect |
+| --- | --- |
+| `?seed=12345` | replay an exact run |
+| `?debug` | hitboxes and a state readout (<kbd>H</kbd> toggles) |
+| `?renderer=pixi` | the experimental PixiJS backend (see below) |
+| `?stress=N` | multiply renderer-only decoration; profiling aid, never touches physics |
+| `?profile` | report draw-time percentiles to the console |
+
 ## What makes this port unusual
 
 **The physics runs at a fixed 20 Hz and that is not negotiable.** The original
@@ -48,7 +56,7 @@ src/sim/          pure, deterministic simulation - no DOM, no clock, no Math.ran
   phases/           jump, launch, flight - the 12-step tick in original order
   systems/          ground collision, powerup spawn and pickup, camera
 src/app/          the fixed-timestep loop, the only place that reads a clock
-src/render/       canvas renderer; reads snapshots, cannot reach the simulation
+src/render/       Renderer interface plus two backends; read snapshots, cannot reach the simulation
 src/input/        DOM events to discrete commands
 src/assets/       sprite frames plus the generated placement manifest
 reference/        research artifacts - decompilate, analysis, tools. Not a build input.
@@ -70,6 +78,27 @@ order, impact-angle derivation, and the frozen glide lift. Its hitboxes were
 also a 40 px approximation, where the real bounds are now extracted from the
 shape records. So the tests assert the qualitative shape the analysis describes,
 not its numbers. Run `npm run bench` for the current table.
+
+## The PixiJS question
+
+`src/render/PixiRenderer.ts` is a spike, not a migration: a second backend
+behind `?renderer=pixi`, built so the question "would a WebGL engine help?"
+could be measured instead of argued. It is loaded through a dynamic import, so
+a normal visitor never downloads it.
+
+The answer is no. Pixi costs 153.7 kB gzip - 10x the rest of the app - and only
+overtakes Canvas2D somewhere between 1 500 and 5 000 drawn objects per frame.
+This game draws about 25. `reference/doc/renderer-evaluation.md` has the full
+table, the method, and the caveats.
+
+```sh
+npm run bundle:report                          # per-chunk gzip cost
+STRESS=1,4,16,64,256 npm run bench:renderers   # frame cost, both backends
+```
+
+The benchmark drives a real browser through a scripted flight. Numbers taken
+without a GPU are software-rasterised and understate Pixi; the document says
+which columns survive that and which do not.
 
 ## Assets
 

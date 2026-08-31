@@ -1,7 +1,9 @@
 import { FixedTimestepLoop } from '@/app/FixedTimestepLoop.ts';
+import { FrameProfiler } from '@/app/FrameProfiler.ts';
 import { loadSprites } from '@/assets/AssetLoader.ts';
 import { InputController } from '@/input/InputController.ts';
-import { GameRenderer } from '@/render/GameRenderer.ts';
+import { createCanvasRenderer } from '@/render/GameRenderer.ts';
+import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { Simulation } from '@/sim/index.ts';
 
 function seedFromUrl(params: URLSearchParams): number {
@@ -14,6 +16,32 @@ function seedFromUrl(params: URLSearchParams): number {
   const bytes = new Uint32Array(1);
   crypto.getRandomValues(bytes);
   return bytes[0] ?? 1;
+}
+
+/**
+ * `?renderer=pixi` swaps the backend. The Pixi module is imported dynamically
+ * so it lands in its own Vite chunk: the default build's entry chunk stays free
+ * of it, and one build yields both bundle numbers for the comparison.
+ */
+async function pickRenderer(
+  name: string | null,
+  canvas: HTMLCanvasElement,
+  assets: Awaited<ReturnType<typeof loadSprites>>,
+  options: RendererOptions,
+): Promise<{ renderer: Renderer; backend: string }> {
+  if (name === 'pixi') {
+    const { createPixiRenderer } = await import('@/render/PixiRenderer.ts');
+    return { renderer: await createPixiRenderer(canvas, assets, options), backend: 'pixi' };
+  }
+  return { renderer: await createCanvasRenderer(canvas, assets, options), backend: 'canvas2d' };
+}
+
+/** Renderer-only decoration multiplier; never touches the simulation. */
+function stressFromUrl(params: URLSearchParams): number {
+  const raw = params.get('stress');
+  if (raw === null) return 1;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
 function setBootMessage(text: string): void {
@@ -36,11 +64,28 @@ async function boot(): Promise<void> {
   }
 
   const sim = new Simulation({ seed });
-  const renderer = new GameRenderer(canvas, assets, {
+  const stress = stressFromUrl(params);
+  const { renderer, backend } = await pickRenderer(params.get('renderer'), canvas, assets, {
     showHitboxes: params.has('debug'),
+    stress,
   });
   const input = new InputController();
   input.attach(canvas);
+
+  // The profiler wraps draw() from the outside, so neither backend can be
+  // instrumented more kindly than the other.
+  const profileWindow = Number.parseInt(params.get('profileWindow') ?? '', 10);
+  const profiler = params.has('profile')
+    ? new FrameProfiler(
+        `${backend} stress=${stress}`,
+        Number.isFinite(profileWindow) && profileWindow > 0 ? profileWindow : 240,
+      )
+    : null;
+  // Only under ?profile: lets scripts/bench-renderers.mjs read the windows as
+  // data. Scraping formatted console output is not reliable across drivers.
+  if (profiler !== null) {
+    (window as unknown as { __hamsterProfile?: FrameProfiler }).__hamsterProfile = profiler;
+  }
 
   const loop = new FixedTimestepLoop({
     step: () => {
@@ -50,7 +95,10 @@ async function boot(): Promise<void> {
     // tweening - but sprite animation and the sky run on real time, so every
     // frame is drawn rather than only the stepped ones.
     draw: () => {
-      renderer.draw(sim.snapshot(), performance.now());
+      const snapshot = sim.snapshot();
+      const now = performance.now();
+      if (profiler === null) renderer.draw(snapshot, now);
+      else profiler.measure(() => renderer.draw(snapshot, now));
     },
   });
 
@@ -72,7 +120,14 @@ async function boot(): Promise<void> {
   document.querySelector('#boot')?.remove();
   loop.start();
 
-  console.info('[hamsterflight] seed=%d - append ?seed=%d to replay', seed, seed);
+  window.addEventListener('pagehide', () => renderer.destroy(), { once: true });
+
+  console.info(
+    '[hamsterflight] seed=%d renderer=%s - append ?seed=%d to replay',
+    seed,
+    backend,
+    seed,
+  );
 }
 
 boot().catch((error: unknown) => {

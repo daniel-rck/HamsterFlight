@@ -1,5 +1,6 @@
 import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
+import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 import { DEFAULT_TUNING } from '@/sim/tuning.ts';
@@ -17,10 +18,9 @@ const POWERUP_SPRITE: Record<PowerupKind, SpriteId> = {
 /** Sprite frames advance on real time at the original stage rate. */
 const SPRITE_FPS = 19;
 
-export interface RendererOptions {
-  /** Draw the measured hitboxes over the art. */
-  readonly showHitboxes?: boolean;
-}
+/** Decoration counts at stress 1. Both renderers use these, so they compare. */
+const STAR_COUNT = 70;
+const BUSH_SPACING = 260;
 
 /**
  * Canvas 2D renderer for the 600x400 stage.
@@ -30,10 +30,11 @@ export interface RendererOptions {
  * which are the offsets Flash itself used - there are no per-sprite magic
  * numbers in here.
  */
-export class GameRenderer {
+export class GameRenderer implements Renderer {
   readonly #ctx: CanvasRenderingContext2D;
   readonly #canvas: HTMLCanvasElement;
   readonly #assets: AssetBundle;
+  readonly #stress: number;
   #dpr = 1;
   #showHitboxes: boolean;
   /** Wall-clock milliseconds, for animations that are not physics. */
@@ -47,6 +48,7 @@ export class GameRenderer {
     this.#canvas = canvas;
     this.#assets = assets;
     this.#showHitboxes = options.showHitboxes ?? false;
+    this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.resize();
   }
 
@@ -60,6 +62,9 @@ export class GameRenderer {
   toggleHitboxes(): void {
     this.#showHitboxes = !this.#showHitboxes;
   }
+
+  /** Immediate mode holds no GPU objects, so there is nothing to release. */
+  destroy(): void {}
 
   draw(s: SimSnapshot, now: number): void {
     if (this.#lastFrameTime !== 0) this.#elapsed += now - this.#lastFrameTime;
@@ -100,7 +105,7 @@ export class GameRenderer {
     ctx.globalAlpha = clamp((altitude - 0.35) / 0.4, 0, 1);
     ctx.fillStyle = '#fff';
     // Deterministic from a cheap hash, so the field is stable without state.
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < STAR_COUNT * this.#stress; i++) {
       const h = Math.imul(i + 1, 0x9e3779b1) >>> 0;
       const x = (h % 1000) / 1000;
       const y = ((h >>> 10) % 1000) / 1000;
@@ -119,8 +124,9 @@ export class GameRenderer {
     ctx.fillRect(-2000, C.GROUND_Y, 400000, 5);
 
     // Bushes, drawn from a stable hash of their position so no state is needed.
-    const from = Math.floor((-s.camera.x - 200) / 260) * 260;
-    for (let x = from; x < -s.camera.x + C.VIEW_W + 200; x += 260) {
+    const spacing = BUSH_SPACING / this.#stress;
+    const from = Math.floor((-s.camera.x - 200) / spacing) * spacing;
+    for (let x = from; x < -s.camera.x + C.VIEW_W + 200; x += spacing) {
       const h = Math.imul(x + 7919, 0x85ebca6b) >>> 0;
       const bush = this.#assets.get(`bush/${(h % 5) + 1}` as SpriteId);
       if (bush !== undefined) this.#blit(ctx, bush, 0, x + (h % 90), C.GROUND_Y);
@@ -148,7 +154,10 @@ export class GameRenderer {
       const sprite = this.#assets.get(POWERUP_SPRITE[item.kind]);
       if (sprite === undefined) continue;
       ctx.globalAlpha = item.taken ? 0.25 : 1;
-      this.#blit(ctx, sprite, this.#animFrame(sprite), item.x, item.y);
+      const frame = this.#animFrame(sprite);
+      for (let i = 0; i < this.#stress; i++) {
+        this.#blit(ctx, sprite, frame, item.x + i * 3, item.y + i * 3);
+      }
       ctx.globalAlpha = 1;
 
       if (this.#showHitboxes) {
@@ -322,4 +331,16 @@ function clamp(value: number, low: number, high: number): number {
 function mix(a: readonly number[], b: readonly number[], t: number): string {
   const channel = (i: number): number => Math.round((a[i] ?? 0) + ((b[i] ?? 0) - (a[i] ?? 0)) * t);
   return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
+}
+
+/**
+ * The Canvas2D backend. Async only to satisfy `RendererFactory` - nothing here
+ * needs to await, unlike Pixi's `Application.init()`.
+ */
+export function createCanvasRenderer(
+  canvas: HTMLCanvasElement,
+  assets: AssetBundle,
+  options: RendererOptions = {},
+): Promise<Renderer> {
+  return Promise.resolve(new GameRenderer(canvas, assets, options));
 }
