@@ -109,19 +109,28 @@ count and, crucially, the `ox`/`oy` offset of the image relative to the entity
 position - the offsets Flash itself used - so the renderer contains no
 per-sprite magic numbers.
 
-Placement is cross-checked rather than trusted. The offsets are computed from a
-display-list walk (`reference/tools/sprite_bounds.py`) and compared against the
-dimensions ffdec actually rasterised; agreement sets `verified: true`, and the
-26 of 32 sprites that agree use the exact offset. The six that disagree - nested
-clips that animate their own scale - are marked `verified: false` and centred on
-the registration point instead.
+Placement is measured twice rather than trusted once. The offset comes from the
+root transform of ffdec's SVG sprite export, which is exact and unrounded and is
+produced by the same tool that rasterised the PNGs. `reference/tools/sprite_bounds.py`
+computes the same quantity independently by walking the display list, and
+`verified` records whether the two agree - 26 of 32 do. The six that do not are
+nested clips whose geometry the display-list walk mis-resolves; they still use
+ffdec's value, so `verified: false` marks a disagreement worth investigating
+rather than a fallback.
 
 Regenerate with:
 
 ```sh
+ffdec -format sprite:svg -export sprite reference/extracted/svg \
+  path/to/OCybCA4ADbpTKT.swf
+
 python3 reference/tools/build_sprites.py path/to/OCybCA4ADbpTKT.swf \
-  reference/extracted src/assets/sprites
+  reference/extracted src/assets/sprites --svg-dir reference/extracted/svg
 ```
+
+Without `--svg-dir` the tool falls back to the display-list walk and centres the
+six unresolved clips on their registration point, which misplaces them by up to
+63 px.
 
 **On rights:** this artwork is the original publisher's, not this project's.
 Section 13.4 of the analysis document notes that shipping it in a published

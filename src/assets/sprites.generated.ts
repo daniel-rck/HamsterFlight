@@ -8,10 +8,10 @@
 // `ox`/`oy` place the top-left of the image relative to the entity position,
 // so the renderer needs no per-sprite magic numbers.
 //
-// `verified: false` means the computed display-list bounds disagreed with what
-// ffdec actually rasterised - nested clips that animate their own scale - so
-// the art is centred on the registration point instead. Those are the entries
-// to check first if something looks misplaced.
+// `ox`/`oy` come from the root transform of ffdec's SVG sprite export, which
+// is exact and unrounded. `verified` records whether the independent
+// display-list walk in sprite_bounds.py agreed: false means the two methods
+// disagree and the entry is worth investigating, not that the value is a guess.
 
 export interface SpriteMeta {
   readonly frames: number;
@@ -49,8 +49,8 @@ export const SPRITES = {
     frames: 7,
     w: 50,
     h: 71,
-    ox: -25.55,
-    oy: -38.05,
+    ox: -19.9,
+    oy: -35.35,
     verified: false,
     charId: 291,
     fps: 19,
@@ -59,8 +59,8 @@ export const SPRITES = {
     frames: 17,
     w: 65,
     h: 70,
-    ox: -28.25,
-    oy: -43.75,
+    ox: -43.3,
+    oy: -41.0,
     verified: false,
     charId: 279,
     fps: 19,
@@ -121,8 +121,8 @@ export const SPRITES = {
     frames: 26,
     w: 60,
     h: 51,
-    ox: -30.0,
-    oy: -25.5,
+    ox: -28.7,
+    oy: -24.8,
     verified: false,
     charId: 454,
     fps: 19,
@@ -151,8 +151,8 @@ export const SPRITES = {
     frames: 26,
     w: 61,
     h: 51,
-    ox: -30.5,
-    oy: -25.5,
+    ox: -23.9,
+    oy: -24.15,
     verified: false,
     charId: 463,
     fps: 19,
@@ -221,8 +221,8 @@ export const SPRITES = {
     frames: 50,
     w: 60,
     h: 55,
-    ox: -30.0,
-    oy: -27.5,
+    ox: -41.95,
+    oy: -27.2,
     verified: false,
     charId: 351,
     fps: 19,
@@ -241,8 +241,8 @@ export const SPRITES = {
     frames: 36,
     w: 167,
     h: 188,
-    ox: -83.5,
-    oy: -94.0,
+    ox: -146.75,
+    oy: -107.15,
     verified: false,
     charId: 378,
     fps: 19,

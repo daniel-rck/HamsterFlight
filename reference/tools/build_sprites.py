@@ -5,19 +5,33 @@ Placement is the whole problem here. ffdec crops each sprite PNG to the sprite's
 bounds unioned over its frames, so drawing the art where Flash drew it needs
 that (xmin, ymin) offset relative to the sprite's registration point.
 
-`sprite_bounds.py` computes it from the display list. For nested sprites whose
-children animate their own scale it can disagree with what ffdec actually
-rendered, so every entry is cross-checked against the real PNG dimensions:
+There are two independent ways to get that offset, and this tool uses both.
 
-  * agreement (within the 1px ceil) -> `verified: true`, exact offset used;
-  * disagreement -> `verified: false` and the art is centred on the
-    registration point instead, which looks right and is honest about it.
+The authority is ffdec's own SVG sprite export: each frame's root
+`<g transform="matrix(1,0,0,1, tx, ty)">` shifts the art so its bounding box
+starts at the SVG origin, so `(-tx, -ty)` is exactly the offset - unrounded, and
+produced by the same tool that rasterised the PNGs. Pass that export with
+`--svg-dir` (see below).
+
+`sprite_bounds.py` computes the same quantity independently by walking the
+display list. Where the two agree the entry is marked `verified: true`; where
+they disagree the SVG value is still used and `verified: false` records that the
+cross-check failed, which is a signal to investigate rather than a fallback.
+
+Without `--svg-dir` the tool degrades to the old behaviour - resolver bounds
+cross-checked against the PNG dimensions, centring on the registration point
+when they disagree - which leaves six nested clips misplaced by up to 63 px.
 
 Usage:
-  python3 reference/tools/build_sprites.py <file.swf> <export-dir> <asset-dir>
+  python3 reference/tools/build_sprites.py <file.swf> <export-dir> <asset-dir> \
+      [--svg-dir <dir>]
+
+Produce the SVG export first:
+  ffdec -format sprite:svg -export sprite <dir> <file.swf>
 """
 import math
 import os
+import re
 import shutil
 import struct
 import sys
@@ -75,6 +89,35 @@ PARENT_PLACEMENT = {
 }
 
 
+SVG_ROOT_TRANSFORM = re.compile(
+    r'<g transform="matrix\('
+    r'[-\d.]+, [-\d.]+, [-\d.]+, [-\d.]+, ([-\d.]+), ([-\d.]+)\)'
+)
+
+
+def svg_offset(svg_dir, directory):
+    """`(ox, oy)` from ffdec's SVG export, or None when it is unavailable.
+
+    Read from frame 1: ffdec crops every frame of a sprite to the same box, the
+    one unioned over its frames, so the transform is identical on all of them.
+    """
+    src = os.path.join(svg_dir, directory)
+    if not os.path.isdir(src):
+        return None
+    frames = sorted(
+        (f for f in os.listdir(src) if f.endswith('.svg')),
+        key=lambda f: int(f[:-4]),
+    )
+    if not frames:
+        return None
+    with open(os.path.join(src, frames[0])) as handle:
+        head = handle.read(2048)
+    found = SVG_ROOT_TRANSFORM.search(head)
+    if found is None:
+        return None
+    return -float(found.group(1)), -float(found.group(2))
+
+
 def png_size(path):
     with open(path, 'rb') as handle:
         head = handle.read(24)
@@ -83,7 +126,7 @@ def png_size(path):
     return struct.unpack('>II', head[16:24])
 
 
-def collect(resolver, export_dir, asset_dir):
+def collect(resolver, export_dir, asset_dir, svg_dir=None):
     entries = {}
     total_bytes = 0
     skipped = []
@@ -108,16 +151,28 @@ def collect(resolver, export_dir, asset_dir):
             continue
 
         computed = resolver.bounds(cid)
-        verified = False
-        ox = -size[0] / 2
-        oy = -size[1] / 2
-
+        resolved = None
         if computed is not None:
             want_w = math.ceil(computed[1] - computed[0])
             want_h = math.ceil(computed[3] - computed[2])
             if abs(want_w - size[0]) <= 1 and abs(want_h - size[1]) <= 1:
-                verified = True
-                ox, oy = computed[0], computed[2]
+                resolved = (computed[0], computed[2])
+
+        exported = svg_offset(svg_dir, directory) if svg_dir else None
+
+        if exported is not None:
+            ox, oy = exported
+            # The flag now records whether the independent resolver agrees, not
+            # whether we had to guess. The value used is ffdec's either way.
+            verified = resolved is not None and (
+                abs(resolved[0] - ox) < 0.01 and abs(resolved[1] - oy) < 0.01
+            )
+        elif resolved is not None:
+            ox, oy = resolved
+            verified = True
+        else:
+            ox, oy = -size[0] / 2, -size[1] / 2
+            verified = False
 
         placement = PARENT_PLACEMENT.get(name)
         if placement is not None:
@@ -161,10 +216,10 @@ HEADER = [
     '// `ox`/`oy` place the top-left of the image relative to the entity position,',
     '// so the renderer needs no per-sprite magic numbers.',
     '//',
-    '// `verified: false` means the computed display-list bounds disagreed with what',
-    '// ffdec actually rasterised - nested clips that animate their own scale - so',
-    '// the art is centred on the registration point instead. Those are the entries',
-    '// to check first if something looks misplaced.',
+    '// `ox`/`oy` come from the root transform of ffdec\'s SVG sprite export, which',
+    '// is exact and unrounded. `verified` records whether the independent',
+    '// display-list walk in sprite_bounds.py agreed: false means the two methods',
+    '// disagree and the entry is worth investigating, not that the value is a guess.',
     '',
     'export interface SpriteMeta {',
     '  readonly frames: number;',
@@ -202,19 +257,27 @@ def emit(entries, path):
 
 
 def main():
-    swf, export_dir, asset_dir = sys.argv[1], sys.argv[2], sys.argv[3]
+    args = sys.argv[1:]
+    svg_dir = None
+    if '--svg-dir' in args:
+        at = args.index('--svg-dir')
+        svg_dir = args[at + 1]
+        del args[at:at + 2]
+    swf, export_dir, asset_dir = args[0], args[1], args[2]
     resolver = build(swf)
-    entries, total_bytes, skipped = collect(resolver, export_dir, asset_dir)
+    entries, total_bytes, skipped = collect(resolver, export_dir, asset_dir, svg_dir)
     emit(entries, os.path.join('src', 'assets', 'sprites.generated.ts'))
 
     verified = sum(1 for e in entries.values() if e['verified'])
+    source = 'ffdec SVG export' if svg_dir else 'display-list resolver'
     print(
-        f'{len(entries)} sprites, {verified} with verified offsets, '
-        f'{total_bytes / 1024:.0f} KiB of PNG'
+        f'{len(entries)} sprites, offsets from the {source}, '
+        f'{verified} cross-checked clean, {total_bytes / 1024:.0f} KiB of PNG'
     )
     for name, entry in entries.items():
         if not entry['verified']:
-            print(f'  unverified offset (centred): {name} (char {entry["charId"]})')
+            note = 'resolver disagrees' if svg_dir else 'centred fallback'
+            print(f'  {note}: {name} (char {entry["charId"]})')
     for line in skipped:
         print(f'  skipped: {line}')
 

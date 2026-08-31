@@ -19,8 +19,17 @@ exclude it.
 
 The original `OCybCA4ADbpTKT.swf` (1,223,524 bytes, CWS v8,
 `sha256:86b4de0d112e057d73465d337513750a2c114d226a946e9f5f7dff7b50c558b6`) is
-deliberately absent, and `*.swf` is gitignored. Both tools take a path to it, so
-supply your own copy when regenerating:
+deliberately absent, and `*.swf` is gitignored. The tools take a path to it, so
+supply your own copy when regenerating.
+
+**Other distribution copies exist and are not bit-identical.** One measuring
+1,228,772 bytes (`sha256:5135d4f6890ffe1a80e927bdf7c66d3fdfcaf87869d107d443d516e0d43faf48`)
+was checked against this one: identical container metrics (600x400, 19 fps, 7
+frames, 659 tags, 217 DefineShape, 109 DefineSprite, 26 DefineSound), an
+`extract_hitboxes.py` run that differs only in trailing-zero formatting with
+every value equal, and 382 byte-identical sprite PNGs. The extra bytes are
+outside the shape and sprite data. So verify a copy by regenerating and diffing
+rather than by hash - a hash mismatch alone does not mean the wrong artwork.
 
 ```sh
 python3 reference/tools/extract_hitboxes.py path/to/OCybCA4ADbpTKT.swf \
