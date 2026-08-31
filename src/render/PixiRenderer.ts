@@ -244,7 +244,7 @@ export class PixiRenderer implements Renderer {
     const shadow = this.#assets.get('shadow');
     if (shadow !== undefined) {
       this.#shadow.texture = this.#texture(shadow, 0) ?? Texture.EMPTY;
-      this.#shadow.position.set(shadow.meta.ox, shadow.meta.oy);
+      place(this.#shadow, shadow, 0, 0);
       this.#shadow.alpha = 0.45;
     }
 
@@ -430,7 +430,7 @@ export class PixiRenderer implements Renderer {
       const sprite = this.#bushAt(used++);
       const texture = this.#texture(bush, 0);
       if (texture !== undefined) sprite.texture = texture;
-      sprite.position.set(x + (h % 90) + bush.meta.ox, C.GROUND_Y + bush.meta.oy);
+      place(sprite, bush, x + (h % 90), C.GROUND_Y);
       sprite.visible = true;
     }
     hideFrom(this.#bushPool, used);
@@ -438,7 +438,7 @@ export class PixiRenderer implements Renderer {
     const pillowSprite = this.#assets.get('pillow');
     if (pillowSprite !== undefined) {
       const x = s.phaseKind === 'ready' ? C.PILLOW_REST_X : C.PILLOW_LAUNCH_X;
-      this.#pillow.position.set(x + pillowSprite.meta.ox, C.PILLOW_Y + pillowSprite.meta.oy);
+      place(this.#pillow, pillowSprite, x, C.PILLOW_Y);
       this.#pillow.visible = true;
     } else {
       this.#pillow.visible = false;
@@ -478,7 +478,7 @@ export class PixiRenderer implements Renderer {
       for (let i = 0; i < this.#stress; i++) {
         const sprite = this.#powerupAt(used++);
         sprite.texture = texture;
-        sprite.position.set(item.x + i * 3 + asset.meta.ox, item.y + i * 3 + asset.meta.oy);
+        place(sprite, asset, item.x + i * 3, item.y + i * 3);
         sprite.alpha = item.taken ? 0.25 : 1;
         sprite.visible = true;
       }
@@ -496,7 +496,7 @@ export class PixiRenderer implements Renderer {
       if (texture === undefined) continue;
       const sprite = poolAt(this.#fxPool, used++, this.#fxLayer, () => new Sprite());
       sprite.texture = texture;
-      sprite.position.set(fx.x + asset.meta.ox, fx.y + asset.meta.oy);
+      place(sprite, asset, fx.x, fx.y);
       sprite.visible = true;
     }
     hideFrom(this.#fxPool, used);
@@ -558,7 +558,7 @@ export class PixiRenderer implements Renderer {
         inside === undefined ? undefined : this.#texture(inside, this.#animFrame(inside));
       if (inside !== undefined && insideTexture !== undefined) {
         this.#hamsterInner.texture = insideTexture;
-        this.#hamsterInner.position.set(inside.meta.ox, inside.meta.oy);
+        place(this.#hamsterInner, inside, 0, 0);
       } else {
         this.#hamsterInner.visible = false;
       }
@@ -571,7 +571,7 @@ export class PixiRenderer implements Renderer {
     this.#hamsterPivot.rotation =
       s.phaseKind === 'flying' && h.doRotation ? Math.atan2(h.yvel, h.xvel) : 0;
     this.#hamster.texture = texture;
-    this.#hamster.position.set(asset.meta.ox, asset.meta.oy);
+    place(this.#hamster, asset, 0, 0);
   }
 
   #drawHitboxes(s: SimSnapshot): void {
@@ -753,6 +753,16 @@ export function createPixiRenderer(
   options: RendererOptions = {},
 ): Promise<Renderer> {
   return PixiRenderer.create(canvas, assets, effects, options);
+}
+
+/**
+ * Places a sprite by the manifest's offsets. `w`/`h` are art pixels and
+ * `ox`/`oy` stage pixels, so art packed above 1:1 is drawn back down to its
+ * stage size and everything stays where Flash put it.
+ */
+function place(sprite: Sprite, asset: SpriteAsset, x: number, y: number): void {
+  sprite.position.set(x + asset.meta.ox, y + asset.meta.oy);
+  sprite.scale.set(1 / asset.meta.scale);
 }
 
 function dpr(): number {

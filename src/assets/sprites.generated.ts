@@ -26,6 +26,8 @@ export interface SpriteMeta {
   readonly verified: boolean;
   readonly charId: number;
   readonly fps?: number;
+  /** Art pixels per stage pixel. `w`/`h` are art; `ox`/`oy` are stage. */
+  readonly scale: number;
   /** Which atlas sheet the frames live on. */
   readonly sheet: number;
   /** Top-left of each frame within that sheet; `w`/`h` are shared. */
@@ -42,6 +44,7 @@ export const SPRITES = {
     verified: true,
     charId: 52,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1700, 570],
@@ -91,6 +94,7 @@ export const SPRITES = {
     verified: true,
     charId: 306,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1039, 1625],
@@ -112,6 +116,7 @@ export const SPRITES = {
     verified: false,
     charId: 291,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [827, 1247],
@@ -132,6 +137,7 @@ export const SPRITES = {
     verified: false,
     charId: 279,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1191, 1247],
@@ -162,6 +168,7 @@ export const SPRITES = {
     verified: true,
     charId: 161,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [255, 1247],
@@ -187,6 +194,7 @@ export const SPRITES = {
     verified: true,
     charId: 305,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1156, 1332],
@@ -206,6 +214,7 @@ export const SPRITES = {
     verified: true,
     charId: 312,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [576, 899],
@@ -226,6 +235,7 @@ export const SPRITES = {
     verified: true,
     charId: 318,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [651, 1247],
@@ -243,6 +253,7 @@ export const SPRITES = {
     verified: true,
     charId: 177,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1320, 1143],
@@ -266,6 +277,7 @@ export const SPRITES = {
     oy: -27.1,
     verified: true,
     charId: 234,
+    scale: 1,
     sheet: 0,
     rects: [[434, 1461]],
   },
@@ -277,6 +289,7 @@ export const SPRITES = {
     oy: -3.9,
     verified: true,
     charId: 21,
+    scale: 1,
     sheet: 0,
     rects: [[1834, 1625]],
   },
@@ -289,6 +302,7 @@ export const SPRITES = {
     verified: false,
     charId: 454,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [62, 1518],
@@ -328,6 +342,7 @@ export const SPRITES = {
     verified: true,
     charId: 465,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1323, 1572],
@@ -349,6 +364,7 @@ export const SPRITES = {
     verified: true,
     charId: 467,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [[787, 1247]],
   },
@@ -361,6 +377,7 @@ export const SPRITES = {
     verified: false,
     charId: 463,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1674, 1518],
@@ -400,6 +417,7 @@ export const SPRITES = {
     verified: true,
     charId: 462,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [490, 1332],
@@ -422,6 +440,7 @@ export const SPRITES = {
     verified: true,
     charId: 466,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [479, 1461],
@@ -461,6 +480,7 @@ export const SPRITES = {
     verified: true,
     charId: 181,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [311, 1625],
@@ -478,6 +498,7 @@ export const SPRITES = {
     verified: true,
     charId: 149,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1334, 737],
@@ -495,6 +516,7 @@ export const SPRITES = {
     verified: true,
     charId: 153,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [0, 899],
@@ -512,6 +534,7 @@ export const SPRITES = {
     verified: true,
     charId: 372,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [0, 570],
@@ -545,6 +568,7 @@ export const SPRITES = {
     verified: false,
     charId: 351,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [1408, 1332],
@@ -608,6 +632,7 @@ export const SPRITES = {
     verified: true,
     charId: 365,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [912, 899],
@@ -671,6 +696,7 @@ export const SPRITES = {
     verified: false,
     charId: 378,
     fps: 19,
+    scale: 1,
     sheet: 0,
     rects: [
       [0, 0],
@@ -719,6 +745,7 @@ export const SPRITES = {
     oy: -33.4,
     verified: true,
     charId: 184,
+    scale: 1,
     sheet: 0,
     rects: [[1527, 1625]],
   },
@@ -730,6 +757,7 @@ export const SPRITES = {
     oy: -26.9,
     verified: true,
     charId: 185,
+    scale: 1,
     sheet: 0,
     rects: [[1711, 1625]],
   },
@@ -741,6 +769,7 @@ export const SPRITES = {
     oy: -33.4,
     verified: true,
     charId: 186,
+    scale: 1,
     sheet: 0,
     rects: [[958, 1625]],
   },
@@ -752,6 +781,7 @@ export const SPRITES = {
     oy: -33.4,
     verified: true,
     charId: 187,
+    scale: 1,
     sheet: 0,
     rects: [[843, 1625]],
   },
@@ -763,6 +793,7 @@ export const SPRITES = {
     oy: -26.9,
     verified: true,
     charId: 188,
+    scale: 1,
     sheet: 0,
     rects: [[1760, 1625]],
   },
@@ -774,6 +805,7 @@ export const SPRITES = {
     oy: 0.4,
     verified: true,
     charId: 201,
+    scale: 1,
     sheet: 0,
     rects: [[335, 1332]],
   },
@@ -785,6 +817,7 @@ export const SPRITES = {
     oy: 0.35,
     verified: true,
     charId: 203,
+    scale: 1,
     sheet: 0,
     rects: [[224, 1625]],
   },
@@ -796,6 +829,7 @@ export const SPRITES = {
     oy: -20.55,
     verified: true,
     charId: 90,
+    scale: 1,
     sheet: 0,
     rects: [[1592, 1625]],
   },

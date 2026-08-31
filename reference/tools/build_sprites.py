@@ -125,8 +125,13 @@ def svg_offset(svg_dir, directory):
     return -float(found.group(1)), -float(found.group(2))
 
 
-# 2048 is the texture size every WebGL implementation is required to support.
-SHEET_MAX = 2048
+# 2048 is the size every WebGL implementation is required to support, and it is
+# what the 1:1 atlas uses. Above 1:1 it is not enough - `hit/zero` alone is 36
+# frames of 334x376 at 2x, which is more pixels than a 2048 sheet holds - and a
+# sprite's frames have to stay on one sheet, so the limit rises with the scale.
+# 4096 is not guaranteed by the spec but is supported essentially everywhere.
+SHEET_BASE = 2048
+SHEET_CAP = 4096
 # A transparent gutter, so bilinear sampling at a frame edge reaches empty
 # pixels instead of the neighbouring frame.
 GUTTER = 2
@@ -135,7 +140,7 @@ GUTTER = 2
 CORE_ELEMENT = re.compile(r'<use[^>]*id="core"[^>]*/>')
 
 
-def render_svg(svg_dir, directory, index, size, drop_core):
+def render_svg(svg_dir, directory, index, size, drop_core=False):
     """Rasterise one frame's SVG, optionally without its hit-test box."""
     path = os.path.join(svg_dir, directory, f'{index + 1}.svg')
     if not os.path.isfile(path):
@@ -184,7 +189,7 @@ def core_is_visible(svg_dir, directory, size):
     return changed * 100 > size[0] * size[1] * 5
 
 
-def pack_atlas(sources, entries, asset_dir, cores=None):
+def pack_atlas(sources, entries, asset_dir, cores=None, svg=None, scale=1):
     """Shelf-pack every frame into sheets and record where each one landed.
 
     Shelf packing rather than MaxRects: the frames of one sprite are identical
@@ -192,6 +197,8 @@ def pack_atlas(sources, entries, asset_dir, cores=None):
     the result is stable enough to diff between runs.
     """
     cores = cores or {}
+    svg = svg or {}
+    sheet_max = min(SHEET_CAP, SHEET_BASE * scale)
     frames = [
         (name, index, path, entries[name]['w'], entries[name]['h'])
         for name, paths in sources
@@ -206,28 +213,58 @@ def pack_atlas(sources, entries, asset_dir, cores=None):
 
     def new_sheet():
         nonlocal shelf_y, shelf_h, cursor_x
-        sheets.append(Image.new('RGBA', (SHEET_MAX, SHEET_MAX), (0, 0, 0, 0)))
+        sheets.append(Image.new('RGBA', (sheet_max, sheet_max), (0, 0, 0, 0)))
         shelf_y = shelf_h = cursor_x = 0
 
-    new_sheet()
-    for name, index, path, w, h in frames:
-        if cursor_x + w + GUTTER > SHEET_MAX:
+    def place(name, index, path, w, h):
+        nonlocal shelf_y, shelf_h, cursor_x
+        if cursor_x + w + GUTTER > sheet_max:
             shelf_y += shelf_h + GUTTER
             shelf_h = 0
             cursor_x = 0
-        if shelf_y + h + GUTTER > SHEET_MAX:
+        if shelf_y + h + GUTTER > sheet_max:
             new_sheet()
-        core = cores.get(name)
+        vector = svg.get(name)
         frame = None
-        if core is not None:
-            frame = render_svg(core[0], core[1], index, (w, h), drop_core=True)
+        if vector is not None and (name in cores or scale != 1):
+            # Two reasons to go back to the vector: a hit-test box to leave out,
+            # or a scale ffdec's 1:1 raster cannot supply without upscaling.
+            frame = render_svg(*vector, index, (w, h), drop_core=name in cores)
         if frame is None:
             with Image.open(path) as opened:
                 frame = opened.convert('RGBA')
+            if (w, h) != frame.size:
+                frame = frame.resize((w, h), Image.LANCZOS)
         sheets[-1].paste(frame, (cursor_x, shelf_y))
         placements[(name, index)] = (len(sheets) - 1, cursor_x, shelf_y)
         cursor_x += w + GUTTER
         shelf_h = max(shelf_h, h)
+
+    new_sheet()
+    # Grouped by sprite, because a sprite's frames must all land on one sheet:
+    # the manifest carries one sheet index per sprite, and the WebGL backend
+    # only batches into a single draw call while they share a texture.
+    for group_name in dict.fromkeys(f[0] for f in frames):
+        group = [f for f in frames if f[0] == group_name]
+        started = len(sheets) - 1
+        for name, index, path, w, h in group:
+            place(name, index, path, w, h)
+        if placements[(group_name, group[-1][1])][0] != started:
+            # It straddled. Drop what was placed and give it a fresh sheet.
+            for name, index, _path, _w, _h in group:
+                placements.pop((name, index), None)
+            new_sheet()
+            for name, index, path, w, h in group:
+                place(name, index, path, w, h)
+
+    # A rolled-back sprite can leave the sheet it straddled onto empty. Drop
+    # those and renumber, so the manifest never points at a blank sheet.
+    live = sorted({sheet for sheet, _x, _y in placements.values()})
+    renumber = {old: new for new, old in enumerate(live)}
+    sheets = [sheets[old] for old in live]
+    placements = {
+        key: (renumber[sheet], x, y) for key, (sheet, x, y) in placements.items()
+    }
 
     os.makedirs(asset_dir, exist_ok=True)
     total_bytes = 0
@@ -240,7 +277,7 @@ def pack_atlas(sources, entries, asset_dir, cores=None):
             if on == number
         )
         out = os.path.join(asset_dir, f'sheet-{number}.png')
-        sheet.crop((0, 0, SHEET_MAX, min(SHEET_MAX, used))).save(out, optimize=True)
+        sheet.crop((0, 0, sheet_max, min(sheet_max, used))).save(out, optimize=True)
         total_bytes += os.path.getsize(out)
 
     for name, paths in sources:
@@ -264,10 +301,11 @@ def png_size(path):
     return struct.unpack('>II', head[16:24])
 
 
-def collect(resolver, export_dir, asset_dir, svg_dir=None):
+def collect(resolver, export_dir, asset_dir, svg_dir=None, scale=1):
     entries = {}
     sources = []
     cores = {}
+    svg = {}
     skipped = []
 
     for name, cid, directory, fps in SPRITES:
@@ -284,17 +322,24 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None):
             skipped.append(f'{name}: no frames')
             continue
 
-        size = png_size(os.path.join(src, pngs[0]))
-        if size is None:
+        # ffdec's export is 1:1 with the stage, so its PNG size *is* the stage
+        # box. Everything below stays in stage units; `scale` only enters when
+        # the art is finally rasterised and when the frame box is written out.
+        stage = png_size(os.path.join(src, pngs[0]))
+        if stage is None:
             skipped.append(f'{name}: first frame is not a PNG')
             continue
+        size = (round(stage[0] * scale), round(stage[1] * scale))
 
         computed = resolver.bounds(cid)
         resolved = None
         if computed is not None:
             want_w = math.ceil(computed[1] - computed[0])
             want_h = math.ceil(computed[3] - computed[2])
-            if abs(want_w - size[0]) <= 1 and abs(want_h - size[1]) <= 1:
+            # Both sides in stage pixels. Comparing against the scaled art box
+            # here is the unit mix that made every sprite fail this check at any
+            # zoom other than 1, and fall back to a centred guess.
+            if abs(want_w - stage[0]) <= 1 and abs(want_h - stage[1]) <= 1:
                 resolved = (computed[0], computed[2])
 
         exported = svg_offset(svg_dir, directory) if svg_dir else None
@@ -310,7 +355,8 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None):
             ox, oy = resolved
             verified = True
         else:
-            ox, oy = -size[0] / 2, -size[1] / 2
+            # Stage units, so the fallback does not move when the art is scaled.
+            ox, oy = -stage[0] / 2, -stage[1] / 2
             verified = False
 
         placement = PARENT_PLACEMENT.get(name)
@@ -324,21 +370,24 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None):
         # ffdec crops every frame of a sprite to the same box - the one unioned
         # over its frames - so a single w/h covers them all. Checked, not assumed.
         odd = next(
-            (f for f in pngs if png_size(os.path.join(src, f)) != size),
+            (f for f in pngs if png_size(os.path.join(src, f)) != stage),
             None,
         )
         if odd is not None:
-            skipped.append(f'{name}: frame {odd} differs in size from {size}')
+            skipped.append(f'{name}: frame {odd} differs in size from {stage}')
             continue
 
         sources.append((name, [os.path.join(src, f) for f in pngs]))
-        if svg_dir is not None and core_is_visible(svg_dir, directory, size):
-            cores[name] = (svg_dir, directory)
+        if svg_dir is not None:
+            svg[name] = (svg_dir, directory)
+            if core_is_visible(svg_dir, directory, stage):
+                cores[name] = (svg_dir, directory)
 
         entry = {
             'frames': len(pngs),
             'w': size[0],
             'h': size[1],
+            'scale': scale,
             'ox': round(ox, 2),
             'oy': round(oy, 2),
             'verified': verified,
@@ -348,7 +397,7 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None):
             entry['fps'] = fps
         entries[name] = entry
 
-    total_bytes, sheets = pack_atlas(sources, entries, asset_dir, cores)
+    total_bytes, sheets = pack_atlas(sources, entries, asset_dir, cores, svg, scale)
     return entries, total_bytes, sheets, skipped
 
 
@@ -381,6 +430,8 @@ HEADER = [
     '  readonly verified: boolean;',
     '  readonly charId: number;',
     '  readonly fps?: number;',
+    '  /** Art pixels per stage pixel. `w`/`h` are art; `ox`/`oy` are stage. */',
+    '  readonly scale: number;',
     '  /** Which atlas sheet the frames live on. */',
     '  readonly sheet: number;',
     '  /** Top-left of each frame within that sheet; `w`/`h` are shared. */',
@@ -400,7 +451,8 @@ def emit(entries, path):
             f"  '{name}': {{ frames: {entry['frames']}, w: {entry['w']}, "
             f"h: {entry['h']}, ox: {entry['ox']}, oy: {entry['oy']}, "
             f"verified: {str(entry['verified']).lower()}, "
-            f"charId: {entry['charId']}{fps}, sheet: {entry['sheet']}, "
+            f"charId: {entry['charId']}{fps}, scale: {entry['scale']}, "
+            f"sheet: {entry['sheet']}, "
             f"rects: [{rects}] }},"
         )
     lines += [
@@ -416,14 +468,21 @@ def emit(entries, path):
 def main():
     args = sys.argv[1:]
     svg_dir = None
+    scale = 1
     if '--svg-dir' in args:
         at = args.index('--svg-dir')
         svg_dir = args[at + 1]
         del args[at:at + 2]
+    if '--scale' in args:
+        at = args.index('--scale')
+        scale = int(args[at + 1])
+        del args[at:at + 2]
+    if scale != 1 and svg_dir is None:
+        raise SystemExit('--scale needs --svg-dir: the art above 1:1 comes from the SVG')
     swf, export_dir, asset_dir = args[0], args[1], args[2]
     resolver = build(swf)
     entries, total_bytes, sheets, skipped = collect(
-        resolver, export_dir, asset_dir, svg_dir
+        resolver, export_dir, asset_dir, svg_dir, scale
     )
     emit(entries, os.path.join('src', 'assets', 'sprites.generated.ts'))
 

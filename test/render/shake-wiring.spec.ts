@@ -18,6 +18,8 @@ interface Drawn {
   readonly sx: number;
   readonly sy: number;
   readonly alpha: number;
+  readonly dw?: number;
+  readonly dh?: number;
 }
 
 function recordingCanvas(
@@ -45,8 +47,18 @@ function recordingCanvas(
     beginPath: () => undefined,
     arc: () => undefined,
     fill: () => undefined,
-    drawImage: (_image: unknown, sx: number, sy: number) => {
-      drawn.push({ sx, sy, alpha: ctx.globalAlpha });
+    drawImage: (
+      _image: unknown,
+      sx: number,
+      sy: number,
+      _sw?: number,
+      _sh?: number,
+      _dx?: number,
+      _dy?: number,
+      dw?: number,
+      dh?: number,
+    ) => {
+      drawn.push({ sx, sy, alpha: ctx.globalAlpha, dw, dh });
     },
   };
   return { getContext: () => ctx, width: 0, height: 0 } as unknown as HTMLCanvasElement;
@@ -219,5 +231,41 @@ describe('particle wiring', () => {
     effects.emitSkidDust(500, 950, 0);
     renderer.draw(snapshot(), 80);
     expect(rects.filter(r => r.alpha > 0 && r.alpha < 1)).toHaveLength(0);
+  });
+});
+
+describe('manifest scale', () => {
+  beforeEach(() => {
+    (globalThis as { window?: unknown }).window = { devicePixelRatio: 1 };
+  });
+  afterEach(() => {
+    (globalThis as { window?: unknown }).window = undefined;
+  });
+
+  /** One sprite, art packed at `scale` art pixels per stage pixel. */
+  function scaledAssets(scale: number): AssetBundle {
+    const meta = { ...SPRITES['hamster/fly'], scale, w: 59 * scale, h: 38 * scale };
+    const sprite = {
+      meta,
+      sheet: {} as ImageBitmap,
+      frames: [{ x: 0, y: 0, w: meta.w, h: meta.h }],
+    };
+    return { sheets: [], missing: [], get: () => sprite };
+  }
+
+  it('draws art packed above 1:1 back down to its stage size', () => {
+    for (const scale of [1, 2, 4]) {
+      const drawn: Drawn[] = [];
+      const renderer = new GameRenderer(
+        recordingCanvas([], drawn),
+        scaledAssets(scale),
+        new Effects(),
+      );
+      renderer.draw(snapshot(), 0);
+
+      // Whatever the art scale, the destination is the same stage-sized box.
+      expect(drawn.length).toBeGreaterThan(0);
+      expect(drawn.every(d => d.dw === 59 && d.dh === 38)).toBe(true);
+    }
   });
 });

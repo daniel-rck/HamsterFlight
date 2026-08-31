@@ -295,10 +295,15 @@ export class GameRenderer implements Renderer {
     return Math.floor((this.#elapsed / 1000) * fps) % sprite.meta.frames;
   }
 
-  /** Cuts one frame out of the atlas sheet and places it by the manifest offsets. */
+  /**
+   * Cuts one frame out of the atlas sheet and places it by the manifest
+   * offsets. `w`/`h` are art pixels and `ox`/`oy` stage pixels, so the frame is
+   * drawn at its stage size - which is how art packed above 1:1 stays put.
+   */
   #blit(ctx: CanvasRenderingContext2D, sprite: Sprite, frame: number, x: number, y: number): void {
     const rect = sprite.frames[frame] ?? sprite.frames[0];
     if (rect === undefined) return;
+    const scale = sprite.meta.scale;
     ctx.drawImage(
       sprite.sheet,
       rect.x,
@@ -307,8 +312,8 @@ export class GameRenderer implements Renderer {
       rect.h,
       x + sprite.meta.ox,
       y + sprite.meta.oy,
-      rect.w,
-      rect.h,
+      rect.w / scale,
+      rect.h / scale,
     );
   }
 
