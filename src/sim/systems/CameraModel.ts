@@ -2,29 +2,63 @@ import { C } from '../constants.ts';
 import type { CameraState } from '../state.ts';
 
 /**
- * `GameCamera` is constructed as `new GameCamera(this._$mc, 600, 400)`
- * (Game.as:108) but its source is not in the decompilate, so the follow
- * behaviour is reconstructed from the offsets the rest of the code depends on:
+ * Port of `GameCamera.doFollow` / `zero` / `getCameraPos`
+ * (reference/as2/GameCamera.as).
  *
- *   _$mc._x = -targetX + 150
- *   _$mc._y = -targetY + 200,  clamped to >= -600
- *
- * `getCameraPos()` returns those negative container offsets, which is why they
- * show up as `camX` in the spawn formulas. Getting this wrong moves where
- * powerups appear, so it is simulation state, not presentation.
+ * This is simulation state, not presentation: `getCameraPos().x` feeds the
+ * powerup spawn gate and spawn position, so the exact behaviour moves where
+ * items appear.
  */
-export function follow(cam: CameraState, targetX: number, targetY: number): void {
-  cam.x = -targetX + C.CAM_ANCHOR_X;
-  cam.y = Math.max(-targetY + C.CAM_ANCHOR_Y, C.CAM_Y_CLAMP);
+
+/** `GameCamera.zero()` - the camera starts at (0, -600), not at the origin. */
+export function newCamera(): CameraState {
+  return { x: 0, y: C.CAM_Y_CLAMP };
 }
 
 /**
- * A fresh camera already framing the launch pad. Not (0, 0): the world sits
- * between y = 700 and y = 950, so an unpositioned camera shows empty sky and
- * the player sees nothing before the first tick.
+ * `doFollow` - note the asymmetry, which is easy to miss and is load-bearing:
+ *
+ *   if (-targetX + 150 < 0) { _x = ... }     // x is assigned ONLY when negative
+ *   if (-targetY + 200 > -600) { _y = ... } else { _y = -600 }
+ *
+ * So while the hamster is left of x = 150 the camera's x does not move at all.
+ * It stays wherever `zero()` or the last pan left it, which keeps the spawn
+ * gate stable over the whole launch area rather than creeping by a few pixels.
  */
-export function newCamera(): CameraState {
-  const cam: CameraState = { x: 0, y: 0 };
-  follow(cam, C.HAMSTER_X, C.HAMSTER_START_Y);
-  return cam;
+export function follow(cam: CameraState, targetX: number, targetY: number): void {
+  const x = -targetX + C.CAM_ANCHOR_X;
+  if (x < 0) cam.x = x;
+
+  const y = -targetY + C.CAM_ANCHOR_Y;
+  cam.y = y > C.CAM_Y_CLAMP ? y : C.CAM_Y_CLAMP;
+}
+
+/**
+ * `doQuickPanTo` - each tick moves the camera by the remaining distance divided
+ * by `qpan_time`, so it converges geometrically, and finishes once the distance
+ * drops below 2. `reset()` sets `qpan_time = 2` and pans to (300, 800).
+ *
+ * Returns true once the pan has arrived.
+ */
+export function quickPanStep(
+  cam: CameraState,
+  targetX: number,
+  targetY: number,
+  panDivisor: number,
+): boolean {
+  const centreX = -(cam.x - C.VIEW_W / 2);
+  const centreY = -(cam.y - C.VIEW_H / 2);
+  const dx = centreX - targetX;
+  const dy = centreY - targetY;
+  const distance = Math.floor(Math.sqrt(dx * dx + dy * dy));
+
+  cam.x += dx / panDivisor;
+  cam.y += dy / panDivisor;
+
+  if (distance < C.CAM_PAN_ARRIVE) {
+    cam.x = -targetX + C.VIEW_W / 2;
+    cam.y = -targetY + C.VIEW_H / 2;
+    return true;
+  }
+  return false;
 }

@@ -1,0 +1,260 @@
+// GENERATED FILE - do not edit by hand.
+//
+// Produced by reference/tools/build_sprites.py from the original SWF.
+// Regenerate with:
+//   python3 reference/tools/build_sprites.py <file.swf> \
+//     reference/extracted src/assets/sprites
+//
+// `ox`/`oy` place the top-left of the image relative to the entity position,
+// so the renderer needs no per-sprite magic numbers.
+//
+// `verified: false` means the computed display-list bounds disagreed with what
+// ffdec actually rasterised - nested clips that animate their own scale - so
+// the art is centred on the registration point instead. Those are the entries
+// to check first if something looks misplaced.
+
+export interface SpriteMeta {
+  readonly frames: number;
+  readonly w: number;
+  readonly h: number;
+  readonly ox: number;
+  readonly oy: number;
+  readonly verified: boolean;
+  readonly charId: number;
+  readonly fps?: number;
+}
+
+export const SPRITES = {
+  'hamster/jump': {
+    frames: 36,
+    w: 44,
+    h: 160,
+    ox: -18.5,
+    oy: -123.45,
+    verified: true,
+    charId: 52,
+    fps: 19,
+  },
+  'hamster/fly': {
+    frames: 8,
+    w: 59,
+    h: 38,
+    ox: -26.25,
+    oy: -12.2,
+    verified: true,
+    charId: 306,
+    fps: 19,
+  },
+  'hamster/glide': {
+    frames: 7,
+    w: 50,
+    h: 71,
+    ox: -25.55,
+    oy: -38.05,
+    verified: false,
+    charId: 291,
+    fps: 19,
+  },
+  'hamster/drop': {
+    frames: 17,
+    w: 65,
+    h: 70,
+    ox: -28.25,
+    oy: -43.75,
+    verified: false,
+    charId: 279,
+    fps: 19,
+  },
+  'hamster/blur': {
+    frames: 12,
+    w: 31,
+    h: 83,
+    ox: -13.45,
+    oy: -30.6,
+    verified: true,
+    charId: 161,
+    fps: 19,
+  },
+  'hamster/wind': {
+    frames: 6,
+    w: 40,
+    h: 58,
+    ox: -22.7,
+    oy: -28.3,
+    verified: true,
+    charId: 305,
+    fps: 19,
+  },
+  'hamster/slide': {
+    frames: 7,
+    w: 46,
+    h: 124,
+    ox: -22.65,
+    oy: -32.65,
+    verified: true,
+    charId: 312,
+    fps: 19,
+  },
+  'hamster/skid': {
+    frames: 4,
+    w: 32,
+    h: 79,
+    ox: -14.75,
+    oy: -29.75,
+    verified: true,
+    charId: 318,
+    fps: 19,
+  },
+  'hamster/ball': {
+    frames: 11,
+    w: 83,
+    h: 83,
+    ox: -41.2,
+    oy: -41.15,
+    verified: true,
+    charId: 177,
+    fps: 19,
+  },
+  pillow: { frames: 1, w: 43, h: 55, ox: -21.5, oy: -27.1, verified: true, charId: 234 },
+  shadow: { frames: 1, w: 56, h: 8, ox: -27.55, oy: -3.9, verified: true, charId: 21 },
+  'powerup/bounce': {
+    frames: 26,
+    w: 60,
+    h: 51,
+    ox: -30.0,
+    oy: -25.5,
+    verified: false,
+    charId: 454,
+    fps: 19,
+  },
+  'powerup/speed': {
+    frames: 8,
+    w: 110,
+    h: 51,
+    ox: -62.85,
+    oy: -22.25,
+    verified: true,
+    charId: 465,
+    fps: 19,
+  },
+  'powerup/wind': {
+    frames: 1,
+    w: 38,
+    h: 75,
+    ox: -11.6,
+    oy: -27.5,
+    verified: true,
+    charId: 467,
+    fps: 19,
+  },
+  'powerup/slide': {
+    frames: 26,
+    w: 61,
+    h: 51,
+    ox: -30.5,
+    oy: -25.5,
+    verified: false,
+    charId: 463,
+    fps: 19,
+  },
+  'powerup/rebound': {
+    frames: 9,
+    w: 72,
+    h: 63,
+    ox: -27.8,
+    oy: -26.15,
+    verified: true,
+    charId: 462,
+    fps: 19,
+  },
+  'powerup/superbounce': {
+    frames: 26,
+    w: 60,
+    h: 52,
+    ox: -28.7,
+    oy: -24.8,
+    verified: true,
+    charId: 466,
+    fps: 19,
+  },
+  'fx/bounce': {
+    frames: 4,
+    w: 131,
+    h: 47,
+    ox: -61.45,
+    oy: -20.1,
+    verified: true,
+    charId: 181,
+    fps: 19,
+  },
+  'fx/break': {
+    frames: 4,
+    w: 142,
+    h: 138,
+    ox: -93.05,
+    oy: -70.0,
+    verified: true,
+    charId: 149,
+    fps: 19,
+  },
+  'fx/superBreak': {
+    frames: 4,
+    w: 142,
+    h: 138,
+    ox: -93.05,
+    oy: -70.0,
+    verified: true,
+    charId: 153,
+    fps: 19,
+  },
+  'hit/faceplant': {
+    frames: 20,
+    w: 83,
+    h: 165,
+    ox: -49.6,
+    oy: -73.9,
+    verified: true,
+    charId: 372,
+    fps: 19,
+  },
+  'hit/cheer': {
+    frames: 50,
+    w: 60,
+    h: 55,
+    ox: -30.0,
+    oy: -27.5,
+    verified: false,
+    charId: 351,
+    fps: 19,
+  },
+  'hit/hole': {
+    frames: 50,
+    w: 86,
+    h: 102,
+    ox: -38.85,
+    oy: -45.6,
+    verified: true,
+    charId: 365,
+    fps: 19,
+  },
+  'hit/zero': {
+    frames: 36,
+    w: 167,
+    h: 188,
+    ox: -83.5,
+    oy: -94.0,
+    verified: false,
+    charId: 378,
+    fps: 19,
+  },
+  'bush/1': { frames: 1, w: 63, h: 34, ox: -31.45, oy: -33.4, verified: true, charId: 184 },
+  'bush/2': { frames: 1, w: 47, h: 27, ox: -23.05, oy: -26.9, verified: true, charId: 185 },
+  'bush/3': { frames: 1, w: 79, h: 42, ox: -31.5, oy: -33.4, verified: true, charId: 186 },
+  'bush/4': { frames: 1, w: 113, h: 44, ox: -80.65, oy: -33.4, verified: true, charId: 187 },
+  'bush/5': { frames: 1, w: 72, h: 27, ox: -23.05, oy: -26.9, verified: true, charId: 188 },
+  'cloud/1': { frames: 1, w: 153, h: 64, ox: 0.2, oy: 0.4, verified: true, charId: 201 },
+  'cloud/2': { frames: 1, w: 85, h: 50, ox: 0.8, oy: 0.35, verified: true, charId: 203 },
+  'cloud/3': { frames: 1, w: 117, h: 31, ox: 0.15, oy: -20.55, verified: true, charId: 90 },
+} as const satisfies Record<string, SpriteMeta>;
+
+export type SpriteId = keyof typeof SPRITES;

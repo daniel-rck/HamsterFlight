@@ -104,6 +104,27 @@ the clip moves its `core` during the jump animation, the window is wider than
 this. `test/golden/reachability.spec.ts` pins the share so recalibration shows
 its effect immediately.
 
+## Sprite placement is verified, not trusted
+
+The art is extracted with `reference/tools/build_sprites.py`. ffdec crops each
+sprite PNG to the sprite's bounds unioned over its frames, so drawing it where
+Flash drew it needs that `(xmin, ymin)` offset relative to the registration
+point. `reference/tools/sprite_bounds.py` computes it from a real display-list
+walk - `PlaceObject2` can place a character *or* move one already at a depth
+without naming it, and ignoring those move tags undercounts every animated clip.
+
+Every offset is then cross-checked against the dimensions ffdec actually
+rasterised. 26 of 32 sprites agree and use the exact offset; six disagree and
+are centred on the registration point instead, marked `verified: false` in the
+manifest. The disagreements are nested clips whose children animate their own
+scale, where a union over all of a child's frames is the wrong quantity - that
+is a known limitation of the walker, recorded rather than papered over.
+
+One deliberate rendering divergence: the original sets
+`_rotation = radToDeg(atan2(yvel, xvel)) + 90` because its art is authored
+pointing up. The exported poses face right, so the `+ 90` is dropped and the
+sprite aligns directly with the velocity vector.
+
 ## Quirks reproduced on purpose
 
 | Original | Decision |

@@ -51,6 +51,12 @@ export const C = Object.freeze({
   NO_ROTATE_Y: 940,
   NO_ROTATE_XVEL: 7,
 
+  // -- shadow ------------------------------------------------------------
+  /** `shadClip._y = 963` and `_xscale = _yscale = 100 * (y - 700) / 263`. Bullet.as:54-56. */
+  SHADOW_Y: 963,
+  SHADOW_REF_Y: 700,
+  SHADOW_DIV: 263,
+
   // -- world / launch geometry -------------------------------------------
   HAMSTER_X: 148,
   HAMSTER_START_Y: 956,
@@ -112,10 +118,21 @@ export const C = Object.freeze({
   POWERUP_CULL_X: -100,
 
   // -- camera ------------------------------------------------------------
-  /** `_$mc._x = -targetX + 150`, `_y = -targetY + 200`. */
+  /** `_$mc._x = -targetX + 150`, `_y = -targetY + 200`. GameCamera.as:60-61. */
   CAM_ANCHOR_X: 150,
   CAM_ANCHOR_Y: 200,
+  /** `zero()` parks the camera here, and `doFollow` clamps y to it. */
   CAM_Y_CLAMP: -600,
+  /** `new GameCamera(this._$mc, 600, 400)`. Game.as:108. */
+  VIEW_W: 600,
+  VIEW_H: 400,
+  /** `reset()` sets `qpan_time = 2`. GameCamera.as:36. */
+  CAM_QPAN_TIME: 2,
+  /** `doQuickPanTo` finishes once the remaining distance drops under 2. */
+  CAM_PAN_ARRIVE: 2,
+  /** `reset()` pans back to this point. GameCamera.as:37. */
+  CAM_RESET_TARGET_X: 300,
+  CAM_RESET_TARGET_Y: 800,
 
   // -- scoring / session -------------------------------------------------
   /** `Math.floor(bltClip._x / 100)` - 100 px is one foot. */

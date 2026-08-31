@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { C } from '@/sim/constants.ts';
+import type { CameraState } from '@/sim/state.ts';
+import { follow, newCamera, quickPanStep } from '@/sim/systems/CameraModel.ts';
 import { makeFlight, tick, withActiveTicks } from '../support/harness.ts';
 
 /**
@@ -168,5 +170,43 @@ describe('powerup guards', () => {
     // 20 * -1.5 = -30, above the -50 floor, so it clamps too.
     expect(superb.p.yvel).toBeCloseTo(C.SUPERBOUNCE_Y_MIN + C.GRAV, 10);
     expect(superb.p.xvel).toBeCloseTo(30 * (1 + C.BOUNCE_F) * C.DRAG, 10);
+  });
+});
+
+describe('camera', () => {
+  it('only moves x once the hamster is right of x = 150', () => {
+    // GameCamera.doFollow assigns _x only when -targetX + 150 < 0. While the
+    // hamster is on the launch pad at x = 148 the camera x must not budge,
+    // because camX feeds the powerup spawn gate.
+    const cam = newCamera();
+    expect(cam).toEqual({ x: 0, y: C.CAM_Y_CLAMP });
+
+    follow(cam, C.HAMSTER_X, C.HAMSTER_START_Y);
+    expect(cam.x).toBe(0); // -148 + 150 = 2, not negative: no assignment
+
+    follow(cam, 150, 900);
+    expect(cam.x).toBe(0); // exactly 0, still not negative
+
+    follow(cam, 260, 900);
+    expect(cam.x).toBe(-110);
+  });
+
+  it('clamps y at -600 rather than following further down', () => {
+    const cam = newCamera();
+    follow(cam, 300, 900); // -900 + 200 = -700, past the clamp
+    expect(cam.y).toBe(C.CAM_Y_CLAMP);
+    follow(cam, 300, 700); // -700 + 200 = -500, inside
+    expect(cam.y).toBe(-500);
+  });
+
+  it('halves the remaining pan distance each tick and arrives', () => {
+    const cam: CameraState = { x: -4000, y: -600 };
+    let ticks = 0;
+    while (!quickPanStep(cam, C.CAM_RESET_TARGET_X, C.CAM_RESET_TARGET_Y, C.CAM_QPAN_TIME)) {
+      ticks++;
+      expect(ticks).toBeLessThan(C.CAM_PAN_ARRIVE + 200);
+    }
+    expect(cam.x).toBe(-C.CAM_RESET_TARGET_X + C.VIEW_W / 2);
+    expect(cam.y).toBe(-C.CAM_RESET_TARGET_Y + C.VIEW_H / 2);
   });
 });

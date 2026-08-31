@@ -1,10 +1,11 @@
 import { FixedTimestepLoop } from '@/app/FixedTimestepLoop.ts';
+import { loadSprites } from '@/assets/AssetLoader.ts';
 import { InputController } from '@/input/InputController.ts';
-import { DebugRenderer } from '@/render/DebugRenderer.ts';
+import { GameRenderer } from '@/render/GameRenderer.ts';
 import { Simulation } from '@/sim/index.ts';
 
-function seedFromUrl(): number {
-  const raw = new URLSearchParams(window.location.search).get('seed');
+function seedFromUrl(params: URLSearchParams): number {
+  const raw = params.get('seed');
   if (raw !== null) {
     const parsed = Number.parseInt(raw, 10);
     if (Number.isFinite(parsed)) return parsed >>> 0;
@@ -15,13 +16,29 @@ function seedFromUrl(): number {
   return bytes[0] ?? 1;
 }
 
-function boot(): void {
+function setBootMessage(text: string): void {
+  const boot = document.querySelector('#boot');
+  if (boot !== null) boot.textContent = text;
+}
+
+async function boot(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>('#stage');
   if (canvas === null) throw new Error('#stage canvas missing');
 
-  const seed = seedFromUrl();
+  const params = new URLSearchParams(window.location.search);
+  const seed = seedFromUrl(params);
+
+  const assets = await loadSprites(({ loaded, total }) => {
+    setBootMessage(`loading ${Math.round((loaded / total) * 100)}%`);
+  });
+  if (assets.missing.length > 0) {
+    console.warn('[hamsterflight] %d sprite frames missing', assets.missing.length);
+  }
+
   const sim = new Simulation({ seed });
-  const renderer = new DebugRenderer(canvas);
+  const renderer = new GameRenderer(canvas, assets, {
+    showHitboxes: params.has('debug'),
+  });
   const input = new InputController();
   input.attach(canvas);
 
@@ -29,17 +46,18 @@ function boot(): void {
     step: () => {
       sim.step(input.drain());
     },
-    draw: (_alpha, stepped) => {
-      // Snap rather than interpolate: the original's stage ran at 19 fps with
-      // no tweening, so snapping is the faithful look - and it means ~20 draws
-      // per second instead of 60.
-      if (stepped) renderer.draw(sim.snapshot());
+    // Physics snaps at 20 Hz - the original stage ran at 19 fps with no
+    // tweening - but sprite animation and the sky run on real time, so every
+    // frame is drawn rather than only the stepped ones.
+    draw: () => {
+      renderer.draw(sim.snapshot(), performance.now());
     },
   });
 
-  window.addEventListener('resize', () => {
-    renderer.resize();
-    renderer.draw(sim.snapshot());
+  window.addEventListener('resize', () => renderer.resize());
+
+  window.addEventListener('keydown', event => {
+    if (event.key === 'h' || event.key === 'H') renderer.toggleHitboxes();
   });
 
   document.addEventListener('visibilitychange', () => {
@@ -52,11 +70,12 @@ function boot(): void {
   });
 
   document.querySelector('#boot')?.remove();
-  renderer.draw(sim.snapshot());
   loop.start();
 
-  // Handy when reproducing a run from a golden test.
   console.info('[hamsterflight] seed=%d - append ?seed=%d to replay', seed, seed);
 }
 
-boot();
+boot().catch((error: unknown) => {
+  console.error('[hamsterflight] boot failed', error);
+  setBootMessage('failed to start - see the console');
+});

@@ -23,13 +23,11 @@ export interface Tuning {
    */
   readonly powerupActiveTicks: Readonly<Record<PowerupKind, number>>;
   /**
-   * `GameCamera` is referenced by `Game.as` but its source is not in the
-   * decompilate, so the pan-back timing is reconstructed rather than read.
-   * `maxPanTicks` exists so the state machine can never soft-lock.
+   * The pan-back geometry is now read from `GameCamera.as`, so only the
+   * safety cap remains here: it exists so the state machine can never
+   * soft-lock if a pan fails to converge.
    */
   readonly camera: {
-    readonly panDivisor: number;
-    readonly arriveEpsilon: number;
     readonly maxPanTicks: number;
   };
   /** How long each outcome animation holds before the turn advances. */
@@ -69,7 +67,7 @@ export const DEFAULT_TUNING: Tuning = Object.freeze({
     rebound: 1,
     superbounce: 1,
   },
-  camera: { panDivisor: 8, arriveEpsilon: 1, maxPanTicks: 120 },
+  camera: { maxPanTicks: 120 },
   outcomeHoldTicks: { cheer: 24, faceplant: 20, hole: 24, zero: 20 },
   recomputeGlidePerTick: false,
 });

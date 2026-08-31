@@ -33,11 +33,15 @@ python3 reference/tools/extract_hitboxes.py path/to/OCybCA4ADbpTKT.swf \
 `ffdec -export script,shape,sound,image` run should go. It exists for
 measurement and visual reference only.
 
-**The original art and audio are not shipped and must not be.** Section 13.4 of
-the analysis says so plainly, and a public deployment is a publication. Anything
-under `src/` or `public/` is either drawn by this project or drawn
-programmatically at runtime. The asset layer sits behind a single interface
-precisely so this stays a data decision rather than a code one.
+**The sprites under `src/assets/sprites/` are extracted from this SWF** by
+`tools/build_sprites.py` and are the original publisher's artwork, not this
+project's. Section 13.4 of the analysis notes that shipping it in a published
+project is a different matter from analysing it privately; that is a deliberate
+choice by the repository owner rather than an oversight. Audio is not extracted
+yet.
+
+The asset layer is data-driven behind `src/assets/sprites.generated.ts`, so
+swapping in original or licensed art is a data change rather than a rewrite.
 
 The decompiled `.as` files are derivative works of someone else's bytecode.
 Publishing them is a distinct exposure from analysing them privately; they live
