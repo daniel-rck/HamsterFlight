@@ -18,8 +18,8 @@ interface Drawn {
   readonly sx: number;
   readonly sy: number;
   readonly alpha: number;
-  readonly dw?: number;
-  readonly dh?: number;
+  readonly dw?: number | undefined;
+  readonly dh?: number | undefined;
 }
 
 function recordingCanvas(
