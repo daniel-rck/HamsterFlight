@@ -2,6 +2,7 @@ import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
+import { stageScale } from '@/render/resolution.ts';
 import { distance, markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
@@ -65,7 +66,7 @@ export class GameRenderer implements Renderer {
   }
 
   resize(): void {
-    this.#dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.#dpr = stageScale(this.#canvas.getBoundingClientRect().width, window.devicePixelRatio);
     this.#canvas.width = Math.round(C.VIEW_W * this.#dpr);
     this.#canvas.height = Math.round(C.VIEW_H * this.#dpr);
     this.#ctx.imageSmoothingQuality = 'high';
@@ -303,7 +304,7 @@ export class GameRenderer implements Renderer {
   #blit(ctx: CanvasRenderingContext2D, sprite: Sprite, frame: number, x: number, y: number): void {
     const rect = sprite.frames[frame] ?? sprite.frames[0];
     if (rect === undefined) return;
-    const scale = sprite.meta.scale;
+    const density = sprite.density;
     ctx.drawImage(
       sprite.sheet,
       rect.x,
@@ -312,8 +313,8 @@ export class GameRenderer implements Renderer {
       rect.h,
       x + sprite.meta.ox,
       y + sprite.meta.oy,
-      rect.w / scale,
-      rect.h / scale,
+      rect.w / density,
+      rect.h / density,
     );
   }
 

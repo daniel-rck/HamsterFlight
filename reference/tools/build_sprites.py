@@ -189,7 +189,7 @@ def core_is_visible(svg_dir, directory, size):
     return changed * 100 > size[0] * size[1] * 5
 
 
-def pack_atlas(sources, entries, asset_dir, cores=None, svg=None, scale=1):
+def pack_atlas(sources, entries, asset_dir, cores=None, svg=None, densities=(1,)):
     """Shelf-pack every frame into sheets and record where each one landed.
 
     Shelf packing rather than MaxRects: the frames of one sprite are identical
@@ -198,7 +198,10 @@ def pack_atlas(sources, entries, asset_dir, cores=None, svg=None, scale=1):
     """
     cores = cores or {}
     svg = svg or {}
-    sheet_max = min(SHEET_CAP, SHEET_BASE * scale)
+    # Laid out once at 1:1. Every density reuses these coordinates multiplied by
+    # its factor, so one set of rects in the manifest serves them all - and a
+    # device that loads the 2x sheet needs no second manifest to read it.
+    sheet_max = SHEET_BASE
     frames = [
         (name, index, path, entries[name]['w'], entries[name]['h'])
         for name, paths in sources
@@ -213,7 +216,12 @@ def pack_atlas(sources, entries, asset_dir, cores=None, svg=None, scale=1):
 
     def new_sheet():
         nonlocal shelf_y, shelf_h, cursor_x
-        sheets.append(Image.new('RGBA', (sheet_max, sheet_max), (0, 0, 0, 0)))
+        sheets.append(
+            [
+                Image.new('RGBA', (round(sheet_max * d), round(sheet_max * d)), (0, 0, 0, 0))
+                for d in densities
+            ]
+        )
         shelf_y = shelf_h = cursor_x = 0
 
     def place(name, index, path, w, h):
@@ -224,18 +232,21 @@ def pack_atlas(sources, entries, asset_dir, cores=None, svg=None, scale=1):
             cursor_x = 0
         if shelf_y + h + GUTTER > sheet_max:
             new_sheet()
-        vector = svg.get(name)
-        frame = None
-        if vector is not None and (name in cores or scale != 1):
-            # Two reasons to go back to the vector: a hit-test box to leave out,
-            # or a scale ffdec's 1:1 raster cannot supply without upscaling.
-            frame = render_svg(*vector, index, (w, h), drop_core=name in cores)
-        if frame is None:
-            with Image.open(path) as opened:
-                frame = opened.convert('RGBA')
-            if (w, h) != frame.size:
-                frame = frame.resize((w, h), Image.LANCZOS)
-        sheets[-1].paste(frame, (cursor_x, shelf_y))
+        for at, density in enumerate(densities):
+            dw, dh = round(w * density), round(h * density)
+            vector = svg.get(name)
+            frame = None
+            if vector is not None and (name in cores or density != 1):
+                # Two reasons to go back to the vector: a hit-test box to leave
+                # out, or a density ffdec's 1:1 raster cannot supply without
+                # upscaling it.
+                frame = render_svg(*vector, index, (dw, dh), drop_core=name in cores)
+            if frame is None:
+                with Image.open(path) as opened:
+                    frame = opened.convert('RGBA')
+                if (dw, dh) != frame.size:
+                    frame = frame.resize((dw, dh), Image.LANCZOS)
+            sheets[-1][at].paste(frame, (round(cursor_x * density), round(shelf_y * density)))
         placements[(name, index)] = (len(sheets) - 1, cursor_x, shelf_y)
         cursor_x += w + GUTTER
         shelf_h = max(shelf_h, h)
@@ -268,7 +279,7 @@ def pack_atlas(sources, entries, asset_dir, cores=None, svg=None, scale=1):
 
     os.makedirs(asset_dir, exist_ok=True)
     total_bytes = 0
-    for number, sheet in enumerate(sheets):
+    for number, variants in enumerate(sheets):
         # Crop the tail: the last sheet is mostly empty, and a smaller PNG is a
         # smaller download and a smaller GPU upload.
         used = max(
@@ -276,9 +287,13 @@ def pack_atlas(sources, entries, asset_dir, cores=None, svg=None, scale=1):
             for (name, _index), (on, _x, y) in placements.items()
             if on == number
         )
-        out = os.path.join(asset_dir, f'sheet-{number}.png')
-        sheet.crop((0, 0, sheet_max, min(sheet_max, used))).save(out, optimize=True)
-        total_bytes += os.path.getsize(out)
+        for at, density in enumerate(densities):
+            side = round(sheet_max * density)
+            tail = min(side, round(used * density))
+            suffix = '' if density == 1 else f'@{density}x'
+            out = os.path.join(asset_dir, f'sheet-{number}{suffix}.png')
+            variants[at].crop((0, 0, side, tail)).save(out, optimize=True)
+            total_bytes += os.path.getsize(out)
 
     for name, paths in sources:
         spread = {placements[(name, i)][0] for i in range(len(paths))}
@@ -301,7 +316,7 @@ def png_size(path):
     return struct.unpack('>II', head[16:24])
 
 
-def collect(resolver, export_dir, asset_dir, svg_dir=None, scale=1):
+def collect(resolver, export_dir, asset_dir, svg_dir=None, densities=(1,)):
     entries = {}
     sources = []
     cores = {}
@@ -329,7 +344,6 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None, scale=1):
         if stage is None:
             skipped.append(f'{name}: first frame is not a PNG')
             continue
-        size = (round(stage[0] * scale), round(stage[1] * scale))
 
         computed = resolver.bounds(cid)
         resolved = None
@@ -385,9 +399,8 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None, scale=1):
 
         entry = {
             'frames': len(pngs),
-            'w': size[0],
-            'h': size[1],
-            'scale': scale,
+            'w': stage[0],
+            'h': stage[1],
             'ox': round(ox, 2),
             'oy': round(oy, 2),
             'verified': verified,
@@ -397,7 +410,7 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None, scale=1):
             entry['fps'] = fps
         entries[name] = entry
 
-    total_bytes, sheets = pack_atlas(sources, entries, asset_dir, cores, svg, scale)
+    total_bytes, sheets = pack_atlas(sources, entries, asset_dir, cores, svg, densities)
     return entries, total_bytes, sheets, skipped
 
 
@@ -416,6 +429,10 @@ HEADER = [
     '// Frames are packed into atlas sheets in the same directory: one request',
     '// instead of 382, and one GPU texture so every sprite batches together.',
     '//',
+    '// `w`/`h` and `rects` are stage pixels - the 1:1 layout. A higher-density',
+    '// sheet reuses the same layout multiplied by its factor, so one manifest',
+    '// serves them all and the loader only has to pick a file.',
+    '//',
     '// `ox`/`oy` come from the root transform of ffdec\'s SVG sprite export, which',
     '// is exact and unrounded. `verified` records whether the independent',
     '// display-list walk in sprite_bounds.py agreed: false means the two methods',
@@ -430,8 +447,6 @@ HEADER = [
     '  readonly verified: boolean;',
     '  readonly charId: number;',
     '  readonly fps?: number;',
-    '  /** Art pixels per stage pixel. `w`/`h` are art; `ox`/`oy` are stage. */',
-    '  readonly scale: number;',
     '  /** Which atlas sheet the frames live on. */',
     '  readonly sheet: number;',
     '  /** Top-left of each frame within that sheet; `w`/`h` are shared. */',
@@ -442,7 +457,7 @@ HEADER = [
 ]
 
 
-def emit(entries, path):
+def emit(entries, path, densities=(1,)):
     lines = list(HEADER)
     for name, entry in entries.items():
         fps = f", fps: {entry['fps']}" if 'fps' in entry else ''
@@ -451,14 +466,16 @@ def emit(entries, path):
             f"  '{name}': {{ frames: {entry['frames']}, w: {entry['w']}, "
             f"h: {entry['h']}, ox: {entry['ox']}, oy: {entry['oy']}, "
             f"verified: {str(entry['verified']).lower()}, "
-            f"charId: {entry['charId']}{fps}, scale: {entry['scale']}, "
-            f"sheet: {entry['sheet']}, "
+            f"charId: {entry['charId']}{fps}, sheet: {entry['sheet']}, "
             f"rects: [{rects}] }},"
         )
     lines += [
         '} as const satisfies Record<string, SpriteMeta>;',
         '',
         'export type SpriteId = keyof typeof SPRITES;',
+        '',
+        '/** Atlas densities on disk, ascending. 1 is `sheet-N.png`, 2 is `sheet-N@2x.png`. */',
+        f'export const DENSITIES = {list(densities)} as const;',
         '',
     ]
     with open(path, 'w') as handle:
@@ -468,23 +485,23 @@ def emit(entries, path):
 def main():
     args = sys.argv[1:]
     svg_dir = None
-    scale = 1
+    densities = (1, 2)
     if '--svg-dir' in args:
         at = args.index('--svg-dir')
         svg_dir = args[at + 1]
         del args[at:at + 2]
-    if '--scale' in args:
-        at = args.index('--scale')
-        scale = int(args[at + 1])
+    if '--densities' in args:
+        at = args.index('--densities')
+        densities = tuple(int(part) for part in args[at + 1].split(','))
         del args[at:at + 2]
-    if scale != 1 and svg_dir is None:
-        raise SystemExit('--scale needs --svg-dir: the art above 1:1 comes from the SVG')
+    if densities != (1,) and svg_dir is None:
+        raise SystemExit('densities above 1 need --svg-dir: that art comes from the SVG')
     swf, export_dir, asset_dir = args[0], args[1], args[2]
     resolver = build(swf)
     entries, total_bytes, sheets, skipped = collect(
-        resolver, export_dir, asset_dir, svg_dir, scale
+        resolver, export_dir, asset_dir, svg_dir, densities
     )
-    emit(entries, os.path.join('src', 'assets', 'sprites.generated.ts'))
+    emit(entries, os.path.join('src', 'assets', 'sprites.generated.ts'), densities)
 
     verified = sum(1 for e in entries.values() if e['verified'])
     source = 'ffdec SVG export' if svg_dir else 'display-list resolver'

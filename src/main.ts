@@ -1,11 +1,12 @@
 import { FixedTimestepLoop } from '@/app/FixedTimestepLoop.ts';
 import { FrameProfiler } from '@/app/FrameProfiler.ts';
 import { defaultRendererFor, modeFromUrl } from '@/app/GameMode.ts';
-import { loadSprites } from '@/assets/AssetLoader.ts';
+import { densityFor, loadSprites } from '@/assets/AssetLoader.ts';
 import { InputController } from '@/input/InputController.ts';
 import { Effects } from '@/render/effects/Effects.ts';
 import { createCanvasRenderer } from '@/render/GameRenderer.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
+import { stageScale } from '@/render/resolution.ts';
 import { C } from '@/sim/constants.ts';
 import { Simulation } from '@/sim/index.ts';
 
@@ -68,9 +69,12 @@ async function boot(): Promise<void> {
   const mode = modeFromUrl(params);
   const rendererName = params.get('renderer') ?? defaultRendererFor(mode);
 
+  // How big the stage actually is decides which atlas is worth downloading -
+  // a 1x screen showing a wide layout is already past 1:1.
+  const scale = stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
   const assets = await loadSprites(({ loaded, total }) => {
     setBootMessage(`loading ${Math.round((loaded / total) * 100)}%`);
-  });
+  }, densityFor(scale));
   if (assets.missing.length > 0) {
     console.warn('[hamsterflight] %d sprite frames missing', assets.missing.length);
   }

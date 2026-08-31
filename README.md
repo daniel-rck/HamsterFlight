@@ -112,12 +112,16 @@ count and, crucially, the `ox`/`oy` offset of the image relative to the entity
 position - the offsets Flash itself used - so the renderer contains no
 per-sprite magic numbers.
 
-The 382 frames ship as **one packed atlas sheet** rather than 382 files. Boot
-went from 382 HTTP requests to one, the payload from 2.0 MB to 577 kB, and the
-WebGL backend can batch every sprite into a single draw call because they all
-live on one GPU texture. The manifest records each frame's rectangle within the
-sheet; `w`/`h` are shared across a sprite's frames because ffdec crops them all
-to the same box.
+The 382 frames ship as **packed atlas sheets** rather than 382 files. Boot went
+from 382 HTTP requests to one, and the WebGL backend can batch every sprite into
+a single draw call because they all live on one GPU texture. The manifest records
+each frame's rectangle within the sheet; `w`/`h` are shared across a sprite's
+frames because ffdec crops them all to the same box.
+
+Two densities are built - 578 kB at 1:1 and 1.5 MB at 2x - and the loader takes
+the smallest that still covers the display. Most screens lay the stage out wider
+than its 600 px design size, so most visitors get the 2x sheet: sharper art for
+about a megabyte more. Dropping back to one density is a `--densities 1` rebuild.
 
 Placement is measured twice rather than trusted once. The offset comes from the
 root transform of ffdec's SVG sprite export, which is exact and unrounded and is
@@ -138,12 +142,11 @@ python3 reference/tools/build_sprites.py path/to/OCybCA4ADbpTKT.swf \
   reference/extracted src/assets/sprites --svg-dir reference/extracted/svg
 ```
 
-`--scale N` packs the art at N times stage size, rendered from the vector source
-rather than upscaled. The manifest then carries `scale`, and the renderers draw
-each frame back down to its stage box, so nothing moves. At 2x the sheet has to
-grow to 4096 - `hit/zero` alone is 36 frames of 334x376, more than a 2048 sheet
-holds, and a sprite's frames must stay on one sheet for the WebGL backend to
-keep batching them into a single draw call. Requires Pillow and cairosvg.
+`--densities 1,2` emits one sheet per density from a single 1:1 layout, so the
+denser sheet is the same rectangles multiplied and one manifest serves both. The
+loader picks by how large the stage actually is, and the renderers draw each
+frame back down to its stage box - so raising the density changes sharpness and
+nothing else. Requires Pillow and cairosvg.
 
 Without `--svg-dir` the tool falls back to the display-list walk and centres the
 six unresolved clips on their registration point, which misplaces them by up to

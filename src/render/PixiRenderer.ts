@@ -17,6 +17,7 @@ import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
 import { SceneFilter } from '@/render/effects/SceneFilter.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
+import { stageScale } from '@/render/resolution.ts';
 import { distance, markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
@@ -178,7 +179,7 @@ export class PixiRenderer implements Renderer {
       // The Canvas2D renderer pins its backing store to VIEW_W/H * dpr and lets
       // CSS upscale. autoDensity: false reproduces that instead of resizing CSS.
       autoDensity: false,
-      resolution: dpr(),
+      resolution: dpr(canvas),
       backgroundAlpha: 1,
       // The sim never reads the pointer; input is bound to the canvas element.
       eventMode: 'none',
@@ -303,7 +304,7 @@ export class PixiRenderer implements Renderer {
 
   resize(): void {
     if (this.#destroyed) return;
-    this.#app.renderer.resolution = dpr();
+    this.#app.renderer.resolution = dpr(this.#canvas);
     this.#app.renderer.resize(C.VIEW_W, C.VIEW_H);
     // Pixi writes CSS size when it resizes; the stylesheet owns that here.
     this.#canvas.style.removeProperty('width');
@@ -762,11 +763,11 @@ export function createPixiRenderer(
  */
 function place(sprite: Sprite, asset: SpriteAsset, x: number, y: number): void {
   sprite.position.set(x + asset.meta.ox, y + asset.meta.oy);
-  sprite.scale.set(1 / asset.meta.scale);
+  sprite.scale.set(1 / asset.density);
 }
 
-function dpr(): number {
-  return Math.min(window.devicePixelRatio || 1, 2);
+function dpr(canvas: HTMLCanvasElement): number {
+  return stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
 }
 
 /** A 1x1 white sprite; set width/height/tint and it is a filled rectangle. */

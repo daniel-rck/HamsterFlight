@@ -1,4 +1,4 @@
-import { SPRITES, type SpriteId, type SpriteMeta } from './sprites.generated.ts';
+import { DENSITIES, SPRITES, type SpriteId, type SpriteMeta } from './sprites.generated.ts';
 
 /**
  * Vite resolves this glob at build time, so each sheet gets a content-hashed
@@ -11,6 +11,16 @@ const SHEET_URLS = import.meta.glob<string>('./sprites/sheet-*.png', {
   import: 'default',
 });
 
+/**
+ * Which atlas to fetch. The sheets share one layout, so a denser one is the
+ * same rectangles multiplied - the smallest that still covers the display wins,
+ * and a 1x screen never pays for art it cannot show.
+ */
+export function densityFor(devicePixelRatio: number): number {
+  const covering = DENSITIES.find(density => density >= devicePixelRatio);
+  return covering ?? DENSITIES[DENSITIES.length - 1] ?? 1;
+}
+
 /** Where one frame sits inside its atlas sheet. */
 export interface FrameRect {
   readonly x: number;
@@ -21,9 +31,12 @@ export interface FrameRect {
 
 export interface Sprite {
   readonly meta: SpriteMeta;
+  /** In sheet pixels, so already multiplied by `density`. */
   readonly frames: readonly FrameRect[];
   /** The atlas this sprite's frames are cut from. */
   readonly sheet: ImageBitmap;
+  /** Sheet pixels per stage pixel; the renderer draws back down by this. */
+  readonly density: number;
 }
 
 export interface LoadProgress {
@@ -35,12 +48,15 @@ export interface AssetBundle {
   get(id: SpriteId): Sprite | undefined;
   /** Every loaded sheet, in index order. One GPU texture each. */
   readonly sheets: readonly ImageBitmap[];
+  /** The density actually loaded. */
+  readonly density: number;
   /** Sheets that failed to load; surfaced in the debug overlay, never fatal. */
   readonly missing: readonly string[];
 }
 
-function sheetUrl(index: number): string | undefined {
-  return SHEET_URLS[`./sprites/sheet-${index}.png`];
+function sheetUrl(index: number, density: number): string | undefined {
+  const suffix = density === 1 ? '' : `@${density}x`;
+  return SHEET_URLS[`./sprites/sheet-${index}${suffix}.png`];
 }
 
 async function loadSheet(url: string): Promise<ImageBitmap> {
@@ -62,6 +78,7 @@ async function loadSheet(url: string): Promise<ImageBitmap> {
  */
 export async function loadSprites(
   onProgress?: (progress: LoadProgress) => void,
+  density = densityFor(globalThis.devicePixelRatio || 1),
 ): Promise<AssetBundle> {
   const ids = Object.keys(SPRITES) as SpriteId[];
   const wanted = [...new Set(ids.map(id => SPRITES[id].sheet))].sort((a, b) => a - b);
@@ -70,7 +87,7 @@ export async function loadSprites(
 
   const sheets = await Promise.all(
     wanted.map(async index => {
-      const url = sheetUrl(index);
+      const url = sheetUrl(index, density);
       let bitmap: ImageBitmap | undefined;
       if (url === undefined) {
         missing.push(`sheet-${index} (not in bundle)`);
@@ -101,13 +118,20 @@ export async function loadSprites(
     sprites.set(id, {
       meta,
       sheet,
-      frames: meta.rects.map(([x, y]) => ({ x, y, w: meta.w, h: meta.h })),
+      density,
+      frames: meta.rects.map(([x, y]) => ({
+        x: x * density,
+        y: y * density,
+        w: meta.w * density,
+        h: meta.h * density,
+      })),
     });
   }
 
   return {
     get: id => sprites.get(id),
     sheets: [...byIndex.values()],
+    density,
     missing,
   };
 }

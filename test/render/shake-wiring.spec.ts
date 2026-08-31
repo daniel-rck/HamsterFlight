@@ -61,10 +61,16 @@ function recordingCanvas(
       drawn.push({ sx, sy, alpha: ctx.globalAlpha, dw, dh });
     },
   };
-  return { getContext: () => ctx, width: 0, height: 0 } as unknown as HTMLCanvasElement;
+  return {
+    getContext: () => ctx,
+    // The renderer sizes its buffer from the element, so the stub needs one.
+    getBoundingClientRect: () => ({ width: 600, height: 400 }),
+    width: 0,
+    height: 0,
+  } as unknown as HTMLCanvasElement;
 }
 
-const EMPTY_ASSETS: AssetBundle = { get: () => undefined, sheets: [], missing: [] };
+const EMPTY_ASSETS: AssetBundle = { get: () => undefined, sheets: [], density: 1, missing: [] };
 
 /** Every sprite resolves, each frame at a distinct atlas position. */
 function stubAssets(): AssetBundle {
@@ -73,6 +79,7 @@ function stubAssets(): AssetBundle {
   return {
     sheets: [],
     missing: [],
+    density: 1,
     get: id => {
       let sprite = made.get(id);
       if (sprite === undefined) {
@@ -80,6 +87,7 @@ function stubAssets(): AssetBundle {
         sprite = {
           meta: SPRITES[id],
           sheet: {} as ImageBitmap,
+          density: 1,
           frames: [{ x: at, y: at, w: 10, h: 10 }],
         };
         made.set(id, sprite);
@@ -242,23 +250,24 @@ describe('manifest scale', () => {
     (globalThis as { window?: unknown }).window = undefined;
   });
 
-  /** One sprite, art packed at `scale` art pixels per stage pixel. */
-  function scaledAssets(scale: number): AssetBundle {
-    const meta = { ...SPRITES['hamster/fly'], scale, w: 59 * scale, h: 38 * scale };
+  /** One sprite, cut from a sheet at `density` sheet pixels per stage pixel. */
+  function scaledAssets(density: number): AssetBundle {
+    const meta = SPRITES['hamster/fly'];
     const sprite = {
       meta,
       sheet: {} as ImageBitmap,
-      frames: [{ x: 0, y: 0, w: meta.w, h: meta.h }],
+      density,
+      frames: [{ x: 0, y: 0, w: meta.w * density, h: meta.h * density }],
     };
-    return { sheets: [], missing: [], get: () => sprite };
+    return { sheets: [], missing: [], density, get: () => sprite };
   }
 
-  it('draws art packed above 1:1 back down to its stage size', () => {
-    for (const scale of [1, 2, 4]) {
+  it('draws a denser sheet back down to the same stage box', () => {
+    for (const density of [1, 2, 4]) {
       const drawn: Drawn[] = [];
       const renderer = new GameRenderer(
         recordingCanvas([], drawn),
-        scaledAssets(scale),
+        scaledAssets(density),
         new Effects(),
       );
       renderer.draw(snapshot(), 0);
