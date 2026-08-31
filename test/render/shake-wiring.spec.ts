@@ -70,7 +70,7 @@ describe('impact shake wiring', () => {
   });
 
   it('displaces the world by the shake offset and leaves the HUD alone', () => {
-    const effects = new Effects({ shake: true });
+    const effects = new Effects({ enhanced: true });
     const transforms: Transform[] = [];
     const renderer = new GameRenderer(recordingCanvas(transforms), EMPTY_ASSETS, effects);
 

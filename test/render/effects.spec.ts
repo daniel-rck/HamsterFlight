@@ -59,7 +59,7 @@ describe('Effects', () => {
 });
 
 describe('Effects camera shake', () => {
-  const enhanced = (): Effects => new Effects({ shake: true });
+  const enhanced = (): Effects => new Effects({ enhanced: true });
 
   it('stays perfectly still in faithful mode', () => {
     const effects = new Effects();
@@ -114,5 +114,61 @@ describe('Effects camera shake', () => {
     const cheered = enhanced();
     cheered.consume([{ t: 'shotDone', feet: 40, outcome: 'cheer' }], 0);
     expect(cheered.shakeOffset(20)).toEqual({ x: 0, y: 0 });
+  });
+});
+
+describe('Effects shockwave', () => {
+  it('starts at the impact, in world coordinates, and expands', () => {
+    const effects = new Effects({ enhanced: true });
+    effects.consume([{ t: 'fx', id: 'superBreak', x: 1234, y: 955 }], 0);
+
+    const early = effects.shockwave(40);
+    const late = effects.shockwave(200);
+    expect(early?.x).toBe(1234);
+    expect(early?.y).toBe(955);
+    expect(late?.progress).toBeGreaterThan(early?.progress ?? 1);
+  });
+
+  it('ends cleanly and does not come back', () => {
+    const effects = new Effects({ enhanced: true });
+    effects.consume([{ t: 'fx', id: 'break', x: 0, y: 955 }], 0);
+    expect(effects.shockwave(259)).not.toBeNull();
+    expect(effects.shockwave(260)).toBeNull();
+    expect(effects.shockwave(10_000)).toBeNull();
+  });
+
+  it('scales with the impact, and a light one cannot displace a hard one', () => {
+    const effects = new Effects({ enhanced: true });
+    effects.consume([{ t: 'fx', id: 'bounceFx', x: 0, y: 955 }], 0);
+    const light = effects.shockwave(10)?.amplitude ?? 0;
+    effects.consume([{ t: 'fx', id: 'superBreak', x: 0, y: 955 }], 20);
+    const hard = effects.shockwave(30)?.amplitude ?? 0;
+    expect(hard).toBeGreaterThan(light);
+
+    effects.consume([{ t: 'fx', id: 'bounceFx', x: 0, y: 955 }], 40);
+    expect(effects.shockwave(50)?.amplitude).toBe(hard);
+  });
+
+  it('does not run in faithful mode - the original stage never warped', () => {
+    const faithful = new Effects();
+    faithful.consume([{ t: 'fx', id: 'break', x: 0, y: 955 }], 0);
+    expect(faithful.shockwave(40)).toBeNull();
+    expect(faithful.aberration(40)).toBe(0);
+    // The impact clips are restoration, not addition, so they still play.
+    expect(faithful.active(0)).toHaveLength(1);
+  });
+});
+
+describe('Effects at rest', () => {
+  it('reports nothing running before anything has happened', () => {
+    const effects = new Effects({ enhanced: true });
+    // performance.now() is small at boot; a wave keyed only on elapsed time
+    // would read as live here and attach the filter for nothing.
+    for (const at of [0, 1, 40, 259, 1000]) {
+      expect(effects.shockwave(at)).toBeNull();
+      expect(effects.aberration(at)).toBe(0);
+      expect(effects.shakeOffset(at)).toEqual({ x: 0, y: 0 });
+      expect(effects.active(at)).toHaveLength(0);
+    }
   });
 });

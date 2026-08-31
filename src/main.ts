@@ -76,7 +76,7 @@ async function boot(): Promise<void> {
 
   const sim = new Simulation({ seed });
   const stress = stressFromUrl(params);
-  const effects = new Effects({ shake: mode === 'enhanced' });
+  const effects = new Effects({ enhanced: mode === 'enhanced' });
   const { renderer, backend } = await pickRenderer(rendererName, canvas, assets, effects, {
     showHitboxes: params.has('debug'),
     stress,

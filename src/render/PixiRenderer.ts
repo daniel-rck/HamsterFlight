@@ -14,8 +14,8 @@ import {
 } from 'pixi.js';
 import type { AssetBundle, Sprite as SpriteAsset } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
-import { AtmosphereFilter } from '@/render/effects/AtmosphereFilter.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
+import { SceneFilter } from '@/render/effects/SceneFilter.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
@@ -92,7 +92,7 @@ export class PixiRenderer implements Renderer {
   readonly #hud = new Container();
 
   readonly #motionBlur = new BlurFilter({ strength: 0, quality: 2, resolution: 0.5 });
-  readonly #atmosphere = new AtmosphereFilter();
+  readonly #sceneFilter = new SceneFilter();
   /** Which filters are attached, so the array is only rebuilt when it changes. */
   #filterMask = 0;
 
@@ -317,7 +317,7 @@ export class PixiRenderer implements Renderer {
     this.#sources.clear();
     this.#scene.filters = [];
     this.#motionBlur.destroy();
-    this.#atmosphere.destroy();
+    this.#sceneFilter.destroy();
     this.#app.destroy({ removeView: false }, { children: true });
   }
 
@@ -356,10 +356,11 @@ export class PixiRenderer implements Renderer {
     const speed = clamp((Math.abs(s.hamster.xvel) - MOTION_BLUR_FROM) / MOTION_BLUR_SPAN, 0, 1);
     const altitude = clamp((C.GROUND_Y - s.hamster.y) / Math.abs(C.SPACE_BG_Y), 0, 1);
     const aberration = this.#effects.aberration(now);
+    const wave = this.#effects.shockwave(now);
 
     const flying = s.phaseKind === 'flying';
     const blurring = flying && speed > 0;
-    const shading = flying && (altitude > 0.02 || aberration > 0);
+    const shading = altitude > 0.02 || aberration > 0 || wave !== null;
 
     if (blurring) {
       this.#motionBlur.strengthX = speed * MOTION_BLUR_MAX;
@@ -368,12 +369,20 @@ export class PixiRenderer implements Renderer {
       this.#motionBlur.strengthY = 0;
     }
     if (shading) {
-      const uniforms = this.#atmosphere.uniforms;
+      const uniforms = this.#sceneFilter.uniforms;
       uniforms.uAberration = aberration;
       uniforms.uAltitude = altitude;
       // Aberration radiates from where the hamster is on screen.
       uniforms.uCentre[0] = clamp((s.hamster.x + s.camera.x) / C.VIEW_W, 0, 1);
       uniforms.uCentre[1] = clamp((s.hamster.y + s.camera.y) / C.VIEW_H, 0, 1);
+      uniforms.uWaveProgress = wave?.progress ?? 0;
+      uniforms.uWaveAmplitude = wave?.amplitude ?? 0;
+      if (wave !== null) {
+        // Held in world space, so the ring stays on the ground it came from
+        // while the camera scrolls past.
+        uniforms.uWaveCentre[0] = (wave.x + s.camera.x) / C.VIEW_W;
+        uniforms.uWaveCentre[1] = (wave.y + s.camera.y) / C.VIEW_H;
+      }
     }
 
     const mask = (blurring ? 1 : 0) | (shading ? 2 : 0);
@@ -385,7 +394,7 @@ export class PixiRenderer implements Renderer {
     }
     const active = [];
     if (blurring) active.push(this.#motionBlur);
-    if (shading) active.push(this.#atmosphere);
+    if (shading) active.push(this.#sceneFilter);
     this.#scene.filters = active;
   }
 

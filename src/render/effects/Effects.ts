@@ -35,6 +35,27 @@ const ABERRATION_STRENGTH: Partial<Record<FxId, number>> = {
   break: 0.55,
   superBreak: 1,
 };
+
+/**
+ * A ring of displacement travelling out from where the hamster hit. Slower
+ * than the shake and the aberration, because it has to be seen crossing the
+ * screen rather than felt as a jolt.
+ */
+const SHOCKWAVE_MS = 260;
+const SHOCKWAVE_AMPLITUDE: Record<FxId, number> = {
+  bounceFx: 0.04,
+  break: 0.075,
+  superBreak: 0.12,
+};
+
+export interface Shockwave {
+  /** World coordinates of the impact; the camera moves, the wave does not. */
+  readonly x: number;
+  readonly y: number;
+  /** 0 to 1 across the wave's life - the ring's radius. */
+  readonly progress: number;
+  readonly amplitude: number;
+}
 const TAU = Math.PI * 2;
 /** Coprime-ish frequencies, so x and y do not trace a line. */
 const SHAKE_FREQ_X = 6.1;
@@ -77,23 +98,32 @@ interface LiveFx {
  */
 export interface EffectsOptions {
   /**
-   * Camera shake on impact. Off in faithful mode: the original stage never
-   * moved, so this is the one thing here that is an addition rather than a
-   * restoration.
+   * Everything this layer *adds* rather than restores: camera shake, chromatic
+   * aberration, the shockwave. Off in faithful mode, where the original stage
+   * neither moved nor warped. The impact clips are not gated by it - the
+   * original played those, so leaving them out was the deviation.
+   *
+   * The renderer choice would hide the shader effects anyway, since Canvas2D
+   * has no filters. Gating them here as well means `?mode=faithful` stays
+   * faithful even when a backend is forced with `?renderer=`.
    */
-  readonly shake?: boolean;
+  readonly enhanced?: boolean;
 }
 
 export class Effects {
-  readonly #shakeEnabled: boolean;
+  readonly #enhanced: boolean;
   #live: LiveFx[] = [];
   #shakeStartedMs = 0;
   #shakeAmplitude = 0;
   #aberrationStartedMs = 0;
   #aberrationStrength = 0;
+  #waveStartedMs = 0;
+  #waveAmplitude = 0;
+  #waveX = 0;
+  #waveY = 0;
 
   constructor(options: EffectsOptions = {}) {
-    this.#shakeEnabled = options.shake ?? false;
+    this.#enhanced = options.enhanced ?? false;
   }
 
   /** Takes one tick's events. Cues this layer has no use for are ignored. */
@@ -109,10 +139,17 @@ export class Effects {
           startedMs: nowMs,
         });
         this.#shake(SHAKE_AMPLITUDE[event.id], nowMs);
-        const aberration = ABERRATION_STRENGTH[event.id];
+        const aberration = this.#enhanced ? ABERRATION_STRENGTH[event.id] : undefined;
         if (aberration !== undefined && aberration >= this.aberration(nowMs)) {
           this.#aberrationStartedMs = nowMs;
           this.#aberrationStrength = aberration;
+        }
+        const wave = SHOCKWAVE_AMPLITUDE[event.id];
+        if (this.#enhanced && wave >= (this.shockwave(nowMs)?.amplitude ?? 0)) {
+          this.#waveStartedMs = nowMs;
+          this.#waveAmplitude = wave;
+          this.#waveX = event.x;
+          this.#waveY = event.y;
         }
       } else if (event.t === 'shotDone' && event.outcome === 'faceplant') {
         this.#shake(SHAKE_AMPLITUDE.faceplant, nowMs);
@@ -125,7 +162,7 @@ export class Effects {
    * is left of it, so a light bounce cannot cut a superbounce short.
    */
   #shake(amplitude: number, nowMs: number): void {
-    if (!this.#shakeEnabled) return;
+    if (!this.#enhanced) return;
     if (amplitude < this.#remainingShake(nowMs)) return;
     this.#shakeStartedMs = nowMs;
     this.#shakeAmplitude = amplitude;
@@ -178,10 +215,33 @@ export class Effects {
     return this.#aberrationStrength * (1 - t);
   }
 
+  /**
+   * The expanding ring, or null when none is running. Like the shake and the
+   * aberration it is a pure function of the impact time. The centre stays in
+   * world coordinates so the wave remains anchored to the ground the hamster
+   * hit while the camera keeps scrolling past it.
+   */
+  shockwave(nowMs: number): Shockwave | null {
+    // Amplitude first: without it a zero-strength wave reads as live for the
+    // first SHOCKWAVE_MS after the clock's epoch, and the filter attaches for
+    // nothing on every boot.
+    if (this.#waveAmplitude <= 0) return null;
+    const progress = (nowMs - this.#waveStartedMs) / SHOCKWAVE_MS;
+    if (progress <= 0 || progress >= 1) return null;
+    return {
+      x: this.#waveX,
+      y: this.#waveY,
+      progress,
+      amplitude: this.#waveAmplitude,
+    };
+  }
+
   /** Drop everything in flight - on a restart, or when the tab comes back. */
   clear(): void {
     this.#live.length = 0;
     this.#shakeAmplitude = 0;
     this.#aberrationStrength = 0;
+    this.#waveAmplitude = 0;
+    this.#waveStartedMs = 0;
   }
 }
