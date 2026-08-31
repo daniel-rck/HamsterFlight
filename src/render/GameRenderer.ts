@@ -2,6 +2,7 @@ import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
+import { distance, markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 import { DEFAULT_TUNING } from '@/sim/tuning.ts';
@@ -22,6 +23,9 @@ const SPRITE_FPS = 19;
 /** Decoration counts at stress 1. Both renderers use these, so they compare. */
 const STAR_COUNT = 70;
 const BUSH_SPACING = 260;
+
+/** Enough bubble to still read as one, little enough to see the hamster. */
+const BUBBLE_ALPHA = 0.62;
 
 /**
  * Canvas 2D renderer for the 600x400 stage.
@@ -152,11 +156,16 @@ export class GameRenderer implements Renderer {
     // Distance markers, so progress is readable without the HUD.
     ctx.fillStyle = 'rgba(255,255,255,.5)';
     ctx.font = '10px ui-monospace, monospace';
-    const firstFoot = Math.max(0, Math.floor((-s.camera.x - 100) / C.PX_PER_FOOT / 10) * 10);
-    for (let feet = firstFoot; feet * C.PX_PER_FOOT < -s.camera.x + C.VIEW_W + 100; feet += 10) {
-      const x = feet * C.PX_PER_FOOT;
+    const scale = markerScale(C.PX_PER_FOOT, this.#effects.enhanced);
+    const label = scale.step * scale.labelEvery;
+    const first = Math.max(
+      0,
+      Math.floor((-s.camera.x - 100) / scale.pixels / scale.step) * scale.step,
+    );
+    for (let at = first; at * scale.pixels < -s.camera.x + C.VIEW_W + 100; at += scale.step) {
+      const x = at * scale.pixels;
       ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
-      if (feet % 50 === 0) ctx.fillText(`${feet}ft`, x + 3, C.GROUND_Y - 10);
+      if (at % label === 0) ctx.fillText(`${at}${scale.suffix}`, x + 3, C.GROUND_Y - 10);
     }
   }
 
@@ -214,6 +223,15 @@ export class GameRenderer implements Renderer {
     const flying = s.phaseKind === 'flying';
     ctx.save();
     ctx.translate(h.x, h.y);
+    // The bubble is opaque in the original, so the hamster vanishes inside it
+    // for the whole bounce. Enhanced mode draws the flier underneath and lets
+    // the bubble sit over it.
+    const inBubble = id === 'hamster/ball' && this.#effects.enhanced;
+    if (inBubble) {
+      const inside = this.#assets.get('hamster/fly');
+      if (inside !== undefined) this.#blit(ctx, inside, this.#animFrame(inside), 0, 0);
+      ctx.globalAlpha = BUBBLE_ALPHA;
+    }
     if (flying && h.doRotation) {
       // The original writes `_rotation = radToDeg(atan2(yvel, xvel)) + 90`
       // because its art is authored pointing up. The exported poses face
@@ -221,6 +239,7 @@ export class GameRenderer implements Renderer {
       ctx.rotate(Math.atan2(h.yvel, h.xvel));
     }
     this.#blit(ctx, sprite, this.#animFrame(sprite), 0, 0);
+    if (inBubble) ctx.globalAlpha = 1;
     ctx.restore();
 
     if (this.#showHitboxes) {
@@ -288,9 +307,10 @@ export class GameRenderer implements Renderer {
     ctx.font = '600 12px ui-monospace, monospace';
 
     const shots = s.shots.reduce((a, b) => a + b, 0);
+    const metric = this.#effects.enhanced;
     const panelLines = [
       `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`,
-      `${s.feet} ft   total ${shots} ft`,
+      `${distance(s.feet, metric)}   total ${distance(shots, metric)}`,
     ];
     ctx.fillStyle = 'rgba(12,20,30,.55)';
     ctx.fillRect(10, 10, 150, 16 * panelLines.length + 10);
@@ -345,8 +365,10 @@ export class GameRenderer implements Renderer {
         return 'click again to hit the pillow';
       case 'flying':
         return s.flags.skidding ? null : 'hold to glide';
-      case 'gameOver':
-        return `${s.shots.reduce((a, b) => a + b, 0)} ft total - click to play again`;
+      case 'gameOver': {
+        const total = s.shots.reduce((a, b) => a + b, 0);
+        return `${distance(total, this.#effects.enhanced)} total - click to play again`;
+      }
       default:
         return null;
     }

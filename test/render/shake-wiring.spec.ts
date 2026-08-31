@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { AssetBundle } from '@/assets/AssetLoader.ts';
+import { SPRITES } from '@/assets/sprites.generated.ts';
 import { Effects } from '@/render/effects/Effects.ts';
 import { GameRenderer } from '@/render/GameRenderer.ts';
 import { C } from '@/sim/constants.ts';
@@ -13,8 +14,15 @@ import { noEffects } from '@/sim/types.ts';
  */
 type Transform = readonly [number, number, number, number, number, number];
 
-function recordingCanvas(transforms: Transform[]): HTMLCanvasElement {
+interface Drawn {
+  readonly sx: number;
+  readonly sy: number;
+  readonly alpha: number;
+}
+
+function recordingCanvas(transforms: Transform[], drawn: Drawn[] = []): HTMLCanvasElement {
   const ctx = {
+    globalAlpha: 1,
     setTransform: (a: number, b: number, c: number, d: number, e: number, f: number) => {
       transforms.push([a, b, c, d, e, f]);
     },
@@ -31,12 +39,37 @@ function recordingCanvas(transforms: Transform[]): HTMLCanvasElement {
     beginPath: () => undefined,
     arc: () => undefined,
     fill: () => undefined,
-    drawImage: () => undefined,
+    drawImage: (_image: unknown, sx: number, sy: number) => {
+      drawn.push({ sx, sy, alpha: ctx.globalAlpha });
+    },
   };
   return { getContext: () => ctx, width: 0, height: 0 } as unknown as HTMLCanvasElement;
 }
 
 const EMPTY_ASSETS: AssetBundle = { get: () => undefined, sheets: [], missing: [] };
+
+/** Every sprite resolves, each frame at a distinct atlas position. */
+function stubAssets(): AssetBundle {
+  let at = 0;
+  const made = new Map<string, ReturnType<AssetBundle['get']>>();
+  return {
+    sheets: [],
+    missing: [],
+    get: id => {
+      let sprite = made.get(id);
+      if (sprite === undefined) {
+        at += 100;
+        sprite = {
+          meta: SPRITES[id],
+          sheet: {} as ImageBitmap,
+          frames: [{ x: at, y: at, w: 10, h: 10 }],
+        };
+        made.set(id, sprite);
+      }
+      return sprite;
+    },
+  };
+}
 
 function snapshot(): SimSnapshot {
   return {
@@ -96,5 +129,47 @@ describe('impact shake wiring', () => {
 
     const s = snapshot();
     expect(worldTranslation(transforms)).toEqual([s.camera.x, s.camera.y]);
+  });
+});
+
+describe('the hamster inside the bounce bubble', () => {
+  beforeEach(() => {
+    (globalThis as { window?: unknown }).window = { devicePixelRatio: 1 };
+  });
+  afterEach(() => {
+    (globalThis as { window?: unknown }).window = undefined;
+  });
+
+  function bouncing(): SimSnapshot {
+    const s = snapshot();
+    return { ...s, flags: { ...s.flags, bounce: true } };
+  }
+
+  it('draws the flier under a translucent bubble in enhanced mode', () => {
+    const drawn: Drawn[] = [];
+    const renderer = new GameRenderer(
+      recordingCanvas([], drawn),
+      stubAssets(),
+      new Effects({ enhanced: true }),
+    );
+    renderer.draw(bouncing(), 0);
+
+    const ball = SPRITES['hamster/ball'];
+    const fly = SPRITES['hamster/fly'];
+    expect(ball).toBeDefined();
+    expect(fly).toBeDefined();
+    // Two hamster draws: the flier at full strength, the bubble over it.
+    const opaque = drawn.filter(d => d.alpha === 1);
+    const faded = drawn.filter(d => d.alpha > 0 && d.alpha < 1);
+    expect(faded).toHaveLength(1);
+    expect(opaque.length).toBeGreaterThan(0);
+  });
+
+  it('draws the bubble alone, fully opaque, in faithful mode', () => {
+    const drawn: Drawn[] = [];
+    const renderer = new GameRenderer(recordingCanvas([], drawn), stubAssets(), new Effects());
+    renderer.draw(bouncing(), 0);
+
+    expect(drawn.filter(d => d.alpha > 0 && d.alpha < 1)).toHaveLength(0);
   });
 });

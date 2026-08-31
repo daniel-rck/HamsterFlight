@@ -34,6 +34,7 @@ all live on one GPU texture. Requires Pillow.
 Produce the SVG export first:
   ffdec -format sprite:svg -export sprite <dir> <file.swf>
 """
+import io
 import math
 import os
 import re
@@ -131,13 +132,66 @@ SHEET_MAX = 2048
 GUTTER = 2
 
 
-def pack_atlas(sources, entries, asset_dir):
+CORE_ELEMENT = re.compile(r'<use[^>]*id="core"[^>]*/>')
+
+
+def render_svg(svg_dir, directory, index, size, drop_core):
+    """Rasterise one frame's SVG, optionally without its hit-test box."""
+    path = os.path.join(svg_dir, directory, f'{index + 1}.svg')
+    if not os.path.isfile(path):
+        return None
+    with open(path) as handle:
+        markup = handle.read()
+    if drop_core:
+        markup, count = CORE_ELEMENT.subn('', markup)
+        if count == 0:
+            return None
+    import cairosvg
+
+    data = cairosvg.svg2png(
+        bytestring=markup.encode(), output_width=size[0], output_height=size[1]
+    )
+    return Image.open(io.BytesIO(data)).convert('RGBA')
+
+
+def core_is_visible(svg_dir, directory, size):
+    """Whether this sprite's hit-test box actually shows through the art.
+
+    Flash never drew these - they exist so `hitTest` has a box, which is the
+    same thing extract_hitboxes.py reads. ffdec does not know that and
+    rasterises them like any other child.
+
+    Decided by rendering the frame twice through the same rasteriser, with the
+    node and without, and comparing. Diffing against ffdec's PNG instead would
+    drown the answer in antialiasing differences between two engines; diffing a
+    renderer against itself isolates exactly the core's contribution.
+
+    An earlier version guessed from the flat raster - "is this rectangle all
+    one colour?" - and reported a false positive on the rebound powerup, whose
+    core happens to sit on a uniform patch of art, silently re-rendering a
+    frame that was fine.
+    """
+    with_core = render_svg(svg_dir, directory, 0, size, drop_core=False)
+    without = render_svg(svg_dir, directory, 0, size, drop_core=True)
+    if with_core is None or without is None:
+        return False
+    from PIL import ImageChops
+
+    diff = ImageChops.difference(with_core, without)
+    changed = sum(1 for pixel in diff.get_flattened_data() if max(pixel) > 8)
+    # A core that shows at all covers a real part of the frame; less than this
+    # is the node sitting fully behind the art.
+    return changed * 100 > size[0] * size[1] * 5
+
+
+def pack_atlas(sources, entries, asset_dir, cores=None):
     """Shelf-pack every frame into sheets and record where each one landed.
 
     Shelf packing rather than MaxRects: the frames of one sprite are identical
     in size and arrive together, so sorting by height leaves little waste, and
     the result is stable enough to diff between runs.
     """
+    cores = cores or {}
     frames = [
         (name, index, path, entries[name]['w'], entries[name]['h'])
         for name, paths in sources
@@ -163,8 +217,14 @@ def pack_atlas(sources, entries, asset_dir):
             cursor_x = 0
         if shelf_y + h + GUTTER > SHEET_MAX:
             new_sheet()
-        with Image.open(path) as frame:
-            sheets[-1].paste(frame.convert('RGBA'), (cursor_x, shelf_y))
+        core = cores.get(name)
+        frame = None
+        if core is not None:
+            frame = render_svg(core[0], core[1], index, (w, h), drop_core=True)
+        if frame is None:
+            with Image.open(path) as opened:
+                frame = opened.convert('RGBA')
+        sheets[-1].paste(frame, (cursor_x, shelf_y))
         placements[(name, index)] = (len(sheets) - 1, cursor_x, shelf_y)
         cursor_x += w + GUTTER
         shelf_h = max(shelf_h, h)
@@ -207,6 +267,7 @@ def png_size(path):
 def collect(resolver, export_dir, asset_dir, svg_dir=None):
     entries = {}
     sources = []
+    cores = {}
     skipped = []
 
     for name, cid, directory, fps in SPRITES:
@@ -271,6 +332,8 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None):
             continue
 
         sources.append((name, [os.path.join(src, f) for f in pngs]))
+        if svg_dir is not None and core_is_visible(svg_dir, directory, size):
+            cores[name] = (svg_dir, directory)
 
         entry = {
             'frames': len(pngs),
@@ -285,7 +348,7 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None):
             entry['fps'] = fps
         entries[name] = entry
 
-    total_bytes, sheets = pack_atlas(sources, entries, asset_dir)
+    total_bytes, sheets = pack_atlas(sources, entries, asset_dir, cores)
     return entries, total_bytes, sheets, skipped
 
 

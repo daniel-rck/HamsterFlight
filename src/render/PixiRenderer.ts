@@ -17,6 +17,7 @@ import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
 import { SceneFilter } from '@/render/effects/SceneFilter.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
+import { distance, markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 import { DEFAULT_TUNING } from '@/sim/tuning.ts';
@@ -88,6 +89,8 @@ export class PixiRenderer implements Renderer {
   readonly #shadowPivot = new Container();
   readonly #shadow = new Sprite();
   readonly #hamsterPivot = new Container();
+  /** Drawn under the bubble in enhanced mode, so the hamster stays visible. */
+  readonly #hamsterInner = new Sprite();
   readonly #hamster = new Sprite();
   readonly #hud = new Container();
 
@@ -203,7 +206,7 @@ export class PixiRenderer implements Renderer {
     );
 
     this.#shadowPivot.addChild(this.#shadow);
-    this.#hamsterPivot.addChild(this.#hamster);
+    this.#hamsterPivot.addChild(this.#hamsterInner, this.#hamster);
     this.#world.addChild(
       ground,
       this.#bushes,
@@ -439,15 +442,20 @@ export class PixiRenderer implements Renderer {
 
     let ticks = 0;
     let labels = 0;
-    const firstFoot = Math.max(0, Math.floor((-s.camera.x - 100) / C.PX_PER_FOOT / 10) * 10);
-    for (let feet = firstFoot; feet * C.PX_PER_FOOT < until - 100; feet += 10) {
-      const x = feet * C.PX_PER_FOOT;
+    const scale = markerScale(C.PX_PER_FOOT, this.#effects.enhanced);
+    const every = scale.step * scale.labelEvery;
+    const first = Math.max(
+      0,
+      Math.floor((-s.camera.x - 100) / scale.pixels / scale.step) * scale.step,
+    );
+    for (let at = first; at * scale.pixels < until - 100; at += scale.step) {
+      const x = at * scale.pixels;
       const tick = this.#tickAt(ticks++);
       tick.position.set(x, C.GROUND_Y - 7);
       tick.visible = true;
-      if (feet % 50 === 0) {
+      if (at % every === 0) {
         const label = this.#labelAt(labels++);
-        setText(label, `${feet}ft`);
+        setText(label, `${at}${scale.suffix}`);
         label.position.set(x + 3, C.GROUND_Y - 10 - this.#ascentMono10);
         label.visible = true;
       }
@@ -508,11 +516,29 @@ export class PixiRenderer implements Renderer {
       this.#shadowPivot.scale.set(scale);
     }
 
-    const asset = this.#assets.get(this.#poseFor(s));
+    const pose = this.#poseFor(s);
+    const asset = this.#assets.get(pose);
     const texture = asset === undefined ? undefined : this.#texture(asset, this.#animFrame(asset));
     if (asset === undefined || texture === undefined) {
       this.#hamsterPivot.visible = false;
       return;
+    }
+
+    // The bubble is opaque in the original, so the hamster vanishes inside it
+    // for the whole bounce. Enhanced mode draws the flier underneath.
+    const inBubble = pose === 'hamster/ball' && this.#effects.enhanced;
+    this.#hamsterInner.visible = inBubble;
+    this.#hamster.alpha = inBubble ? BUBBLE_ALPHA : 1;
+    if (inBubble) {
+      const inside = this.#assets.get('hamster/fly');
+      const insideTexture =
+        inside === undefined ? undefined : this.#texture(inside, this.#animFrame(inside));
+      if (inside !== undefined && insideTexture !== undefined) {
+        this.#hamsterInner.texture = insideTexture;
+        this.#hamsterInner.position.set(inside.meta.ox, inside.meta.oy);
+      } else {
+        this.#hamsterInner.visible = false;
+      }
     }
 
     this.#hamsterPivot.visible = true;
@@ -545,8 +571,9 @@ export class PixiRenderer implements Renderer {
 
   #drawHud(s: SimSnapshot): void {
     const shots = s.shots.reduce((a, b) => a + b, 0);
+    const metric = this.#effects.enhanced;
     setText(this.#panelLines[0], `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`);
-    setText(this.#panelLines[1], `${s.feet} ft   total ${shots} ft`);
+    setText(this.#panelLines[1], `${distance(s.feet, metric)}   total ${distance(shots, metric)}`);
 
     this.#glideFill.tint = s.glidePoints > 0 ? 0xffd166 : 0xff6b6b;
     this.#glideFill.width = Math.max(0, GLIDE_W * (s.glidePoints / C.GLIDE_MAX));
@@ -619,8 +646,10 @@ export class PixiRenderer implements Renderer {
         return 'click again to hit the pillow';
       case 'flying':
         return s.flags.skidding ? null : 'hold to glide';
-      case 'gameOver':
-        return `${s.shots.reduce((a, b) => a + b, 0)} ft total - click to play again`;
+      case 'gameOver': {
+        const total = s.shots.reduce((a, b) => a + b, 0);
+        return `${distance(total, this.#effects.enhanced)} total - click to play again`;
+      }
       default:
         return null;
     }
@@ -687,6 +716,9 @@ export class PixiRenderer implements Renderer {
 const MOTION_BLUR_FROM = 32;
 const MOTION_BLUR_SPAN = 38;
 const MOTION_BLUR_MAX = 7;
+
+/** Enough bubble to still read as one, little enough to see the hamster. */
+const BUBBLE_ALPHA = 0.62;
 
 const GLIDE_W = 110;
 const GLIDE_X = C.VIEW_W - GLIDE_W - 14;

@@ -126,6 +126,11 @@ export class Effects {
     this.#enhanced = options.enhanced ?? false;
   }
 
+  /** Whether the renderer should draw the additions as well as the original. */
+  get enhanced(): boolean {
+    return this.#enhanced;
+  }
+
   /** Takes one tick's events. Cues this layer has no use for are ignored. */
   consume(events: readonly SimEvent[], nowMs: number): void {
     for (const event of events) {

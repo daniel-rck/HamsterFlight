@@ -2,8 +2,9 @@
 //
 // Produced by reference/tools/build_sprites.py from the original SWF.
 // Regenerate with:
+//   ffdec -format sprite:svg -export sprite reference/extracted/svg <file.swf>
 //   python3 reference/tools/build_sprites.py <file.swf> \
-//     reference/extracted src/assets/sprites
+//     reference/extracted src/assets/sprites --svg-dir reference/extracted/svg
 //
 // `ox`/`oy` place the top-left of the image relative to the entity position,
 // so the renderer needs no per-sprite magic numbers.
