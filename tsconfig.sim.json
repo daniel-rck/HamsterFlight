@@ -1,0 +1,12 @@
+{
+  // Architecture guard, not a build target. src/sim must stay headless and
+  // deterministic, so it is compiled with no DOM lib and no ambient types at
+  // all: touching `document`, `window` or `performance` becomes a typecheck
+  // error in CI rather than a convention someone has to remember.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022"],
+    "types": []
+  },
+  "include": ["src/sim"]
+}

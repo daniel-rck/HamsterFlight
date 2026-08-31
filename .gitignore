@@ -1,0 +1,21 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.vite/
+
+# Cloudflare / wrangler
+.wrangler/
+.dev.vars
+
+# Original SWF assets extracted for measurement only.
+# NEVER commit or ship these - see reference/README.md
+reference/extracted/
+*.swf
+
+# tooling
+__pycache__/
+*.py[cod]
+.DS_Store
+*.log

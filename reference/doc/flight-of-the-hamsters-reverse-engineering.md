@@ -9,7 +9,7 @@ Alle Konstanten in diesem Dokument sind aus dem Bytecode gelesen, nicht geschät
 
 | Schritt | Werkzeug | Ergebnis |
 |---|---|---|
-| Container zerlegen | eigener Python-Parser (`swfparse.py`) | Tag-Inventar, Stage, Framerate |
+| Container zerlegen | eigener Python-Parser (`reference/tools/swfparse.py`) | Tag-Inventar, Stage, Framerate |
 | Bytecode dekompilieren | JPEXS ffdec 26.2.1, `-export script` | 94 Scripts, 5 AS2-Klassen |
 | Instanznamen + Positionen | eigener Parser über `PlaceObject2`/`DefineSprite` | Weltkoordinaten von `hamster`, `pillow` etc. |
 | Symbolnamen | `ExportAssets`-Tag | 49 Linkage-Namen für `attachMovie` |
