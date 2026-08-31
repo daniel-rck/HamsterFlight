@@ -1,5 +1,6 @@
 import { FixedTimestepLoop } from '@/app/FixedTimestepLoop.ts';
 import { FrameProfiler } from '@/app/FrameProfiler.ts';
+import { defaultRendererFor, modeFromUrl } from '@/app/GameMode.ts';
 import { loadSprites } from '@/assets/AssetLoader.ts';
 import { InputController } from '@/input/InputController.ts';
 import { createCanvasRenderer } from '@/render/GameRenderer.ts';
@@ -19,12 +20,12 @@ function seedFromUrl(params: URLSearchParams): number {
 }
 
 /**
- * `?renderer=pixi` swaps the backend. The Pixi module is imported dynamically
- * so it lands in its own Vite chunk: the default build's entry chunk stays free
- * of it, and one build yields both bundle numbers for the comparison.
+ * The Pixi module is imported dynamically so it lands in its own Vite chunk.
+ * `?mode=faithful` then costs nothing beyond the entry chunk, and one build
+ * still yields both bundle numbers for the comparison.
  */
 async function pickRenderer(
-  name: string | null,
+  name: string,
   canvas: HTMLCanvasElement,
   assets: Awaited<ReturnType<typeof loadSprites>>,
   options: RendererOptions,
@@ -55,6 +56,8 @@ async function boot(): Promise<void> {
 
   const params = new URLSearchParams(window.location.search);
   const seed = seedFromUrl(params);
+  const mode = modeFromUrl(params);
+  const rendererName = params.get('renderer') ?? defaultRendererFor(mode);
 
   const assets = await loadSprites(({ loaded, total }) => {
     setBootMessage(`loading ${Math.round((loaded / total) * 100)}%`);
@@ -65,7 +68,7 @@ async function boot(): Promise<void> {
 
   const sim = new Simulation({ seed });
   const stress = stressFromUrl(params);
-  const { renderer, backend } = await pickRenderer(params.get('renderer'), canvas, assets, {
+  const { renderer, backend } = await pickRenderer(rendererName, canvas, assets, {
     showHitboxes: params.has('debug'),
     stress,
   });
@@ -77,7 +80,7 @@ async function boot(): Promise<void> {
   const profileWindow = Number.parseInt(params.get('profileWindow') ?? '', 10);
   const profiler = params.has('profile')
     ? new FrameProfiler(
-        `${backend} stress=${stress}`,
+        `${mode}/${backend} stress=${stress}`,
         Number.isFinite(profileWindow) && profileWindow > 0 ? profileWindow : 240,
       )
     : null;
@@ -123,8 +126,9 @@ async function boot(): Promise<void> {
   window.addEventListener('pagehide', () => renderer.destroy(), { once: true });
 
   console.info(
-    '[hamsterflight] seed=%d renderer=%s - append ?seed=%d to replay',
+    '[hamsterflight] seed=%d mode=%s renderer=%s - append ?seed=%d to replay',
     seed,
+    mode,
     backend,
     seed,
   );

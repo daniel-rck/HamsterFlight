@@ -22,7 +22,8 @@ hold to glide. <kbd>P</kbd> pauses. Append `?seed=12345` to replay an exact run.
 | --- | --- |
 | `?seed=12345` | replay an exact run |
 | `?debug` | hitboxes and a state readout (<kbd>H</kbd> toggles) |
-| `?renderer=pixi` | the experimental PixiJS backend (see below) |
+| `?mode=faithful` | the Canvas2D reference renderer, nothing added |
+| `?renderer=pixi` \| `canvas2d` | pick a backend explicitly, overriding the mode |
 | `?stress=N` | multiply renderer-only decoration; profiling aid, never touches physics |
 | `?profile` | report draw-time percentiles to the console |
 
@@ -79,17 +80,19 @@ also a 40 px approximation, where the real bounds are now extracted from the
 shape records. So the tests assert the qualitative shape the analysis describes,
 not its numbers. Run `npm run bench` for the current table.
 
-## The PixiJS question
+## Two renderers
 
-`src/render/PixiRenderer.ts` is a spike, not a migration: a second backend
-behind `?renderer=pixi`, built so the question "would a WebGL engine help?"
-could be measured instead of argued. It is loaded through a dynamic import, so
-a normal visitor never downloads it.
+`enhanced` is the default and runs on PixiJS, because WebGL is what can carry
+shaders and particle effects; `?mode=faithful` gives the Canvas2D renderer
+drawing exactly what the original stage drew.
 
-The answer is no. Pixi costs 153.7 kB gzip - 10x the rest of the app - and only
-overtakes Canvas2D somewhere between 1 500 and 5 000 drawn objects per frame.
-This game draws about 25. `reference/doc/renderer-evaluation.md` has the full
-table, the method, and the caveats.
+That was not the first answer. `reference/doc/renderer-evaluation.md` records a
+measured spike which found Pixi costs 153.8 kB gzip and only overtakes Canvas2D
+somewhere between 1 500 and 5 000 drawn objects per frame - where this game
+draws about 25. On throughput alone the answer was no. It changed when effects
+entered the picture: Canvas2D has no shader path at all, so the cost now buys a
+capability rather than speed. The evaluation document still holds the numbers,
+including the ones that argue against.
 
 ```sh
 npm run bundle:report                          # per-chunk gzip cost
@@ -108,6 +111,13 @@ The sprites under `src/assets/sprites/` are extracted from the original SWF by
 count and, crucially, the `ox`/`oy` offset of the image relative to the entity
 position - the offsets Flash itself used - so the renderer contains no
 per-sprite magic numbers.
+
+The 382 frames ship as **one packed atlas sheet** rather than 382 files. Boot
+went from 382 HTTP requests to one, the payload from 2.0 MB to 577 kB, and the
+WebGL backend can batch every sprite into a single draw call because they all
+live on one GPU texture. The manifest records each frame's rectangle within the
+sheet; `w`/`h` are shared across a sprite's frames because ffdec crops them all
+to the same box.
 
 Placement is measured twice rather than trusted once. The offset comes from the
 root transform of ffdec's SVG sprite export, which is exact and unrounded and is

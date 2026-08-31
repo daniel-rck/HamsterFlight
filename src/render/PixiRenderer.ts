@@ -3,10 +3,13 @@ import {
   CanvasTextMetrics,
   Container,
   Graphics,
+  ImageSource,
+  Rectangle,
   Sprite,
   Text,
   TextStyle,
   Texture,
+  type TextureSource,
 } from 'pixi.js';
 import type { AssetBundle, Sprite as SpriteAsset } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
@@ -56,8 +59,14 @@ export class PixiRenderer implements Renderer {
   #lastFrameTime = 0;
   #destroyed = false;
 
-  /** One Pixi texture per source bitmap; the bitmaps come from the shared loader. */
-  readonly #textures = new Map<ImageBitmap, Texture>();
+  /**
+   * One GPU texture per atlas sheet, and one lightweight `Texture` view per
+   * frame cut out of it. Because every sprite ends up on the same source, Pixi
+   * batches the whole scene into a single draw call - which is the reason an
+   * atlas is worth more to this backend than to the Canvas2D one.
+   */
+  readonly #sources = new Map<ImageBitmap, TextureSource>();
+  readonly #textures = new Map<string, Texture>();
 
   // Layers.
   readonly #skyBottom: Sprite;
@@ -286,6 +295,8 @@ export class PixiRenderer implements Renderer {
     this.#destroyed = true;
     for (const texture of this.#textures.values()) texture.destroy();
     this.#textures.clear();
+    for (const source of this.#sources.values()) source.destroy();
+    this.#sources.clear();
     this.#app.destroy({ removeView: false }, { children: true });
   }
 
@@ -523,17 +534,23 @@ export class PixiRenderer implements Renderer {
   // -- texture cache and pools -----------------------------------------------
 
   /**
-   * Wraps a bitmap the shared loader already decoded. Both backends therefore
-   * consume the identical 382 ImageBitmaps - otherwise this would measure the
+   * Frames are views onto the atlas the shared loader already decoded, so both
+   * backends consume the identical bitmaps - otherwise this would measure the
    * asset pipeline rather than the renderer.
    */
   #texture(sprite: SpriteAsset, frame: number): Texture | undefined {
-    const bitmap = sprite.frames[frame] ?? sprite.frames[0];
-    if (bitmap === undefined) return undefined;
-    let texture = this.#textures.get(bitmap);
+    const rect = sprite.frames[frame] ?? sprite.frames[0];
+    if (rect === undefined) return undefined;
+    const key = `${rect.x},${rect.y},${rect.w},${rect.h}`;
+    let texture = this.#textures.get(key);
     if (texture === undefined) {
-      texture = Texture.from(bitmap);
-      this.#textures.set(bitmap, texture);
+      let source = this.#sources.get(sprite.sheet);
+      if (source === undefined) {
+        source = new ImageSource({ resource: sprite.sheet });
+        this.#sources.set(sprite.sheet, source);
+      }
+      texture = new Texture({ source, frame: new Rectangle(rect.x, rect.y, rect.w, rect.h) });
+      this.#textures.set(key, texture);
     }
     return texture;
   }

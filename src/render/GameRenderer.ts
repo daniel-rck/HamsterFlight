@@ -183,7 +183,7 @@ export class GameRenderer implements Renderer {
       ctx.translate(h.x, C.SHADOW_Y);
       ctx.scale(scale, scale);
       ctx.globalAlpha = 0.45;
-      ctx.drawImage(shadow.frames[0] as ImageBitmap, shadow.meta.ox, shadow.meta.oy);
+      this.#blit(ctx, shadow, 0, 0, 0);
       ctx.globalAlpha = 1;
       ctx.restore();
     }
@@ -201,8 +201,7 @@ export class GameRenderer implements Renderer {
       // right, so the +90 is dropped and the sprite aligns with velocity.
       ctx.rotate(Math.atan2(h.yvel, h.xvel));
     }
-    const frame = sprite.frames[this.#animFrame(sprite)] ?? sprite.frames[0];
-    if (frame !== undefined) ctx.drawImage(frame, sprite.meta.ox, sprite.meta.oy);
+    this.#blit(ctx, sprite, this.#animFrame(sprite), 0, 0);
     ctx.restore();
 
     if (this.#showHitboxes) {
@@ -247,10 +246,21 @@ export class GameRenderer implements Renderer {
     return Math.floor((this.#elapsed / 1000) * fps) % sprite.meta.frames;
   }
 
+  /** Cuts one frame out of the atlas sheet and places it by the manifest offsets. */
   #blit(ctx: CanvasRenderingContext2D, sprite: Sprite, frame: number, x: number, y: number): void {
-    const image = sprite.frames[frame] ?? sprite.frames[0];
-    if (image === undefined) return;
-    ctx.drawImage(image, x + sprite.meta.ox, y + sprite.meta.oy);
+    const rect = sprite.frames[frame] ?? sprite.frames[0];
+    if (rect === undefined) return;
+    ctx.drawImage(
+      sprite.sheet,
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
+      x + sprite.meta.ox,
+      y + sprite.meta.oy,
+      rect.w,
+      rect.h,
+    );
   }
 
   // -- HUD ------------------------------------------------------------------

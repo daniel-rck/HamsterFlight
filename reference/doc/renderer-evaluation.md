@@ -1,12 +1,17 @@
 # Would PixiJS bring anything?
 
-Short answer: **no, not at this game's draw load.** Pixi starts winning at
-roughly 100x the number of things HamsterFlight actually draws, and costs
-153.7 kB gzip - about 10x the entire rest of the app - to get there.
+**On throughput, no.** Pixi starts winning at roughly 100x the number of things
+HamsterFlight actually draws, and costs 153.8 kB gzip - more than 10x the entire
+rest of the app - to get there. That was the finding, and the numbers below
+still say it.
 
-This document records the measurements rather than the argument. The spike that
-produced them lives on the branch as a second renderer behind
-`?renderer=pixi`; it is a measuring instrument, not a migration.
+**On capability, yes, and that is why it now ships as the default.** Canvas2D
+has no shader path at all. Once the game wanted effects, the 153.8 kB stopped
+buying speed and started buying something Canvas2D cannot do. `enhanced` mode
+runs on Pixi; `?mode=faithful` keeps the Canvas2D renderer as the reference.
+
+This document records the measurements rather than the argument, including the
+ones that argue against.
 
 ## What the game actually draws
 
@@ -42,6 +47,35 @@ npm run build
 npm run bundle:report                      # bundle cost
 STRESS=1,4,16,64,256 npm run bench:renderers   # frame cost
 ```
+
+## What the atlas changed
+
+The 382 frames were 382 files, fetched one request each. They are now one packed
+2048x1676 sheet, which moved three numbers that do not depend on the machine
+measuring them:
+
+| | before | after |
+| --- | ---: | ---: |
+| HTTP requests at boot | 382 | **1** |
+| sprite payload | 2.0 MB | **577 kB** |
+| app entry chunk (gzip) | 14.9 kB | **11.6 kB** |
+
+The entry chunk shrank because `import.meta.glob` no longer inlines 382
+content-hashed URLs.
+
+For the WebGL backend the atlas buys something else: every sprite is a view onto
+one GPU texture, so the whole scene batches. Counted by instrumenting
+`drawElements`/`drawArrays` in the page:
+
+| stress | objects drawn | WebGL draw calls over ~2.5 s |
+| ---: | ---: | ---: |
+| 1 | ~25 | 246 over 150 frames |
+| 16 | ~1 300 | 84 over 126 frames |
+| 64 | ~5 100 | 96 over 93 frames |
+
+About one draw call per rendered frame, and - the point - **flat as the scene
+grows 200x**. (The frame counter counts rAF callbacks rather than renders, so
+read the ratio as approximate; the flatness is the result.)
 
 ## Bundle cost
 
@@ -89,6 +123,18 @@ small. Above the crossover the picture inverts exactly as expected - immediate
 mode re-issues every operation each frame while Pixi re-submits batched
 geometry, so Canvas2D's p95 degrades 37x from stress 16 to 256 and Pixi's
 barely moves.
+
+### Caveat: the frame timings above predate the atlas, and this box is noisy
+
+Re-running the sweep after the atlas landed produced materially different
+numbers - and so did re-running it *without* any change. Canvas2D at stress 1
+measured 76.6, then 61.6, then 26.9 fps across three runs of identical code.
+A container sharing a CPU is not an instrument you can attribute a 20% delta to.
+
+So the table above is kept as the record of the throughput question it was run
+to answer, and no atlas-versus-no-atlas frame-time claim is made here. The
+request count, the payload, the entry chunk and the draw-call count are the
+numbers that do not move between runs.
 
 ### Caveat: no GPU in the measurement environment
 

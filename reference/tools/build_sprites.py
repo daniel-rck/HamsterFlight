@@ -26,15 +26,21 @@ Usage:
   python3 reference/tools/build_sprites.py <file.swf> <export-dir> <asset-dir> \
       [--svg-dir <dir>]
 
+The 382 frames are packed into texture atlas sheets rather than shipped as
+individual files. That turns boot from 382 HTTP requests into one or two, and it
+lets the WebGL renderer batch every sprite into a single draw call, because they
+all live on one GPU texture. Requires Pillow.
+
 Produce the SVG export first:
   ffdec -format sprite:svg -export sprite <dir> <file.swf>
 """
 import math
 import os
 import re
-import shutil
 import struct
 import sys
+
+from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sprite_bounds import build
@@ -118,6 +124,78 @@ def svg_offset(svg_dir, directory):
     return -float(found.group(1)), -float(found.group(2))
 
 
+# 2048 is the texture size every WebGL implementation is required to support.
+SHEET_MAX = 2048
+# A transparent gutter, so bilinear sampling at a frame edge reaches empty
+# pixels instead of the neighbouring frame.
+GUTTER = 2
+
+
+def pack_atlas(sources, entries, asset_dir):
+    """Shelf-pack every frame into sheets and record where each one landed.
+
+    Shelf packing rather than MaxRects: the frames of one sprite are identical
+    in size and arrive together, so sorting by height leaves little waste, and
+    the result is stable enough to diff between runs.
+    """
+    frames = [
+        (name, index, path, entries[name]['w'], entries[name]['h'])
+        for name, paths in sources
+        for index, path in enumerate(paths)
+    ]
+    # Tallest first, then grouped by sprite so a sprite's frames stay adjacent.
+    frames.sort(key=lambda f: (-f[4], f[0], f[1]))
+
+    sheets = []
+    placements = {}
+    shelf_y = shelf_h = cursor_x = 0
+
+    def new_sheet():
+        nonlocal shelf_y, shelf_h, cursor_x
+        sheets.append(Image.new('RGBA', (SHEET_MAX, SHEET_MAX), (0, 0, 0, 0)))
+        shelf_y = shelf_h = cursor_x = 0
+
+    new_sheet()
+    for name, index, path, w, h in frames:
+        if cursor_x + w + GUTTER > SHEET_MAX:
+            shelf_y += shelf_h + GUTTER
+            shelf_h = 0
+            cursor_x = 0
+        if shelf_y + h + GUTTER > SHEET_MAX:
+            new_sheet()
+        with Image.open(path) as frame:
+            sheets[-1].paste(frame.convert('RGBA'), (cursor_x, shelf_y))
+        placements[(name, index)] = (len(sheets) - 1, cursor_x, shelf_y)
+        cursor_x += w + GUTTER
+        shelf_h = max(shelf_h, h)
+
+    os.makedirs(asset_dir, exist_ok=True)
+    total_bytes = 0
+    for number, sheet in enumerate(sheets):
+        # Crop the tail: the last sheet is mostly empty, and a smaller PNG is a
+        # smaller download and a smaller GPU upload.
+        used = max(
+            y + entries[name]['h']
+            for (name, _index), (on, _x, y) in placements.items()
+            if on == number
+        )
+        out = os.path.join(asset_dir, f'sheet-{number}.png')
+        sheet.crop((0, 0, SHEET_MAX, min(SHEET_MAX, used))).save(out, optimize=True)
+        total_bytes += os.path.getsize(out)
+
+    for name, paths in sources:
+        spread = {placements[(name, i)][0] for i in range(len(paths))}
+        if len(spread) > 1:
+            raise SystemExit(f'{name}: frames split across sheets {sorted(spread)}')
+        entries[name]['sheet'] = placements[(name, 0)][0]
+        entries[name]['rects'] = [
+            (placements[(name, i)][1], placements[(name, i)][2])
+            for i in range(len(paths))
+        ]
+
+    return total_bytes, len(sheets)
+
+
 def png_size(path):
     with open(path, 'rb') as handle:
         head = handle.read(24)
@@ -128,7 +206,7 @@ def png_size(path):
 
 def collect(resolver, export_dir, asset_dir, svg_dir=None):
     entries = {}
-    total_bytes = 0
+    sources = []
     skipped = []
 
     for name, cid, directory, fps in SPRITES:
@@ -182,12 +260,17 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None):
                 ox += matrix[4]
                 oy += matrix[5]
 
-        out = os.path.join(asset_dir, name)
-        os.makedirs(out, exist_ok=True)
-        for index, png in enumerate(pngs):
-            dst = os.path.join(out, f'{index:03d}.png')
-            shutil.copyfile(os.path.join(src, png), dst)
-            total_bytes += os.path.getsize(dst)
+        # ffdec crops every frame of a sprite to the same box - the one unioned
+        # over its frames - so a single w/h covers them all. Checked, not assumed.
+        odd = next(
+            (f for f in pngs if png_size(os.path.join(src, f)) != size),
+            None,
+        )
+        if odd is not None:
+            skipped.append(f'{name}: frame {odd} differs in size from {size}')
+            continue
+
+        sources.append((name, [os.path.join(src, f) for f in pngs]))
 
         entry = {
             'frames': len(pngs),
@@ -202,7 +285,8 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None):
             entry['fps'] = fps
         entries[name] = entry
 
-    return entries, total_bytes, skipped
+    total_bytes, sheets = pack_atlas(sources, entries, asset_dir)
+    return entries, total_bytes, sheets, skipped
 
 
 HEADER = [
@@ -210,11 +294,15 @@ HEADER = [
     '//',
     '// Produced by reference/tools/build_sprites.py from the original SWF.',
     '// Regenerate with:',
+    '//   ffdec -format sprite:svg -export sprite reference/extracted/svg <file.swf>',
     '//   python3 reference/tools/build_sprites.py <file.swf> \\',
-    '//     reference/extracted src/assets/sprites',
+    '//     reference/extracted src/assets/sprites --svg-dir reference/extracted/svg',
     '//',
     '// `ox`/`oy` place the top-left of the image relative to the entity position,',
     '// so the renderer needs no per-sprite magic numbers.',
+    '//',
+    '// Frames are packed into atlas sheets in the same directory: one request',
+    '// instead of 382, and one GPU texture so every sprite batches together.',
     '//',
     '// `ox`/`oy` come from the root transform of ffdec\'s SVG sprite export, which',
     '// is exact and unrounded. `verified` records whether the independent',
@@ -230,6 +318,10 @@ HEADER = [
     '  readonly verified: boolean;',
     '  readonly charId: number;',
     '  readonly fps?: number;',
+    '  /** Which atlas sheet the frames live on. */',
+    '  readonly sheet: number;',
+    '  /** Top-left of each frame within that sheet; `w`/`h` are shared. */',
+    '  readonly rects: readonly (readonly [number, number])[];',
     '}',
     '',
     'export const SPRITES = {',
@@ -240,11 +332,13 @@ def emit(entries, path):
     lines = list(HEADER)
     for name, entry in entries.items():
         fps = f", fps: {entry['fps']}" if 'fps' in entry else ''
+        rects = ', '.join(f'[{x}, {y}]' for x, y in entry['rects'])
         lines.append(
             f"  '{name}': {{ frames: {entry['frames']}, w: {entry['w']}, "
             f"h: {entry['h']}, ox: {entry['ox']}, oy: {entry['oy']}, "
             f"verified: {str(entry['verified']).lower()}, "
-            f"charId: {entry['charId']}{fps} }},"
+            f"charId: {entry['charId']}{fps}, sheet: {entry['sheet']}, "
+            f"rects: [{rects}] }},"
         )
     lines += [
         '} as const satisfies Record<string, SpriteMeta>;',
@@ -265,14 +359,18 @@ def main():
         del args[at:at + 2]
     swf, export_dir, asset_dir = args[0], args[1], args[2]
     resolver = build(swf)
-    entries, total_bytes, skipped = collect(resolver, export_dir, asset_dir, svg_dir)
+    entries, total_bytes, sheets, skipped = collect(
+        resolver, export_dir, asset_dir, svg_dir
+    )
     emit(entries, os.path.join('src', 'assets', 'sprites.generated.ts'))
 
     verified = sum(1 for e in entries.values() if e['verified'])
     source = 'ffdec SVG export' if svg_dir else 'display-list resolver'
+    total_frames = sum(e['frames'] for e in entries.values())
     print(
-        f'{len(entries)} sprites, offsets from the {source}, '
-        f'{verified} cross-checked clean, {total_bytes / 1024:.0f} KiB of PNG'
+        f'{len(entries)} sprites / {total_frames} frames on {sheets} atlas '
+        f'sheet(s), offsets from the {source}, {verified} cross-checked clean, '
+        f'{total_bytes / 1024:.0f} KiB of PNG'
     )
     for name, entry in entries.items():
         if not entry['verified']:
