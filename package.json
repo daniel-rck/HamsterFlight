@@ -1,0 +1,34 @@
+{
+  "name": "hamsterflight",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Faithful browser port of the Flash game Flight of the Hamsters, reconstructed from bytecode analysis",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "preview:cf": "npm run build && wrangler dev",
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sim.json && tsc -p tsconfig.node.json",
+    "check:purity": "node scripts/check-sim-purity.mjs",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "bench": "node --experimental-strip-types scripts/bench-strategies.ts",
+    "verify": "npm run lint && npm run check:purity && npm run typecheck && npm run test && npm run build",
+    "deploy": "npm run verify && wrangler deploy"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.11",
+    "@types/node": "^26.4.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.127.1"
+  }
+}

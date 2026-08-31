@@ -1,0 +1,22 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "hamsterflight",
+  "compatibility_date": "2026-08-31",
+
+  // Assets-only Worker: no server code runs and no invocations are billed.
+  // `main` is deliberately absent - adding it later (e.g. a leaderboard API)
+  // is the only change needed, together with `assets.run_worker_first`.
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+
+    // NOT "single-page-application": the game is one page with no client-side
+    // router. SPA mode answers every unmatched path with 200 + index.html, which
+    // manufactures soft-404s and hands back HTML for a missing hashed asset.
+    "not_found_handling": "404-page"
+  },
+
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": { "enabled": true }
+}

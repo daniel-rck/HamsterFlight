@@ -1,0 +1,12 @@
+{
+  "editor.defaultFormatter": "biomejs.biome",
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": { "source.organizeImports.biome": "explicit" },
+  "[typescript]": { "editor.defaultFormatter": "biomejs.biome" },
+  "[json][jsonc]": { "editor.defaultFormatter": "biomejs.biome" },
+  "files.exclude": { "**/node_modules": true, "dist": true, ".wrangler": true },
+  "search.exclude": { "reference/**": true, "package-lock.json": true }
+  // Deliberately no "typescript.tsdk": TypeScript 7 ships a native LSP server
+  // rather than lib/tsserver.js, so pointing the editor at node_modules/typescript
+  // would break it. `npm run typecheck` is the source of truth.
+}

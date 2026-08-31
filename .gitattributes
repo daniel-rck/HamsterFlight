@@ -1,0 +1,7 @@
+* text=auto eol=lf
+
+# Research artifacts: decompiler output and one-off tooling. Keep them out of
+# language stats and out of diffs.
+reference/** linguist-vendored
+*.as linguist-language=ActionScript
+package-lock.json -diff linguist-generated
