@@ -112,8 +112,34 @@ npm run deploy        # verify, then wrangler deploy
 npm run preview:cf    # build, then serve dist/ through wrangler with real asset semantics
 ```
 
-Or connect the repository in the Cloudflare dashboard (Workers & Pages → Import
-a repository) with build command `npm run verify` and no deploy command
-override. Making the build command `verify` rather than `build` means a red test
-fails the deploy, which matters because Workers Builds does not wait for GitHub
-checks.
+### Cloudflare project settings
+
+Connecting the repository in the dashboard (Workers & Pages → Import a
+repository) needs exactly these:
+
+| Field | Value |
+|---|---|
+| Build command | `npm ci && npm run verify` |
+| Deploy command | `npx wrangler deploy` (the default) |
+| Root directory | `/` |
+| Node version | from `.nvmrc` |
+
+**The build command is not optional, and leaving it empty is the failure that
+looks like a broken deployment.** Workers Builds runs the deploy command on its
+own if no build command is set, so `dist/` is never created and `wrangler`
+stops with:
+
+```
+✘ [ERROR] The directory specified by the "assets.directory" field in your
+  configuration file does not exist: /opt/buildhome/repo/dist
+```
+
+That is the build not having run, not a misconfigured `wrangler.jsonc`. On a
+repository with no `package.json` at all the same situation reports itself
+differently - `Could not detect a directory containing static files` - which is
+the same root cause one step earlier.
+
+`npm run verify` rather than `npm run build` as the build command is deliberate:
+Workers Builds does not wait for GitHub checks, so running lint, the purity
+check, the typechecks and the tests there is what stops a red commit from
+reaching production.
