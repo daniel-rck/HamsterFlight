@@ -216,7 +216,9 @@ export class Simulation {
       phaseKind: phase.kind,
       turn: this.#turn,
       paused: this.#paused,
-      shots: this.#shots as readonly number[],
+      // Copied, like camera/powerups/flags below. A cast would have handed
+      // out the live array: the type says readonly, the object was not.
+      shots: [...this.#shots],
       feet: this.#lastFeet,
     };
 
