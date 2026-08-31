@@ -6,6 +6,7 @@ import { InputController } from '@/input/InputController.ts';
 import { Effects } from '@/render/effects/Effects.ts';
 import { createCanvasRenderer } from '@/render/GameRenderer.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
+import { C } from '@/sim/constants.ts';
 import { Simulation } from '@/sim/index.ts';
 
 function seedFromUrl(params: URLSearchParams): number {
@@ -102,7 +103,18 @@ async function boot(): Promise<void> {
   const loop = new FixedTimestepLoop({
     step: () => {
       // The event stream used to be discarded here. Impact clips ride on it.
-      effects.consume(sim.step(input.drain()), performance.now());
+      const events = sim.step(input.drain());
+      const now = performance.now();
+      const snapshot = sim.snapshot();
+      effects.consume(events, now, snapshot.hamster);
+      // Grit comes off whenever the hamster is dragging along the ground, not
+      // only during the `skidding` predicate - that one is a two-tick window
+      // and fires in 2 runs out of 40, which is not an effect anyone would see.
+      const dragging =
+        snapshot.phaseKind === 'flying' &&
+        snapshot.hamster.y >= C.SKID_Y &&
+        Math.abs(snapshot.hamster.xvel) > 2;
+      if (dragging) effects.emitSkidDust(snapshot.hamster.x, C.GROUND_Y, now);
     },
     // Physics snaps at 20 Hz - the original stage ran at 19 fps with no
     // tweening - but sprite animation and the sky run on real time, so every

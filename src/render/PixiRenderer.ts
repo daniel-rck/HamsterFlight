@@ -84,6 +84,7 @@ export class PixiRenderer implements Renderer {
   readonly #markers = new Container();
   readonly #powerups = new Container();
   readonly #fxLayer = new Container();
+  readonly #particleLayer = new Container();
   readonly #debugBoxes = new Graphics();
   readonly #pillow = new Sprite();
   readonly #shadowPivot = new Container();
@@ -103,6 +104,7 @@ export class PixiRenderer implements Renderer {
   readonly #bushPool: Sprite[] = [];
   readonly #powerupPool: Sprite[] = [];
   readonly #fxPool: Sprite[] = [];
+  readonly #particlePool: Sprite[] = [];
   readonly #markerTicks: Sprite[] = [];
   readonly #markerLabels: Text[] = [];
   readonly #panelBg = solidRect();
@@ -214,6 +216,7 @@ export class PixiRenderer implements Renderer {
       this.#markers,
       this.#powerups,
       this.#fxLayer,
+      this.#particleLayer,
       this.#shadowPivot,
       this.#hamsterPivot,
       this.#debugBoxes,
@@ -338,6 +341,7 @@ export class PixiRenderer implements Renderer {
     this.#ground(s);
     this.#drawPowerups(s);
     this.#drawFx(now);
+    this.#drawParticles(now);
     this.#drawHamster(s);
     this.#drawHud(s);
     this.#applyFilters(s, now);
@@ -496,6 +500,25 @@ export class PixiRenderer implements Renderer {
       sprite.visible = true;
     }
     hideFrom(this.#fxPool, used);
+  }
+
+  /**
+   * Skid grit and pickup sparks. Every particle is the same 1x1 white texture
+   * with a tint, so the whole system collapses into one extra draw call rather
+   * than one per particle.
+   */
+  #drawParticles(now: number): void {
+    let used = 0;
+    for (const p of this.#effects.particles(now)) {
+      const sprite = poolAt(this.#particlePool, used++, this.#particleLayer, solidRect);
+      sprite.position.set(p.x - p.size / 2, p.y - p.size / 2);
+      sprite.width = p.size;
+      sprite.height = p.size;
+      sprite.tint = p.tint;
+      sprite.alpha = 1 - p.age;
+      sprite.visible = true;
+    }
+    hideFrom(this.#particlePool, used);
   }
 
   #drawHamster(s: SimSnapshot): void {

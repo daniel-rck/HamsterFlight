@@ -20,7 +20,11 @@ interface Drawn {
   readonly alpha: number;
 }
 
-function recordingCanvas(transforms: Transform[], drawn: Drawn[] = []): HTMLCanvasElement {
+function recordingCanvas(
+  transforms: Transform[],
+  drawn: Drawn[] = [],
+  rects: Drawn[] = [],
+): HTMLCanvasElement {
   const ctx = {
     globalAlpha: 1,
     setTransform: (a: number, b: number, c: number, d: number, e: number, f: number) => {
@@ -33,7 +37,9 @@ function recordingCanvas(transforms: Transform[], drawn: Drawn[] = []): HTMLCanv
     translate: () => undefined,
     scale: () => undefined,
     rotate: () => undefined,
-    fillRect: () => undefined,
+    fillRect: (x: number, y: number) => {
+      rects.push({ sx: x, sy: y, alpha: ctx.globalAlpha });
+    },
     fillText: () => undefined,
     strokeRect: () => undefined,
     beginPath: () => undefined,
@@ -171,5 +177,47 @@ describe('the hamster inside the bounce bubble', () => {
     renderer.draw(bouncing(), 0);
 
     expect(drawn.filter(d => d.alpha > 0 && d.alpha < 1)).toHaveLength(0);
+  });
+});
+
+describe('particle wiring', () => {
+  beforeEach(() => {
+    (globalThis as { window?: unknown }).window = { devicePixelRatio: 1 };
+  });
+  afterEach(() => {
+    (globalThis as { window?: unknown }).window = undefined;
+  });
+
+  it('draws one fading quad per live particle', () => {
+    const effects = new Effects({ enhanced: true });
+    const rects: Drawn[] = [];
+    const renderer = new GameRenderer(recordingCanvas([], [], rects), stubAssets(), effects);
+
+    // Nothing emitted yet: the only fills are the sky, ground and HUD chrome.
+    renderer.draw(snapshot(), 0);
+    const baseline = rects.length;
+    expect(rects.filter(r => r.alpha > 0 && r.alpha < 1)).toHaveLength(0);
+
+    rects.length = 0;
+    effects.consume([{ t: 'pickup', kind: 'speed' }], 0, { x: 500, y: 700 });
+    const live = effects.particles(80).length;
+    expect(live).toBeGreaterThan(4);
+
+    renderer.draw(snapshot(), 80);
+    // Each particle is a fill at a partial alpha, on top of the same chrome.
+    const faded = rects.filter(r => r.alpha > 0 && r.alpha < 1);
+    expect(faded).toHaveLength(live);
+    expect(rects.length).toBe(baseline + live);
+  });
+
+  it('draws none of them in faithful mode', () => {
+    const effects = new Effects();
+    const rects: Drawn[] = [];
+    const renderer = new GameRenderer(recordingCanvas([], [], rects), stubAssets(), effects);
+
+    effects.consume([{ t: 'pickup', kind: 'speed' }], 0, { x: 500, y: 700 });
+    effects.emitSkidDust(500, 950, 0);
+    renderer.draw(snapshot(), 80);
+    expect(rects.filter(r => r.alpha > 0 && r.alpha < 1)).toHaveLength(0);
   });
 });

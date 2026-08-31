@@ -48,6 +48,39 @@ const SHOCKWAVE_AMPLITUDE: Record<FxId, number> = {
   superBreak: 0.12,
 };
 
+/**
+ * Particles are closed-form: position is a function of age, so nothing is
+ * integrated per frame and the whole system stays a pure function of when each
+ * one was born. Spread comes from a hashed counter rather than Math.random, for
+ * the same reason the star field does it that way - a replay must look the same.
+ */
+const PARTICLE_LIMIT = 160;
+const DUST_LIFE_MS = 420;
+const SPARK_LIFE_MS = 340;
+/** Dust is emitted while skidding; this is the gap between puffs. */
+const DUST_INTERVAL_MS = 45;
+
+export interface Particle {
+  readonly x: number;
+  readonly y: number;
+  readonly size: number;
+  readonly tint: number;
+  /** 0 at birth, 1 at death. */
+  readonly age: number;
+}
+
+interface LiveParticle {
+  readonly x: number;
+  readonly y: number;
+  readonly vx: number;
+  readonly vy: number;
+  readonly gravity: number;
+  readonly size: number;
+  readonly tint: number;
+  readonly lifeMs: number;
+  readonly bornMs: number;
+}
+
 export interface Shockwave {
   /** World coordinates of the impact; the camera moves, the wave does not. */
   readonly x: number;
@@ -121,6 +154,9 @@ export class Effects {
   #waveAmplitude = 0;
   #waveX = 0;
   #waveY = 0;
+  #particles: LiveParticle[] = [];
+  #emitted = 0;
+  #lastDustMs = Number.NEGATIVE_INFINITY;
 
   constructor(options: EffectsOptions = {}) {
     this.#enhanced = options.enhanced ?? false;
@@ -131,8 +167,82 @@ export class Effects {
     return this.#enhanced;
   }
 
+  /**
+   * A deterministic value in [0, 1) drawn from a counter, so two runs of the
+   * same seed and inputs scatter their particles identically.
+   */
+  #roll(): number {
+    this.#emitted = (this.#emitted + 1) | 0;
+    return ((Math.imul(this.#emitted, 0x9e3779b1) >>> 8) % 10000) / 10000;
+  }
+
+  #spawn(particle: LiveParticle): void {
+    if (this.#particles.length >= PARTICLE_LIMIT) return;
+    this.#particles.push(particle);
+  }
+
+  /** Dust kicked up along the ground, while the hamster is still sliding. */
+  emitSkidDust(x: number, y: number, nowMs: number): void {
+    if (!this.#enhanced) return;
+    if (nowMs - this.#lastDustMs < DUST_INTERVAL_MS) return;
+    this.#lastDustMs = nowMs;
+    for (let i = 0; i < 3; i++) {
+      this.#spawn({
+        x,
+        y,
+        // Thrown backwards and up, the way grit comes off a skid.
+        vx: -(0.25 + this.#roll() * 0.55),
+        vy: -(0.12 + this.#roll() * 0.32),
+        gravity: 0.0022,
+        size: 1.6 + this.#roll() * 2.4,
+        tint: 0xd9c9a8,
+        lifeMs: DUST_LIFE_MS,
+        bornMs: nowMs,
+      });
+    }
+  }
+
+  /** A burst where a powerup was taken. */
+  #emitSparks(x: number, y: number, nowMs: number): void {
+    for (let i = 0; i < 12; i++) {
+      const angle = this.#roll() * Math.PI * 2;
+      const speed = 0.22 + this.#roll() * 0.5;
+      this.#spawn({
+        x,
+        y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        gravity: 0.0016,
+        size: 1.4 + this.#roll() * 2,
+        tint: 0xffe07a,
+        lifeMs: SPARK_LIFE_MS,
+        bornMs: nowMs,
+      });
+    }
+  }
+
+  /** Where the particles are this frame. Dead ones are dropped here. */
+  particles(nowMs: number): readonly Particle[] {
+    const out: Particle[] = [];
+    let keep = 0;
+    for (const p of this.#particles) {
+      const elapsed = nowMs - p.bornMs;
+      if (elapsed < 0 || elapsed >= p.lifeMs) continue;
+      this.#particles[keep++] = p;
+      out.push({
+        x: p.x + p.vx * elapsed,
+        y: p.y + p.vy * elapsed + 0.5 * p.gravity * elapsed * elapsed,
+        size: p.size,
+        tint: p.tint,
+        age: elapsed / p.lifeMs,
+      });
+    }
+    this.#particles.length = keep;
+    return out;
+  }
+
   /** Takes one tick's events. Cues this layer has no use for are ignored. */
-  consume(events: readonly SimEvent[], nowMs: number): void {
+  consume(events: readonly SimEvent[], nowMs: number, at?: { x: number; y: number }): void {
     for (const event of events) {
       if (event.t === 'fx') {
         const sprite = FX_SPRITE[event.id];
@@ -158,6 +268,10 @@ export class Effects {
         }
       } else if (event.t === 'shotDone' && event.outcome === 'faceplant') {
         this.#shake(SHAKE_AMPLITUDE.faceplant, nowMs);
+      } else if (event.t === 'pickup' && this.#enhanced && at !== undefined) {
+        // The cue carries only the kind, so the burst goes where the hamster
+        // was - which is where the overlap happened.
+        this.#emitSparks(at.x, at.y, nowMs);
       }
     }
   }
@@ -248,5 +362,7 @@ export class Effects {
     this.#aberrationStrength = 0;
     this.#waveAmplitude = 0;
     this.#waveStartedMs = 0;
+    this.#particles.length = 0;
+    this.#lastDustMs = Number.NEGATIVE_INFINITY;
   }
 }

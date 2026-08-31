@@ -96,6 +96,7 @@ export class GameRenderer implements Renderer {
     this.#ground(ctx, s);
     this.#powerups(ctx, s);
     this.#fx(ctx, now);
+    this.#particles(ctx, now);
     this.#hamster(ctx, s);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -175,6 +176,16 @@ export class GameRenderer implements Renderer {
       const sprite = this.#assets.get(fx.sprite);
       if (sprite !== undefined) this.#blit(ctx, sprite, fx.frame, fx.x, fx.y);
     }
+  }
+
+  /** Skid grit and pickup sparks, fading as they age. */
+  #particles(ctx: CanvasRenderingContext2D, now: number): void {
+    for (const p of this.#effects.particles(now)) {
+      ctx.globalAlpha = 1 - p.age;
+      ctx.fillStyle = `#${p.tint.toString(16).padStart(6, '0')}`;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
   }
 
   #powerups(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {

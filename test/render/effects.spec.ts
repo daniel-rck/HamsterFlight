@@ -172,3 +172,68 @@ describe('Effects at rest', () => {
     }
   });
 });
+
+describe('Effects particles', () => {
+  const enhanced = (): Effects => new Effects({ enhanced: true });
+
+  it('emits nothing in faithful mode', () => {
+    const effects = new Effects();
+    effects.emitSkidDust(100, 950, 0);
+    effects.consume([{ t: 'pickup', kind: 'speed' }], 0, { x: 100, y: 900 });
+    expect(effects.particles(10)).toHaveLength(0);
+  });
+
+  it('throws skid grit backwards and lets it fall', () => {
+    const effects = enhanced();
+    effects.emitSkidDust(100, 950, 0);
+    const born = effects.particles(0);
+    expect(born.length).toBeGreaterThan(0);
+
+    const later = effects.particles(200);
+    expect(later).toHaveLength(born.length);
+    // Backwards, because the hamster is sliding forwards.
+    expect(later.every((p, i) => p.x < (born[i]?.x ?? 0))).toBe(true);
+    expect(later.every(p => p.age > 0 && p.age < 1)).toBe(true);
+  });
+
+  it('rate-limits the skid so a long slide does not flood the field', () => {
+    const effects = enhanced();
+    for (let at = 0; at < 40; at += 5) effects.emitSkidDust(100, 950, at);
+    // 40 ms of ticks is under one emission interval, so only the first landed.
+    expect(effects.particles(1)).toHaveLength(3);
+  });
+
+  it('drops particles once they have run out', () => {
+    const effects = enhanced();
+    effects.emitSkidDust(100, 950, 0);
+    expect(effects.particles(419).length).toBeGreaterThan(0);
+    expect(effects.particles(420)).toHaveLength(0);
+  });
+
+  it('bursts sparks where the hamster was when the pickup fired', () => {
+    const effects = enhanced();
+    effects.consume([{ t: 'pickup', kind: 'bounce' }], 0, { x: 640, y: 800 });
+    const sparks = effects.particles(0);
+    expect(sparks.length).toBeGreaterThan(4);
+    expect(sparks.every(p => p.x === 640 && p.y === 800)).toBe(true);
+  });
+
+  it('is deterministic, so a replay scatters them identically', () => {
+    const a = enhanced();
+    const b = enhanced();
+    for (const effects of [a, b]) {
+      effects.emitSkidDust(100, 950, 0);
+      effects.consume([{ t: 'pickup', kind: 'wind' }], 60, { x: 300, y: 700 });
+    }
+    expect(a.particles(120)).toEqual(b.particles(120));
+  });
+
+  it('caps the field, however long the skid runs', () => {
+    const effects = enhanced();
+    for (let at = 0; at < 20_000; at += DUST_STEP) effects.emitSkidDust(100, 950, at);
+    expect(effects.particles(19_999).length).toBeLessThanOrEqual(160);
+  });
+});
+
+/** One emission interval, so each call in the cap test actually emits. */
+const DUST_STEP = 50;
