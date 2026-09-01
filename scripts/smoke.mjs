@@ -68,6 +68,27 @@ async function distinctColours(page) {
 /** Enough that a sky gradient alone would clear it, far short of a real frame. */
 const MIN_COLOURS = 8;
 
+/**
+ * What the page looks like right now, for a failure whose cause is not in its
+ * own message. Guarded, because the usual reason to be asking is that the page
+ * is no longer answering at all.
+ */
+async function describe(page) {
+  try {
+    return await page.evaluate(() => {
+      const stage = document.querySelector('#stage');
+      const box = stage?.getBoundingClientRect();
+      return (
+        `url=${location.href} title=${document.title || '(none)'} ` +
+        `stage=${stage === null ? 'missing' : `${box?.width}x${box?.height}`} ` +
+        `body=${document.body.innerHTML.replace(/\s+/g, ' ').slice(0, 200)}`
+      );
+    });
+  } catch (error) {
+    return `could not describe the page: ${String(error).split('\n')[0]}`;
+  }
+}
+
 async function check(browser, origin, { mode, renderer }) {
   const label = `${mode}/${renderer}`;
   const failures = [];
@@ -79,6 +100,9 @@ async function check(browser, origin, { mode, renderer }) {
   page.on('console', message => {
     if (message.type() === 'error') failures.push(`console.error: ${message.text()}`);
   });
+  // A crashed renderer process takes the DOM with it, so everything after it
+  // fails as "element not found" and blames the wrong thing.
+  page.on('crash', () => failures.push('the tab crashed'));
 
   try {
     // `?profile` is what publishes the frame counter on window.
@@ -98,23 +122,33 @@ async function check(browser, origin, { mode, renderer }) {
     return { label, failures };
   }
 
-  await playOneShot(page);
-  // The page renders on demand rather than every animation frame, so give the
-  // last of the shot's frames a moment to land before reading the counter.
-  await sleep(200);
+  // Everything past the boot is wrapped: one combination falling over should be
+  // a reported failure, not an exception that abandons the other three.
+  let frames = 0;
+  let colours = 0;
+  let version = '';
+  try {
+    await playOneShot(page);
+    // The page renders on demand rather than every animation frame, so give the
+    // last of the shot's frames a moment to land before reading the counter.
+    await sleep(200);
 
-  const frames = await page.evaluate(() => window.__hamsterProfile?.framesSeen ?? 0);
-  if (frames === 0) failures.push('booted and played a shot but drew no frames');
+    frames = await page.evaluate(() => window.__hamsterProfile?.framesSeen ?? 0);
+    if (frames === 0) failures.push('booted and played a shot but drew no frames');
 
-  const colours = await distinctColours(page);
-  if (colours < MIN_COLOURS) {
-    failures.push(`canvas has ${colours} distinct colour(s) - nothing was drawn`);
+    colours = await distinctColours(page);
+    if (colours < MIN_COLOURS) {
+      failures.push(`canvas has ${colours} distinct colour(s) - nothing was drawn`);
+    }
+
+    // The build stamp is substituted at build time, so an empty slot means the
+    // define never fired - and the deployed page could not be identified.
+    version = await page.evaluate(() => document.querySelector('#version')?.textContent ?? '');
+    if (version.trim() === '') failures.push('the build stamp is empty');
+  } catch (error) {
+    failures.push(String(error).split('\n')[0]);
+    failures.push(await describe(page));
   }
-
-  // The build stamp is substituted at build time, so an empty slot means the
-  // define never fired - and the deployed page could not be identified.
-  const version = await page.evaluate(() => document.querySelector('#version')?.textContent ?? '');
-  if (version.trim() === '') failures.push('the build stamp is empty');
 
   await page.close();
   return { label, failures, frames, colours, version };
