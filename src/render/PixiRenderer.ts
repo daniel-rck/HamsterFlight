@@ -12,7 +12,7 @@ import {
   Texture,
   type TextureSource,
 } from 'pixi.js';
-import type { AssetBundle, Sprite as SpriteAsset } from '@/assets/AssetLoader.ts';
+import type { AssetBundle, FrameRect, Sprite as SpriteAsset } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
 import { SceneFilter } from '@/render/effects/SceneFilter.ts';
@@ -351,7 +351,9 @@ export class PixiRenderer implements Renderer {
     this.#sky(s);
     // Impact shake rides on the camera, so the HUD and the sky stay still.
     const shake = this.#effects.shakeOffset(now);
-    this.#world.position.set(s.camera.x + shake.x, s.camera.y + shake.y);
+    const offsetX = s.camera.x + shake.x;
+    const offsetY = s.camera.y + shake.y;
+    this.#world.position.set(offsetX, offsetY);
     const scene = this.#effects.scene.layout(s, now);
     this.#ground(s);
     this.#drawScene(scene);
@@ -360,7 +362,7 @@ export class PixiRenderer implements Renderer {
     this.#drawParticles(now);
     this.#drawHamster(s);
     this.#drawHud(s, scene);
-    this.#applyFilters(s, now);
+    this.#applyFilters(s, now, offsetX, offsetY);
     if (this.#showHitboxes) this.#drawHitboxes(s);
     else this.#debugBoxes.clear();
 
@@ -375,7 +377,7 @@ export class PixiRenderer implements Renderer {
    * strength, and it breaks the single-draw-call batching the atlas buys - so
    * at rest the scene carries none at all.
    */
-  #applyFilters(s: SimSnapshot, now: number): void {
+  #applyFilters(s: SimSnapshot, now: number, offsetX: number, offsetY: number): void {
     const speed = clamp((Math.abs(s.hamster.xvel) - MOTION_BLUR_FROM) / MOTION_BLUR_SPAN, 0, 1);
     const altitude = clamp((C.GROUND_Y - s.hamster.y) / Math.abs(C.SPACE_BG_Y), 0, 1);
     const aberration = this.#effects.aberration(now);
@@ -395,16 +397,19 @@ export class PixiRenderer implements Renderer {
       const uniforms = this.#sceneFilter.uniforms;
       uniforms.uAberration = aberration;
       uniforms.uAltitude = altitude;
-      // Aberration radiates from where the hamster is on screen.
-      uniforms.uCentre[0] = clamp((s.hamster.x + s.camera.x) / C.VIEW_W, 0, 1);
-      uniforms.uCentre[1] = clamp((s.hamster.y + s.camera.y) / C.VIEW_H, 0, 1);
+      // Aberration radiates from where the hamster is on screen - which is
+      // the camera *and* the shake, since both move the world container and
+      // the filter samples the result. Leaving the shake out slid the centre
+      // by up to five pixels during exactly the impact that raised it.
+      uniforms.uCentre[0] = clamp((s.hamster.x + offsetX) / C.VIEW_W, 0, 1);
+      uniforms.uCentre[1] = clamp((s.hamster.y + offsetY) / C.VIEW_H, 0, 1);
       uniforms.uWaveProgress = wave?.progress ?? 0;
       uniforms.uWaveAmplitude = wave?.amplitude ?? 0;
       if (wave !== null) {
         // Held in world space, so the ring stays on the ground it came from
         // while the camera scrolls past.
-        uniforms.uWaveCentre[0] = (wave.x + s.camera.x) / C.VIEW_W;
-        uniforms.uWaveCentre[1] = (wave.y + s.camera.y) / C.VIEW_H;
+        uniforms.uWaveCentre[0] = (wave.x + offsetX) / C.VIEW_W;
+        uniforms.uWaveCentre[1] = (wave.y + offsetY) / C.VIEW_H;
       }
     }
 
@@ -750,7 +755,7 @@ export class PixiRenderer implements Renderer {
   #texture(sprite: SpriteAsset, frame: number): Texture | undefined {
     const rect = sprite.frames[frame] ?? sprite.frames[0];
     if (rect === undefined) return undefined;
-    const key = `${rect.x},${rect.y},${rect.w},${rect.h}`;
+    const key = textureKey(sprite.meta.sheet, rect);
     let texture = this.#textures.get(key);
     if (texture === undefined) {
       let source = this.#sources.get(sprite.sheet);
@@ -815,6 +820,17 @@ export function createPixiRenderer(
   options: RendererOptions = {},
 ): Promise<Renderer> {
   return PixiRenderer.create(canvas, assets, effects, options);
+}
+
+/**
+ * Sheet index first: two sprites on different sheets can land on the same rect,
+ * and a rect-only key would hand the second one the first sheet's texture. One
+ * sheet holds everything today, so this never bit - but `pack_atlas` really
+ * does spill onto a second sheet as the art grows, which is the only reason
+ * the manifest carries a sheet index at all.
+ */
+export function textureKey(sheet: number, rect: FrameRect): string {
+  return `${sheet}:${rect.x},${rect.y},${rect.w},${rect.h}`;
 }
 
 /**

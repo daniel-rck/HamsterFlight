@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { densityFor } from '@/assets/AssetLoader.ts';
 import { Effects } from '@/render/effects/Effects.ts';
+import { textureKey } from '@/render/PixiRenderer.ts';
 import { MAX_SCALE, stageScale } from '@/render/resolution.ts';
 import type { SimEvent } from '@/sim/events.ts';
 
@@ -269,5 +270,20 @@ describe('stage scale', () => {
 
   it('survives a layout that has not been measured yet', () => {
     expect(stageScale(0, 0)).toBe(1);
+  });
+});
+
+describe('textureKey', () => {
+  const rect = { x: 128, y: 64, w: 44, h: 160 };
+
+  it('tells the same rect on two sheets apart', () => {
+    // `pack_atlas` lays every sheet out from (0, 0), so a rect repeating across
+    // sheets is the normal case rather than a coincidence. Keyed by rect alone,
+    // the second sprite would draw the first sheet's pixels.
+    expect(textureKey(0, rect)).not.toBe(textureKey(1, rect));
+  });
+
+  it('still shares one texture for one frame asked for twice', () => {
+    expect(textureKey(0, rect)).toBe(textureKey(0, { ...rect }));
   });
 });
