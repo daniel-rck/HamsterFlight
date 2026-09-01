@@ -16,7 +16,7 @@ import type { AssetBundle, Sprite as SpriteAsset } from '@/assets/AssetLoader.ts
 import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
 import { SceneFilter } from '@/render/effects/SceneFilter.ts';
-import { launched } from '@/render/PreLaunchScene.ts';
+import { launched, type PreLaunchLayout } from '@/render/PreLaunchScene.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
 import { distance, markerScale } from '@/render/units.ts';
@@ -88,6 +88,8 @@ export class PixiRenderer implements Renderer {
   readonly #fxLayer = new Container();
   readonly #particleLayer = new Container();
   readonly #debugBoxes = new Graphics();
+  /** The launcher and the queue, over the bushes and under the pillow. */
+  readonly #launcher = new Container();
   readonly #pillow = new Sprite();
   readonly #shadowPivot = new Container();
   readonly #shadow = new Sprite();
@@ -96,6 +98,8 @@ export class PixiRenderer implements Renderer {
   readonly #hamsterInner = new Sprite();
   readonly #hamster = new Sprite();
   readonly #hud = new Container();
+  /** The original's own HUD art: the launch meter and the five shot pips. */
+  readonly #sceneHud = new Container();
 
   readonly #motionBlur = new BlurFilter({ strength: 0, quality: 2, resolution: 0.5 });
   readonly #sceneFilter = new SceneFilter();
@@ -109,6 +113,9 @@ export class PixiRenderer implements Renderer {
   readonly #particlePool: Sprite[] = [];
   readonly #markerTicks: Sprite[] = [];
   readonly #markerLabels: Text[] = [];
+  readonly #launcherPool: Sprite[] = [];
+  readonly #scenePool: Sprite[] = [];
+  readonly #needle = new Sprite();
   readonly #panelBg = solidRect();
   readonly #panelLines: [Text, Text];
   readonly #glideLabel: Text;
@@ -214,6 +221,7 @@ export class PixiRenderer implements Renderer {
     this.#world.addChild(
       ground,
       this.#bushes,
+      this.#launcher,
       this.#pillow,
       this.#markers,
       this.#powerups,
@@ -226,6 +234,8 @@ export class PixiRenderer implements Renderer {
     this.#scene.addChild(this.#world);
 
     this.#hud.addChild(
+      this.#sceneHud,
+      this.#needle,
       this.#panelBg,
       this.#panelLines[0],
       this.#panelLines[1],
@@ -253,11 +263,13 @@ export class PixiRenderer implements Renderer {
     // Static HUD chrome: positions and colours that never change.
     this.#panelBg.tint = 0x0c141e;
     this.#panelBg.alpha = 0.55;
-    this.#panelBg.position.set(10, 10);
+    // Shifted right of x = 118: the shot pips and the launch meter are back in
+    // the left column the original kept for them.
+    this.#panelBg.position.set(122, 10);
     this.#panelBg.width = 150;
     this.#panelBg.height = 16 * 2 + 10;
-    this.#panelLines[0].position.set(18, 28 - this.#ascentMono12);
-    this.#panelLines[1].position.set(18, 44 - this.#ascentMono12);
+    this.#panelLines[0].position.set(130, 28 - this.#ascentMono12);
+    this.#panelLines[1].position.set(130, 44 - this.#ascentMono12);
 
     this.#glideBg.tint = 0x0c141e;
     this.#glideBg.alpha = 0.55;
@@ -340,12 +352,14 @@ export class PixiRenderer implements Renderer {
     // Impact shake rides on the camera, so the HUD and the sky stay still.
     const shake = this.#effects.shakeOffset(now);
     this.#world.position.set(s.camera.x + shake.x, s.camera.y + shake.y);
+    const scene = this.#effects.scene.layout(s, now);
     this.#ground(s);
+    this.#drawScene(scene);
     this.#drawPowerups(s);
     this.#drawFx(now);
     this.#drawParticles(now);
     this.#drawHamster(s);
-    this.#drawHud(s);
+    this.#drawHud(s, scene);
     this.#applyFilters(s, now);
     if (this.#showHitboxes) this.#drawHitboxes(s);
     else this.#debugBoxes.clear();
@@ -596,7 +610,51 @@ export class PixiRenderer implements Renderer {
     g.stroke({ color: 0x4dd2ff, width: 1 });
   }
 
-  #drawHud(s: SimSnapshot): void {
+  /**
+   * The launcher and the queue, straight out of the shared layout. Both
+   * backends read the same list in the same order, so they cannot drift.
+   */
+  #drawScene(scene: PreLaunchLayout): void {
+    let used = 0;
+    for (const at of scene.world) {
+      const asset = this.#assets.get(at.sprite);
+      if (asset === undefined) continue;
+      const sprite = poolAt(this.#launcherPool, used++, this.#launcher, () => new Sprite());
+      const texture = this.#texture(asset, at.frame);
+      if (texture !== undefined) sprite.texture = texture;
+      place(sprite, asset, at.x, at.y);
+      sprite.visible = true;
+    }
+    hideFrom(this.#launcherPool, used);
+  }
+
+  #drawHud(s: SimSnapshot, scene: PreLaunchLayout): void {
+    let used = 0;
+    for (const at of scene.hud) {
+      const asset = this.#assets.get(at.sprite);
+      if (asset === undefined) continue;
+      const sprite = poolAt(this.#scenePool, used++, this.#sceneHud, () => new Sprite());
+      const texture = this.#texture(asset, at.frame);
+      if (texture !== undefined) sprite.texture = texture;
+      place(sprite, asset, at.x, at.y);
+      sprite.visible = true;
+    }
+    hideFrom(this.#scenePool, used);
+
+    const needle = scene.needle;
+    const arrow = needle === null ? undefined : this.#assets.get(needle.sprite);
+    this.#needle.visible = needle !== null && arrow !== undefined;
+    if (needle !== null && arrow !== undefined) {
+      const texture = this.#texture(arrow, needle.frame);
+      if (texture !== undefined) this.#needle.texture = texture;
+      // Rotation is about the registration point, so the offset has to ride on
+      // the pivot rather than on the position the way `place` does it.
+      this.#needle.position.set(needle.x, needle.y);
+      this.#needle.pivot.set(-arrow.meta.ox * arrow.density, -arrow.meta.oy * arrow.density);
+      this.#needle.scale.set(1 / arrow.density);
+      this.#needle.rotation = needle.flipped ? Math.PI : 0;
+    }
+
     const shots = s.shots.reduce((a, b) => a + b, 0);
     const metric = this.#effects.enhanced;
     setText(this.#panelLines[0], `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`);

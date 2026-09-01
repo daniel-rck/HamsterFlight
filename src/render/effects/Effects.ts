@@ -1,4 +1,5 @@
 import { SPRITES, type SpriteId } from '@/assets/sprites.generated.ts';
+import { PreLaunchScene } from '@/render/PreLaunchScene.ts';
 import type { FxId, SimEvent } from '@/sim/events.ts';
 
 /** The three impact clips the original played and this port never drew. */
@@ -144,6 +145,15 @@ export interface EffectsOptions {
 }
 
 export class Effects {
+  /**
+   * The launcher, the hamster queue and the launch meter.
+   *
+   * It rides along here because it is driven by the same event stream and
+   * reaches the renderers by the same route, but it is deliberately outside
+   * the `enhanced` gate: it restores what the original drew rather than adding
+   * to it, exactly like the `fx/*` clips above.
+   */
+  readonly scene = new PreLaunchScene();
   readonly #enhanced: boolean;
   #live: LiveFx[] = [];
   #shakeStartedMs = 0;
@@ -243,6 +253,7 @@ export class Effects {
 
   /** Takes one tick's events. Cues this layer has no use for are ignored. */
   consume(events: readonly SimEvent[], nowMs: number, at?: { x: number; y: number }): void {
+    this.scene.consume(events, nowMs);
     for (const event of events) {
       if (event.t === 'fx') {
         const sprite = FX_SPRITE[event.id];
@@ -357,6 +368,7 @@ export class Effects {
 
   /** Drop everything in flight - on a restart, or when the tab comes back. */
   clear(): void {
+    this.scene.clear();
     this.#live.length = 0;
     this.#shakeAmplitude = 0;
     this.#aberrationStrength = 0;

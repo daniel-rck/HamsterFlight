@@ -1,7 +1,7 @@
 import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
-import { launched } from '@/render/PreLaunchScene.ts';
+import { launched, type PreLaunchLayout } from '@/render/PreLaunchScene.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
 import { distance, markerScale } from '@/render/units.ts';
@@ -95,14 +95,15 @@ export class GameRenderer implements Renderer {
     // top of them, so the HUD and the sky stay still while the world jolts.
     const shake = this.#effects.shakeOffset(now);
     ctx.setTransform(d, 0, 0, d, (s.camera.x + shake.x) * d, (s.camera.y + shake.y) * d);
-    this.#ground(ctx, s);
+    const scene = this.#effects.scene.layout(s, now);
+    this.#ground(ctx, s, scene);
     this.#powerups(ctx, s);
     this.#fx(ctx, now);
     this.#particles(ctx, now);
     this.#hamster(ctx, s);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
-    this.#hud(ctx, s);
+    this.#hud(ctx, s, scene);
   }
 
   // -- layers ---------------------------------------------------------------
@@ -135,7 +136,7 @@ export class GameRenderer implements Renderer {
     ctx.globalAlpha = 1;
   }
 
-  #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
+  #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
     ctx.fillStyle = '#5d9b47';
     ctx.fillRect(-2000, C.GROUND_Y, 400000, 600);
     ctx.fillStyle = '#4b7f38';
@@ -148,6 +149,11 @@ export class GameRenderer implements Renderer {
       const h = Math.imul(x + 7919, 0x85ebca6b) >>> 0;
       const bush = this.#assets.get(`bush/${(h % 5) + 1}` as SpriteId);
       if (bush !== undefined) this.#blit(ctx, bush, 0, x + (h % 90), C.GROUND_Y);
+    }
+
+    for (const at of scene.world) {
+      const sprite = this.#assets.get(at.sprite);
+      if (sprite !== undefined) this.#blit(ctx, sprite, at.frame, at.x, at.y);
     }
 
     const pillow = this.#assets.get('pillow');
@@ -323,7 +329,21 @@ export class GameRenderer implements Renderer {
 
   // -- HUD ------------------------------------------------------------------
 
-  #hud(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
+  #hud(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
+    for (const at of scene.hud) {
+      const sprite = this.#assets.get(at.sprite);
+      if (sprite !== undefined) this.#blit(ctx, sprite, at.frame, at.x, at.y);
+    }
+    const needle = scene.needle;
+    const arrow = needle === null ? undefined : this.#assets.get(needle.sprite);
+    if (needle !== null && arrow !== undefined) {
+      ctx.save();
+      ctx.translate(needle.x, needle.y);
+      if (needle.flipped) ctx.rotate(Math.PI);
+      this.#blit(ctx, arrow, needle.frame, 0, 0);
+      ctx.restore();
+    }
+
     ctx.font = '600 12px ui-monospace, monospace';
 
     const shots = s.shots.reduce((a, b) => a + b, 0);
@@ -332,10 +352,12 @@ export class GameRenderer implements Renderer {
       `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`,
       `${distance(s.feet, metric)}   total ${distance(shots, metric)}`,
     ];
+    // Shifted right of x = 118: the shot pips and the launch meter are back in
+    // the left column the original kept for them.
     ctx.fillStyle = 'rgba(12,20,30,.55)';
-    ctx.fillRect(10, 10, 150, 16 * panelLines.length + 10);
+    ctx.fillRect(122, 10, 150, 16 * panelLines.length + 10);
     ctx.fillStyle = '#eaf6ff';
-    for (const [i, line] of panelLines.entries()) ctx.fillText(line, 18, 28 + i * 16);
+    for (const [i, line] of panelLines.entries()) ctx.fillText(line, 130, 28 + i * 16);
 
     // Glide meter. The label sits beside the bar rather than on top of it, so
     // the fill never covers it.
