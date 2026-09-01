@@ -11,6 +11,7 @@
     "dev": "vite",
     "build": "vite build",
     "bundle:report": "node scripts/bundle-report.mjs",
+    "check:bundle": "node scripts/bundle-report.mjs --check",
     "bench:renderers": "node scripts/bench-renderers.mjs",
     "preview": "vite preview",
     "preview:cf": "npm run build && wrangler dev",
@@ -23,7 +24,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "node --experimental-strip-types scripts/bench-strategies.ts",
-    "verify": "npm run lint && npm run check:purity && npm run check:assets && npm run typecheck && npm run test && npm run build",
+    "verify": "npm run lint && npm run check:purity && npm run check:assets && npm run typecheck && npm run test && npm run build && npm run check:bundle",
     "deploy": "npm run verify && wrangler deploy"
   },
   "devDependencies": {
