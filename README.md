@@ -18,6 +18,15 @@ npm run verify       # lint, sim purity, typecheck, tests, build
 Click or press <kbd>Space</kbd> to jump, click again to hit the pillow, then
 hold to glide. <kbd>P</kbd> pauses. Append `?seed=12345` to replay an exact run.
 
+| query parameter | effect |
+| --- | --- |
+| `?seed=12345` | replay an exact run |
+| `?debug` | hitboxes and a state readout (<kbd>H</kbd> toggles) |
+| `?mode=faithful` | the Canvas2D reference renderer, nothing added |
+| `?renderer=pixi` \| `canvas2d` | pick a backend explicitly, overriding the mode |
+| `?stress=N` | multiply renderer-only decoration; profiling aid, never touches physics |
+| `?profile` | report draw-time percentiles to the console |
+
 ## What makes this port unusual
 
 **The physics runs at a fixed 20 Hz and that is not negotiable.** The original
@@ -48,7 +57,7 @@ src/sim/          pure, deterministic simulation - no DOM, no clock, no Math.ran
   phases/           jump, launch, flight - the 12-step tick in original order
   systems/          ground collision, powerup spawn and pickup, camera
 src/app/          the fixed-timestep loop, the only place that reads a clock
-src/render/       canvas renderer; reads snapshots, cannot reach the simulation
+src/render/       Renderer interface plus two backends; read snapshots, cannot reach the simulation
 src/input/        DOM events to discrete commands
 src/assets/       sprite frames plus the generated placement manifest
 reference/        research artifacts - decompilate, analysis, tools. Not a build input.
@@ -71,6 +80,29 @@ also a 40 px approximation, where the real bounds are now extracted from the
 shape records. So the tests assert the qualitative shape the analysis describes,
 not its numbers. Run `npm run bench` for the current table.
 
+## Two renderers
+
+`enhanced` is the default and runs on PixiJS, because WebGL is what can carry
+shaders and particle effects; `?mode=faithful` gives the Canvas2D renderer
+drawing exactly what the original stage drew.
+
+That was not the first answer. `reference/doc/renderer-evaluation.md` records a
+measured spike which found Pixi costs 153.8 kB gzip and only overtakes Canvas2D
+somewhere between 1 500 and 5 000 drawn objects per frame - where this game
+draws about 25. On throughput alone the answer was no. It changed when effects
+entered the picture: Canvas2D has no shader path at all, so the cost now buys a
+capability rather than speed. The evaluation document still holds the numbers,
+including the ones that argue against.
+
+```sh
+npm run bundle:report                          # per-chunk gzip cost
+STRESS=1,4,16,64,256 npm run bench:renderers   # frame cost, both backends
+```
+
+The benchmark drives a real browser through a scripted flight. Numbers taken
+without a GPU are software-rasterised and understate Pixi; the document says
+which columns survive that and which do not.
+
 ## Assets
 
 The sprites under `src/assets/sprites/` are extracted from the original SWF by
@@ -80,19 +112,45 @@ count and, crucially, the `ox`/`oy` offset of the image relative to the entity
 position - the offsets Flash itself used - so the renderer contains no
 per-sprite magic numbers.
 
-Placement is cross-checked rather than trusted. The offsets are computed from a
-display-list walk (`reference/tools/sprite_bounds.py`) and compared against the
-dimensions ffdec actually rasterised; agreement sets `verified: true`, and the
-26 of 32 sprites that agree use the exact offset. The six that disagree - nested
-clips that animate their own scale - are marked `verified: false` and centred on
-the registration point instead.
+The 382 frames ship as **packed atlas sheets** rather than 382 files. Boot went
+from 382 HTTP requests to one, and the WebGL backend can batch every sprite into
+a single draw call because they all live on one GPU texture. The manifest records
+each frame's rectangle within the sheet; `w`/`h` are shared across a sprite's
+frames because ffdec crops them all to the same box.
+
+Two densities are built - 578 kB at 1:1 and 1.5 MB at 2x - and the loader takes
+the smallest that still covers the display. Most screens lay the stage out wider
+than its 600 px design size, so most visitors get the 2x sheet: sharper art for
+about a megabyte more. Dropping back to one density is a `--densities 1` rebuild.
+
+Placement is measured twice rather than trusted once. The offset comes from the
+root transform of ffdec's SVG sprite export, which is exact and unrounded and is
+produced by the same tool that rasterised the PNGs. `reference/tools/sprite_bounds.py`
+computes the same quantity independently by walking the display list, and
+`verified` records whether the two agree - 26 of 32 do. The six that do not are
+nested clips whose geometry the display-list walk mis-resolves; they still use
+ffdec's value, so `verified: false` marks a disagreement worth investigating
+rather than a fallback.
 
 Regenerate with:
 
 ```sh
+ffdec -format sprite:svg -export sprite reference/extracted/svg \
+  path/to/OCybCA4ADbpTKT.swf
+
 python3 reference/tools/build_sprites.py path/to/OCybCA4ADbpTKT.swf \
-  reference/extracted src/assets/sprites
+  reference/extracted src/assets/sprites --svg-dir reference/extracted/svg
 ```
+
+`--densities 1,2` emits one sheet per density from a single 1:1 layout, so the
+denser sheet is the same rectangles multiplied and one manifest serves both. The
+loader picks by how large the stage actually is, and the renderers draw each
+frame back down to its stage box - so raising the density changes sharpness and
+nothing else. Requires Pillow and cairosvg.
+
+Without `--svg-dir` the tool falls back to the display-list walk and centres the
+six unresolved clips on their registration point, which misplaces them by up to
+63 px.
 
 **On rights:** this artwork is the original publisher's, not this project's.
 Section 13.4 of the analysis document notes that shipping it in a published

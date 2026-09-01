@@ -1,5 +1,10 @@
 import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
+import type { Effects } from '@/render/effects/Effects.ts';
+import { launched, type PreLaunchLayout } from '@/render/PreLaunchScene.ts';
+import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
+import { stageScale } from '@/render/resolution.ts';
+import { distance, markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 import { DEFAULT_TUNING } from '@/sim/tuning.ts';
@@ -17,10 +22,12 @@ const POWERUP_SPRITE: Record<PowerupKind, SpriteId> = {
 /** Sprite frames advance on real time at the original stage rate. */
 const SPRITE_FPS = 19;
 
-export interface RendererOptions {
-  /** Draw the measured hitboxes over the art. */
-  readonly showHitboxes?: boolean;
-}
+/** Decoration counts at stress 1. Both renderers use these, so they compare. */
+const STAR_COUNT = 70;
+const BUSH_SPACING = 260;
+
+/** Enough bubble to still read as one, little enough to see the hamster. */
+const BUBBLE_ALPHA = 0.62;
 
 /**
  * Canvas 2D renderer for the 600x400 stage.
@@ -30,28 +37,37 @@ export interface RendererOptions {
  * which are the offsets Flash itself used - there are no per-sprite magic
  * numbers in here.
  */
-export class GameRenderer {
+export class GameRenderer implements Renderer {
   readonly #ctx: CanvasRenderingContext2D;
   readonly #canvas: HTMLCanvasElement;
   readonly #assets: AssetBundle;
+  readonly #effects: Effects;
+  readonly #stress: number;
   #dpr = 1;
   #showHitboxes: boolean;
   /** Wall-clock milliseconds, for animations that are not physics. */
   #elapsed = 0;
   #lastFrameTime = 0;
 
-  constructor(canvas: HTMLCanvasElement, assets: AssetBundle, options: RendererOptions = {}) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    assets: AssetBundle,
+    effects: Effects,
+    options: RendererOptions = {},
+  ) {
     const ctx = canvas.getContext('2d', { alpha: false });
     if (ctx === null) throw new Error('2D canvas context unavailable');
     this.#ctx = ctx;
     this.#canvas = canvas;
     this.#assets = assets;
+    this.#effects = effects;
     this.#showHitboxes = options.showHitboxes ?? false;
+    this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.resize();
   }
 
   resize(): void {
-    this.#dpr = Math.min(window.devicePixelRatio || 1, 2);
+    this.#dpr = stageScale(this.#canvas.getBoundingClientRect().width, window.devicePixelRatio);
     this.#canvas.width = Math.round(C.VIEW_W * this.#dpr);
     this.#canvas.height = Math.round(C.VIEW_H * this.#dpr);
     this.#ctx.imageSmoothingQuality = 'high';
@@ -60,6 +76,9 @@ export class GameRenderer {
   toggleHitboxes(): void {
     this.#showHitboxes = !this.#showHitboxes;
   }
+
+  /** Immediate mode holds no GPU objects, so there is nothing to release. */
+  destroy(): void {}
 
   draw(s: SimSnapshot, now: number): void {
     if (this.#lastFrameTime !== 0) this.#elapsed += now - this.#lastFrameTime;
@@ -72,14 +91,19 @@ export class GameRenderer {
     this.#sky(ctx, s);
 
     // World space. The camera offsets are the original's negative container
-    // offsets, so they apply directly as a translation.
-    ctx.setTransform(d, 0, 0, d, s.camera.x * d, s.camera.y * d);
-    this.#ground(ctx, s);
+    // offsets, so they apply directly as a translation. Impact shake rides on
+    // top of them, so the HUD and the sky stay still while the world jolts.
+    const shake = this.#effects.shakeOffset(now);
+    ctx.setTransform(d, 0, 0, d, (s.camera.x + shake.x) * d, (s.camera.y + shake.y) * d);
+    const scene = this.#effects.scene.layout(s, now);
+    this.#ground(ctx, s, scene);
     this.#powerups(ctx, s);
+    this.#fx(ctx, now);
+    this.#particles(ctx, now);
     this.#hamster(ctx, s);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
-    this.#hud(ctx, s);
+    this.#hud(ctx, s, scene);
   }
 
   // -- layers ---------------------------------------------------------------
@@ -100,7 +124,7 @@ export class GameRenderer {
     ctx.globalAlpha = clamp((altitude - 0.35) / 0.4, 0, 1);
     ctx.fillStyle = '#fff';
     // Deterministic from a cheap hash, so the field is stable without state.
-    for (let i = 0; i < 70; i++) {
+    for (let i = 0; i < STAR_COUNT * this.#stress; i++) {
       const h = Math.imul(i + 1, 0x9e3779b1) >>> 0;
       const x = (h % 1000) / 1000;
       const y = ((h >>> 10) % 1000) / 1000;
@@ -112,35 +136,66 @@ export class GameRenderer {
     ctx.globalAlpha = 1;
   }
 
-  #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
+  #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
     ctx.fillStyle = '#5d9b47';
     ctx.fillRect(-2000, C.GROUND_Y, 400000, 600);
     ctx.fillStyle = '#4b7f38';
     ctx.fillRect(-2000, C.GROUND_Y, 400000, 5);
 
     // Bushes, drawn from a stable hash of their position so no state is needed.
-    const from = Math.floor((-s.camera.x - 200) / 260) * 260;
-    for (let x = from; x < -s.camera.x + C.VIEW_W + 200; x += 260) {
+    const spacing = BUSH_SPACING / this.#stress;
+    const from = Math.floor((-s.camera.x - 200) / spacing) * spacing;
+    for (let x = from; x < -s.camera.x + C.VIEW_W + 200; x += spacing) {
       const h = Math.imul(x + 7919, 0x85ebca6b) >>> 0;
       const bush = this.#assets.get(`bush/${(h % 5) + 1}` as SpriteId);
       if (bush !== undefined) this.#blit(ctx, bush, 0, x + (h % 90), C.GROUND_Y);
     }
 
+    for (const at of scene.world) {
+      const sprite = this.#assets.get(at.sprite);
+      if (sprite !== undefined) this.#blit(ctx, sprite, at.frame, at.x, at.y);
+    }
+
     const pillow = this.#assets.get('pillow');
     if (pillow !== undefined) {
-      const x = s.phaseKind === 'ready' ? C.PILLOW_REST_X : C.PILLOW_LAUNCH_X;
+      // `launch()` runs on the *second* click, so the pillow holds its rest
+      // position through the whole jump. Game.as:1029-1036, 1118-1121.
+      const x = launched(s.phaseKind) ? C.PILLOW_LAUNCH_X : C.PILLOW_REST_X;
       this.#blit(ctx, pillow, 0, x, C.PILLOW_Y);
     }
 
     // Distance markers, so progress is readable without the HUD.
     ctx.fillStyle = 'rgba(255,255,255,.5)';
     ctx.font = '10px ui-monospace, monospace';
-    const firstFoot = Math.max(0, Math.floor((-s.camera.x - 100) / C.PX_PER_FOOT / 10) * 10);
-    for (let feet = firstFoot; feet * C.PX_PER_FOOT < -s.camera.x + C.VIEW_W + 100; feet += 10) {
-      const x = feet * C.PX_PER_FOOT;
+    const scale = markerScale(C.PX_PER_FOOT, this.#effects.enhanced);
+    const label = scale.step * scale.labelEvery;
+    const first = Math.max(
+      0,
+      Math.floor((-s.camera.x - 100) / scale.pixels / scale.step) * scale.step,
+    );
+    for (let at = first; at * scale.pixels < -s.camera.x + C.VIEW_W + 100; at += scale.step) {
+      const x = at * scale.pixels;
       ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
-      if (feet % 50 === 0) ctx.fillText(`${feet}ft`, x + 3, C.GROUND_Y - 10);
+      if (at % label === 0) ctx.fillText(`${at}${scale.suffix}`, x + 3, C.GROUND_Y - 10);
     }
+  }
+
+  /** Impact clips, behind the hamster so it stays readable through them. */
+  #fx(ctx: CanvasRenderingContext2D, now: number): void {
+    for (const fx of this.#effects.active(now)) {
+      const sprite = this.#assets.get(fx.sprite);
+      if (sprite !== undefined) this.#blit(ctx, sprite, fx.frame, fx.x, fx.y);
+    }
+  }
+
+  /** Skid grit and pickup sparks, fading as they age. */
+  #particles(ctx: CanvasRenderingContext2D, now: number): void {
+    for (const p of this.#effects.particles(now)) {
+      ctx.globalAlpha = 1 - p.age;
+      ctx.fillStyle = `#${p.tint.toString(16).padStart(6, '0')}`;
+      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+    }
+    ctx.globalAlpha = 1;
   }
 
   #powerups(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
@@ -148,7 +203,10 @@ export class GameRenderer {
       const sprite = this.#assets.get(POWERUP_SPRITE[item.kind]);
       if (sprite === undefined) continue;
       ctx.globalAlpha = item.taken ? 0.25 : 1;
-      this.#blit(ctx, sprite, this.#animFrame(sprite), item.x, item.y);
+      const frame = this.#animFrame(sprite);
+      for (let i = 0; i < this.#stress; i++) {
+        this.#blit(ctx, sprite, frame, item.x + i * 3, item.y + i * 3);
+      }
       ctx.globalAlpha = 1;
 
       if (this.#showHitboxes) {
@@ -174,7 +232,7 @@ export class GameRenderer {
       ctx.translate(h.x, C.SHADOW_Y);
       ctx.scale(scale, scale);
       ctx.globalAlpha = 0.45;
-      ctx.drawImage(shadow.frames[0] as ImageBitmap, shadow.meta.ox, shadow.meta.oy);
+      this.#blit(ctx, shadow, 0, 0, 0);
       ctx.globalAlpha = 1;
       ctx.restore();
     }
@@ -186,14 +244,23 @@ export class GameRenderer {
     const flying = s.phaseKind === 'flying';
     ctx.save();
     ctx.translate(h.x, h.y);
+    // The bubble is opaque in the original, so the hamster vanishes inside it
+    // for the whole bounce. Enhanced mode draws the flier underneath and lets
+    // the bubble sit over it.
+    const inBubble = id === 'hamster/ball' && this.#effects.enhanced;
+    if (inBubble) {
+      const inside = this.#assets.get('hamster/fly');
+      if (inside !== undefined) this.#blit(ctx, inside, this.#animFrame(inside), 0, 0);
+      ctx.globalAlpha = BUBBLE_ALPHA;
+    }
     if (flying && h.doRotation) {
       // The original writes `_rotation = radToDeg(atan2(yvel, xvel)) + 90`
       // because its art is authored pointing up. The exported poses face
       // right, so the +90 is dropped and the sprite aligns with velocity.
       ctx.rotate(Math.atan2(h.yvel, h.xvel));
     }
-    const frame = sprite.frames[this.#animFrame(sprite)] ?? sprite.frames[0];
-    if (frame !== undefined) ctx.drawImage(frame, sprite.meta.ox, sprite.meta.oy);
+    this.#blit(ctx, sprite, this.#animFrame(sprite), 0, 0);
+    if (inBubble) ctx.globalAlpha = 1;
     ctx.restore();
 
     if (this.#showHitboxes) {
@@ -238,26 +305,59 @@ export class GameRenderer {
     return Math.floor((this.#elapsed / 1000) * fps) % sprite.meta.frames;
   }
 
+  /**
+   * Cuts one frame out of the atlas sheet and places it by the manifest
+   * offsets. `w`/`h` are art pixels and `ox`/`oy` stage pixels, so the frame is
+   * drawn at its stage size - which is how art packed above 1:1 stays put.
+   */
   #blit(ctx: CanvasRenderingContext2D, sprite: Sprite, frame: number, x: number, y: number): void {
-    const image = sprite.frames[frame] ?? sprite.frames[0];
-    if (image === undefined) return;
-    ctx.drawImage(image, x + sprite.meta.ox, y + sprite.meta.oy);
+    const rect = sprite.frames[frame] ?? sprite.frames[0];
+    if (rect === undefined) return;
+    const density = sprite.density;
+    ctx.drawImage(
+      sprite.sheet,
+      rect.x,
+      rect.y,
+      rect.w,
+      rect.h,
+      x + sprite.meta.ox,
+      y + sprite.meta.oy,
+      rect.w / density,
+      rect.h / density,
+    );
   }
 
   // -- HUD ------------------------------------------------------------------
 
-  #hud(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
+  #hud(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
+    for (const at of scene.hud) {
+      const sprite = this.#assets.get(at.sprite);
+      if (sprite !== undefined) this.#blit(ctx, sprite, at.frame, at.x, at.y);
+    }
+    const needle = scene.needle;
+    const arrow = needle === null ? undefined : this.#assets.get(needle.sprite);
+    if (needle !== null && arrow !== undefined) {
+      ctx.save();
+      ctx.translate(needle.x, needle.y);
+      if (needle.flipped) ctx.rotate(Math.PI);
+      this.#blit(ctx, arrow, needle.frame, 0, 0);
+      ctx.restore();
+    }
+
     ctx.font = '600 12px ui-monospace, monospace';
 
     const shots = s.shots.reduce((a, b) => a + b, 0);
+    const metric = this.#effects.enhanced;
     const panelLines = [
       `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`,
-      `${s.feet} ft   total ${shots} ft`,
+      `${distance(s.feet, metric)}   total ${distance(shots, metric)}`,
     ];
+    // Shifted right of x = 118: the shot pips and the launch meter are back in
+    // the left column the original kept for them.
     ctx.fillStyle = 'rgba(12,20,30,.55)';
-    ctx.fillRect(10, 10, 150, 16 * panelLines.length + 10);
+    ctx.fillRect(122, 10, 150, 16 * panelLines.length + 10);
     ctx.fillStyle = '#eaf6ff';
-    for (const [i, line] of panelLines.entries()) ctx.fillText(line, 18, 28 + i * 16);
+    for (const [i, line] of panelLines.entries()) ctx.fillText(line, 130, 28 + i * 16);
 
     // Glide meter. The label sits beside the bar rather than on top of it, so
     // the fill never covers it.
@@ -307,8 +407,10 @@ export class GameRenderer {
         return 'click again to hit the pillow';
       case 'flying':
         return s.flags.skidding ? null : 'hold to glide';
-      case 'gameOver':
-        return `${s.shots.reduce((a, b) => a + b, 0)} ft total - click to play again`;
+      case 'gameOver': {
+        const total = s.shots.reduce((a, b) => a + b, 0);
+        return `${distance(total, this.#effects.enhanced)} total - click to play again`;
+      }
       default:
         return null;
     }
@@ -322,4 +424,17 @@ function clamp(value: number, low: number, high: number): number {
 function mix(a: readonly number[], b: readonly number[], t: number): string {
   const channel = (i: number): number => Math.round((a[i] ?? 0) + ((b[i] ?? 0) - (a[i] ?? 0)) * t);
   return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
+}
+
+/**
+ * The Canvas2D backend. Async only to satisfy `RendererFactory` - nothing here
+ * needs to await, unlike Pixi's `Application.init()`.
+ */
+export function createCanvasRenderer(
+  canvas: HTMLCanvasElement,
+  assets: AssetBundle,
+  effects: Effects,
+  options: RendererOptions = {},
+): Promise<Renderer> {
+  return Promise.resolve(new GameRenderer(canvas, assets, effects, options));
 }

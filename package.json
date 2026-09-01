@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "bundle:report": "node scripts/bundle-report.mjs",
+    "bench:renderers": "node scripts/bench-renderers.mjs",
     "preview": "vite preview",
     "preview:cf": "npm run build && wrangler dev",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sim.json && tsc -p tsconfig.node.json",
@@ -26,9 +28,13 @@
   "devDependencies": {
     "@biomejs/biome": "^2.5.11",
     "@types/node": "^26.4.0",
+    "playwright": "^1.62.1",
     "typescript": "^7.0.2",
     "vite": "^8.2.2",
     "vitest": "^4.1.11",
     "wrangler": "^4.127.1"
+  },
+  "dependencies": {
+    "pixi.js": "^8.20.1"
   }
 }

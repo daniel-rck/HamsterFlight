@@ -113,17 +113,83 @@ point. `reference/tools/sprite_bounds.py` computes it from a real display-list
 walk - `PlaceObject2` can place a character *or* move one already at a depth
 without naming it, and ignoring those move tags undercounts every animated clip.
 
-Every offset is then cross-checked against the dimensions ffdec actually
-rasterised. 26 of 32 sprites agree and use the exact offset; six disagree and
-are centred on the registration point instead, marked `verified: false` in the
-manifest. The disagreements are nested clips whose children animate their own
-scale, where a union over all of a child's frames is the wrong quantity - that
-is a known limitation of the walker, recorded rather than papered over.
+The walker reads both placement tags. Skipping `PlaceObject3` - which this SWF
+uses 24 times - made whole sprites look empty, `_bounce` and the launch tower
+among them.
+
+The authoritative offset is ffdec's own SVG export: each frame's root
+`<g transform="matrix(1,0,0,1, tx, ty)">` shifts the art so its box starts at
+the origin, so `(-tx, -ty)` is the offset, unrounded and produced by the same
+tool that rasterised the art. The display-list walk is then a second opinion
+rather than the source: 33 of 40 sprites agree and are marked
+`verified: true`; the seven that do not are recorded, not papered over.
+
+Two causes account for all seven. Five are clips the walker gets wrong: nested
+children that animate their own scale, or a rotated placement, whose terms
+`transform()` drops. Two are composed sprites (below) where the boxes are
+*meant* to differ, because the tool crops them tighter than the declared
+geometry; the build prints both boxes so the difference can be read rather than
+guessed at.
 
 One deliberate rendering divergence: the original sets
 `_rotation = radToDeg(atan2(yvel, xvel)) + 90` because its art is authored
 pointing up. The exported poses face right, so the `+ 90` is dropped and the
 sprite aligns directly with the velocity vector.
+
+## The pre-launch scene was missing, and why
+
+For a long time the port drew a hamster and a pillow where the original has a
+whole machine: a wooden tower, an operator swinging a pillow on a green pole,
+two hamster wheels turning on windmill poles, four hamsters queuing to the left,
+a launch meter and five shot pips.
+
+It went missing because the reverse-engineering pass followed clip boundaries,
+and **there is no launcher clip to follow.** None of it was ever a sprite in the
+SWF: it is a band of loose layers inside `background_mc` (char 145), stacked
+between the parallax hills and the starfield. A tool that walks `DefineSprite`
+tags simply never sees it.
+
+`build_sprites.py` composes those sprites itself now, selecting layers by
+character id out of the parent's frame SVGs (`COMPOSED`, `Vector`), and
+`Resolver.subset_bounds` walks the same selection through the display list so
+the composed offsets get the same cross-check the plain ones get.
+
+Layer bands, back to front, and where each ends up:
+
+| Layers | Becomes |
+|---|---|
+| 81, 82, 88 - hills, sunset bar, starfield | dropped; the port draws its own sky and an endlessly scrolling ground |
+| 90, 91, 92 - one cloud and two bush clumps | dropped; the port already scatters bushes and clouds along the whole course |
+| the operator, pole, pillow and swing arcs | `launcher/swing`, 49 frames |
+| 98, 99/121 - tower and wheel poles | `launcher/frame`, one frame |
+| 114, 116 - the two hamster wheels | `launcher/wheel1`, `launcher/wheel2` |
+
+Facts about the original worth writing down, all read from the SWF rather than
+inferred:
+
+- **There really are two pillows in the ready pose.** The one on the operator's
+  pole is the backdrop's own art; the one beside it is `game_mc.pillow`
+  (char 234), the clip `getPillowCollision` hit-tests. Both are on the display
+  list, neither is hidden, and they overlap. That is the original, and the port
+  reproduces it.
+- **`_root.background_mc.pillow._x = 117.3` in `onDone()` is a no-op.**
+  `background_mc` has no child named `pillow`; the only instance of that name in
+  the SWF is in `game_mc`. The line looks like a leftover from an earlier layout.
+- **`launch()` runs on the second click**, so the pillow holds its rest position
+  for the whole jump and only snaps to `PILLOW_LAUNCH_X` at the moment the
+  collision test runs.
+- **The queue moves 15 px per turn**, from `this._x += 15` on frame 26 of the
+  `hWalkOut` clip - exactly one slot. The clip's `_x` is otherwise never
+  written after `reset()`.
+- **`background_mc`'s timeline stops at frames 1, 4 and 7**, and jumps to the
+  `miss` label at 10. Frames 8 and 9 are never displayed: `getPillowCollision`
+  jumps straight to `miss` in the same click that reached frame 5.
+
+One divergence, on purpose: the original stops scrolling `background_mc` once
+the camera passes 650 px (`GameCamera.as:80-83`), freezing the launcher where it
+is. The port scrolls it with the rest of the world instead. By then the launcher
+is off the left edge either way, and the port has no hills clip for it to stay
+glued to.
 
 ## Quirks reproduced on purpose
 
@@ -135,6 +201,8 @@ sprite aligns directly with the velocity vector.
 | Faceplant branch also requires `!slide` (Game.as:803) | **Reproduced.** The document's section 10 omits it. |
 | `xvel *= 1 + this.f` for superbounce | **Reproduced as written**, not as the literal 1.6. |
 | Impact angle exactly 70 degrees | **Reproduced.** Falls through to the final `else`, since it is neither `< 70` nor `> 70`. |
+| Two overlapping pillows in the ready pose | **Reproduced.** The swinging one is the backdrop's, the other is the collision clip; both are visible in the original. |
+| The queue's step and its 15 px move happen on different frames | **Reproduced.** Frame 26 does both at once, so the hamster appears to snap back 8 px as it moves up a slot. |
 
 ## Quirks deliberately dropped
 
@@ -161,7 +229,15 @@ or changing decoration cannot invalidate a physics golden. Do not "fix" this
 back without regenerating every golden.
 
 **Decoration lives in the renderer.** Clouds and bushes are drawn, never
-simulated. Nothing in the physics path reads them.
+simulated. Nothing in the physics path reads them. The pre-launch scene follows
+the same rule: `PreLaunchScene` derives every frame number from the snapshot and
+the event stream, and the simulation neither knows nor cares that it exists.
+
+**Restoration is not gated by the mode.** `enhanced` gates what the port *adds* -
+camera shake, chromatic aberration, the shockwave. Anything the original drew
+and the port had been leaving out is on in both modes, because putting it back
+makes faithful mode more faithful, not less. That covers the `fx/*` impact clips
+and the whole pre-launch scene.
 
 **Rendering snaps rather than interpolating.** The original stage ran at 19 fps
 with no tweening, so snapping to the 20 Hz simulation is the faithful look, and
