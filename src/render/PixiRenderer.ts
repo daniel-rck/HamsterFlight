@@ -192,6 +192,11 @@ export class PixiRenderer implements Renderer {
       backgroundAlpha: 1,
       // The sim never reads the pointer; input is bound to the canvas element.
       eventMode: 'none',
+      // `SceneFilter` ships a GLSL program only. Auto-detection tries WebGL
+      // first anyway, but a machine where WebGL fails and WebGPU succeeds
+      // would boot and then throw on the first impact; pin it so it fails
+      // over to Canvas2D at start-up instead, where main.ts catches it.
+      preference: 'webgl',
     });
     return new PixiRenderer(app, canvas, assets, effects, options);
   }

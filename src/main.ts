@@ -1,8 +1,9 @@
 import { versionLabel } from '@/app/build.ts';
 import { FixedTimestepLoop } from '@/app/FixedTimestepLoop.ts';
 import { FrameProfiler } from '@/app/FrameProfiler.ts';
-import { defaultRendererFor, modeFromUrl } from '@/app/GameMode.ts';
-import { densityFor, loadSprites } from '@/assets/AssetLoader.ts';
+import { modeFromUrl, type RendererName, rendererFromUrl } from '@/app/GameMode.ts';
+import { profileWindowFromUrl, seedFromUrl, stressFromUrl } from '@/app/params.ts';
+import { type AssetBundle, densityFor, loadSprites } from '@/assets/AssetLoader.ts';
 import { InputController } from '@/input/InputController.ts';
 import { Effects } from '@/render/effects/Effects.ts';
 import { createCanvasRenderer } from '@/render/GameRenderer.ts';
@@ -11,36 +12,52 @@ import { stageScale } from '@/render/resolution.ts';
 import { C } from '@/sim/constants.ts';
 import { Simulation } from '@/sim/index.ts';
 
-function seedFromUrl(params: URLSearchParams): number {
-  const raw = params.get('seed');
-  if (raw !== null) {
-    const parsed = Number.parseInt(raw, 10);
-    if (Number.isFinite(parsed)) return parsed >>> 0;
+declare global {
+  interface Window {
+    /** Only under `?profile`: lets scripts/bench-renderers read the windows as data. */
+    __hamsterProfile?: FrameProfiler;
   }
-  // Real runs still differ; pass ?seed=... to reproduce one exactly.
-  const bytes = new Uint32Array(1);
-  crypto.getRandomValues(bytes);
-  return bytes[0] ?? 1;
+}
+
+/**
+ * Whether this browser can give us a WebGL context at all. Asked on a scratch
+ * canvas, because asking the stage canvas would claim its context type.
+ */
+function webglAvailable(): boolean {
+  const probe = document.createElement('canvas');
+  return probe.getContext('webgl2') !== null || probe.getContext('webgl') !== null;
 }
 
 /**
  * The Pixi module is imported dynamically so it lands in its own Vite chunk.
  * `?mode=faithful` then costs nothing beyond the entry chunk, and one build
  * still yields both bundle numbers for the comparison.
+ *
+ * Pixi is the default for everyone, so a machine without WebGL - blocklisted
+ * GPU, disabled in settings, a remote desktop - must not be a blank page. The
+ * Canvas2D backend draws the same scene; it just cannot run the shaders.
  */
 async function pickRenderer(
-  name: string,
+  name: RendererName,
   canvas: HTMLCanvasElement,
-  assets: Awaited<ReturnType<typeof loadSprites>>,
+  assets: AssetBundle,
   effects: Effects,
   options: RendererOptions,
-): Promise<{ renderer: Renderer; backend: string }> {
+): Promise<{ renderer: Renderer; backend: RendererName }> {
   if (name === 'pixi') {
-    const { createPixiRenderer } = await import('@/render/PixiRenderer.ts');
-    return {
-      renderer: await createPixiRenderer(canvas, assets, effects, options),
-      backend: 'pixi',
-    };
+    if (!webglAvailable()) {
+      console.warn('[hamsterflight] no WebGL context available; using the canvas2d renderer');
+    } else {
+      try {
+        const { createPixiRenderer } = await import('@/render/PixiRenderer.ts');
+        return {
+          renderer: await createPixiRenderer(canvas, assets, effects, options),
+          backend: 'pixi',
+        };
+      } catch (error) {
+        console.warn('[hamsterflight] WebGL renderer failed to start; using canvas2d', error);
+      }
+    }
   }
   return {
     renderer: await createCanvasRenderer(canvas, assets, effects, options),
@@ -48,17 +65,15 @@ async function pickRenderer(
   };
 }
 
-/** Renderer-only decoration multiplier; never touches the simulation. */
-function stressFromUrl(params: URLSearchParams): number {
-  const raw = params.get('stress');
-  if (raw === null) return 1;
-  const parsed = Number.parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
-}
-
+/**
+ * The boot panel stays in the document, hidden, so a failure after boot has
+ * somewhere to report itself. Removing it used to leave late errors invisible.
+ */
 function setBootMessage(text: string): void {
-  const boot = document.querySelector('#boot');
-  if (boot !== null) boot.textContent = text;
+  const boot = document.querySelector<HTMLElement>('#boot');
+  if (boot === null) return;
+  boot.textContent = text;
+  boot.hidden = false;
 }
 
 async function boot(): Promise<void> {
@@ -68,16 +83,23 @@ async function boot(): Promise<void> {
   const params = new URLSearchParams(window.location.search);
   const seed = seedFromUrl(params);
   const mode = modeFromUrl(params);
-  const rendererName = params.get('renderer') ?? defaultRendererFor(mode);
+  const rendererName = rendererFromUrl(params, mode);
 
   // How big the stage actually is decides which atlas is worth downloading -
   // a 1x screen showing a wide layout is already past 1:1.
   const scale = stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
-  const assets = await loadSprites(({ loaded, total }) => {
-    setBootMessage(`loading ${Math.round((loaded / total) * 100)}%`);
-  }, densityFor(scale));
+  const progress = ({ loaded, total }: { loaded: number; total: number }): void => {
+    setBootMessage(total > 1 ? `loading ${Math.round((loaded / total) * 100)}%` : 'loading…');
+  };
+  let assets = await loadSprites(progress, densityFor(scale));
+  if (assets.missing.length > 0 && assets.density !== 1) {
+    // The denser sheet is the larger download and the likelier one to fail;
+    // the 1x sheet draws the same game, only softer.
+    console.warn('[hamsterflight] %s; retrying at 1x', assets.missing.join(', '));
+    assets = await loadSprites(progress, 1);
+  }
   if (assets.missing.length > 0) {
-    console.warn('[hamsterflight] %d sprite frames missing', assets.missing.length);
+    console.error('[hamsterflight] sprite sheets missing: %s', assets.missing.join(', '));
   }
 
   const sim = new Simulation({ seed });
@@ -88,22 +110,16 @@ async function boot(): Promise<void> {
     stress,
   });
   const input = new InputController();
-  input.attach(canvas);
+  input.attach(canvas, { onToggleHitboxes: () => renderer.toggleHitboxes() });
 
   // The profiler wraps draw() from the outside, so neither backend can be
   // instrumented more kindly than the other.
-  const profileWindow = Number.parseInt(params.get('profileWindow') ?? '', 10);
   const profiler = params.has('profile')
-    ? new FrameProfiler(
-        `${mode}/${backend} stress=${stress}`,
-        Number.isFinite(profileWindow) && profileWindow > 0 ? profileWindow : 240,
-      )
+    ? new FrameProfiler(`${mode}/${backend} stress=${stress}`, profileWindowFromUrl(params))
     : null;
-  // Only under ?profile: lets scripts/bench-renderers.mjs read the windows as
-  // data. Scraping formatted console output is not reliable across drivers.
-  if (profiler !== null) {
-    (window as unknown as { __hamsterProfile?: FrameProfiler }).__hamsterProfile = profiler;
-  }
+  // Scraping formatted console output is not reliable across drivers, so the
+  // benchmark reads this instead.
+  if (profiler !== null) window.__hamsterProfile = profiler;
 
   const loop = new FixedTimestepLoop({
     step: () => {
@@ -134,27 +150,36 @@ async function boot(): Promise<void> {
 
   window.addEventListener('resize', () => renderer.resize());
 
-  window.addEventListener('keydown', event => {
-    if (event.key === 'h' || event.key === 'H') renderer.toggleHitboxes();
-  });
-
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
       loop.stop();
     } else {
       // Clips started before the tab went away would all expire at once.
       effects.clear();
-      loop.resync();
       loop.start();
     }
   });
 
-  document.querySelector('#boot')?.remove();
+  // `pagehide` also fires on the way into the back/forward cache, and a page
+  // restored from there keeps running - so the renderer is only torn down
+  // when the document is really being discarded.
+  window.addEventListener('pagehide', event => {
+    loop.stop();
+    if (!event.persisted) renderer.destroy();
+  });
+  window.addEventListener('pageshow', event => {
+    if (!event.persisted) return;
+    effects.clear();
+    loop.start();
+  });
+
+  const bootPanel = document.querySelector<HTMLElement>('#boot');
+  if (bootPanel !== null) bootPanel.hidden = true;
   const version = document.querySelector('#version');
   if (version !== null) version.textContent = versionLabel();
+  // Keyboard play works from the first keystroke, not the first click.
+  canvas.focus({ preventScroll: true });
   loop.start();
-
-  window.addEventListener('pagehide', () => renderer.destroy(), { once: true });
 
   console.info(
     '[hamsterflight] build=%s seed=%d mode=%s renderer=%s - append ?seed=%d to replay',

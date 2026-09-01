@@ -113,16 +113,20 @@ export function launchChromium() {
 }
 
 /**
- * Wait until the game is up: the boot placeholder gone *and* the stage there.
+ * Wait until the game is up: the boot placeholder hidden *and* the stage there.
  *
- * Both halves are needed. `main.ts` removes `#boot` when it is ready, so its
- * absence looks like success - but it is equally absent from a 404 page, and
- * an earlier version of this reported a served-nothing as a click timeout
- * several steps later.
+ * Both halves are needed. `main.ts` hides `#boot` when it is ready (it stays in
+ * the document so a later failure has somewhere to report), so its absence
+ * looks like success - but it is equally absent from a 404 page, and an
+ * earlier version of this reported a served-nothing as a click timeout several
+ * steps later.
  */
 export async function waitForBoot(page, timeout = 60000) {
   await page.waitForFunction(
-    () => document.querySelector('#boot') === null && document.querySelector('#stage') !== null,
+    () => {
+      const boot = document.querySelector('#boot');
+      return (boot === null || boot.hidden) && document.querySelector('#stage') !== null;
+    },
     { timeout },
   );
 }

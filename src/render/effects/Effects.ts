@@ -370,11 +370,16 @@ export class Effects {
   clear(): void {
     this.scene.clear();
     this.#live.length = 0;
+    this.#shakeStartedMs = 0;
     this.#shakeAmplitude = 0;
+    this.#aberrationStartedMs = 0;
     this.#aberrationStrength = 0;
     this.#waveAmplitude = 0;
     this.#waveStartedMs = 0;
     this.#particles.length = 0;
+    // Back to the start of the hash sequence too, or a restart would scatter
+    // its particles differently from a first run with the same seed.
+    this.#emitted = 0;
     this.#lastDustMs = Number.NEGATIVE_INFINITY;
   }
 }
