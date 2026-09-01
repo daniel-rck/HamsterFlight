@@ -1,6 +1,7 @@
 import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
 import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
+import { launched } from '@/render/PreLaunchScene.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
 import { distance, markerScale } from '@/render/units.ts';
@@ -151,7 +152,9 @@ export class GameRenderer implements Renderer {
 
     const pillow = this.#assets.get('pillow');
     if (pillow !== undefined) {
-      const x = s.phaseKind === 'ready' ? C.PILLOW_REST_X : C.PILLOW_LAUNCH_X;
+      // `launch()` runs on the *second* click, so the pillow holds its rest
+      // position through the whole jump. Game.as:1029-1036, 1118-1121.
+      const x = launched(s.phaseKind) ? C.PILLOW_LAUNCH_X : C.PILLOW_REST_X;
       this.#blit(ctx, pillow, 0, x, C.PILLOW_Y);
     }
 
