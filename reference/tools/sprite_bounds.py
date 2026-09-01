@@ -214,6 +214,51 @@ class Resolver:
         self.bounds(cid)
         return self.frames.get(cid, 1)
 
+    def subset_bounds(self, cid, keep=None, drop=None, frames=None):
+        """Bounds of only some of a sprite's layers, over only some frames.
+
+        The cross-check for a composed sprite: `build_sprites.py` crops those
+        from a raster of the same layer selection, and this arrives at the same
+        box from the display list instead - the same independent-second-opinion
+        arrangement the plain sprites already get from the SVG export.
+
+        `frames` is 1-based, matching the frame numbers ffdec exports under.
+        """
+        if cid not in self.sprites:
+            return None
+        total = None
+        display = {}
+        frame = 1
+        for code, _name, _off, data in self.sprites[cid]:
+            if code in PLACE_TAGS:
+                try:
+                    dep, ccid, mat, _nm, is_move = read_place(code, data)
+                except Exception:
+                    continue
+                if ccid is not None:
+                    display[dep] = [ccid, mat or (1.0, 1.0, 0.0, 0.0, 0.0, 0.0)]
+                elif is_move and dep in display and mat is not None:
+                    display[dep][1] = mat
+            elif code == 28:
+                rd = R(data)
+                display.pop(rd.u16(), None)
+            elif code == 5:
+                rd = R(data)
+                rd.u16()
+                display.pop(rd.u16(), None)
+            elif code == 1:
+                if frames is None or frame in frames:
+                    for ccid, mat in display.values():
+                        if keep is not None and ccid not in keep:
+                            continue
+                        if drop is not None and ccid in drop:
+                            continue
+                        child = self.bounds(ccid, 1)
+                        if child is not None:
+                            total = union(total, transform(child, mat))
+                frame += 1
+        return total
+
     def child_placement(self, sid, child_name):
         """The first placement matrix of a named child inside a sprite."""
         if sid not in self.sprites:
