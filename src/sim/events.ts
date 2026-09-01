@@ -28,6 +28,12 @@ export type FxId = 'bounceFx' | 'break' | 'superBreak';
 export type SimEvent =
   | { readonly t: 'sfx'; readonly id: SoundId; readonly gain?: number; readonly loop?: boolean }
   | { readonly t: 'sfxStop'; readonly id: SoundId }
+  /**
+   * `Sound.setVolume` on a sound already playing. The original re-sets the
+   * flight loop's volume from the speed every tick (Game.as:589-592) and the
+   * slide loop's from `|xvel|` (Game.as:569-572), so this fires often.
+   */
+  | { readonly t: 'sfxGain'; readonly id: SoundId; readonly gain: number }
   | { readonly t: 'fx'; readonly id: FxId; readonly x: number; readonly y: number }
   | { readonly t: 'pickup'; readonly kind: PowerupKind }
   | { readonly t: 'launched'; readonly vel: number; readonly angleDeg: number }

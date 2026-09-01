@@ -50,6 +50,8 @@ export function makeFlight(setup: FlightSetup = {}): FlightState {
     powerupMark: Number.POSITIVE_INFINITY, // spawning off unless a test wants it
     camera: newCamera(),
     outcome: null,
+    slideSound: false,
+    skidSound: false,
   };
 }
 

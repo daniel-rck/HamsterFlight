@@ -1,3 +1,5 @@
+import { C } from '@/sim/constants.ts';
+
 /** Exactly one simulation step, then one draw. */
 export interface LoopHooks {
   step(): void;
@@ -6,7 +8,7 @@ export interface LoopHooks {
 }
 
 /** 20 Hz. Non-negotiable: every acceleration in the game is a per-tick value. */
-const STEP_MS = 50;
+const STEP_MS = C.TICK_MS;
 const MAX_STEPS_PER_FRAME = 5;
 /** Longer than this and the tab was away or a breakpoint was hit. */
 const GAP_THRESHOLD_MS = 250;

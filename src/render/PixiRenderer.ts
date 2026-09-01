@@ -19,6 +19,7 @@ import { SceneFilter } from '@/render/effects/SceneFilter.ts';
 import { launched, type PreLaunchLayout } from '@/render/PreLaunchScene.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
+import { hamsterRotation, poseFor } from '@/render/scene/pose.ts';
 import { distance, markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
@@ -562,7 +563,7 @@ export class PixiRenderer implements Renderer {
       this.#shadowPivot.scale.set(scale);
     }
 
-    const pose = this.#poseFor(s);
+    const pose = poseFor(s);
     const asset = this.#assets.get(pose);
     const texture = asset === undefined ? undefined : this.#texture(asset, this.#animFrame(asset));
     if (asset === undefined || texture === undefined) {
@@ -589,10 +590,7 @@ export class PixiRenderer implements Renderer {
 
     this.#hamsterPivot.visible = true;
     this.#hamsterPivot.position.set(h.x, h.y);
-    // The original's `+ 90` is dropped because the exported poses face right;
-    // see reference/doc/porting-notes.md.
-    this.#hamsterPivot.rotation =
-      s.phaseKind === 'flying' && h.doRotation ? Math.atan2(h.yvel, h.xvel) : 0;
+    this.#hamsterPivot.rotation = hamsterRotation(s);
     this.#hamster.texture = texture;
     place(this.#hamster, asset, 0, 0);
   }
@@ -695,31 +693,6 @@ export class PixiRenderer implements Renderer {
   }
 
   // -- shared logic, kept in step with GameRenderer ---------------------------
-
-  #poseFor(s: SimSnapshot): SpriteId {
-    if (s.phaseKind === 'jumping' || s.phaseKind === 'ready') return 'hamster/jump';
-    if (s.phaseKind === 'settling') {
-      switch (s.outcome) {
-        case 'hole':
-          return 'hit/hole';
-        case 'cheer':
-          return 'hit/cheer';
-        case 'zero':
-          return 'hit/zero';
-        default:
-          return 'hit/faceplant';
-      }
-    }
-    const f = s.flags;
-    if (f.slide && f.skidding) return 'hamster/slide';
-    if (f.skidding) return 'hamster/skid';
-    if (f.bounce || f.superbounce) return 'hamster/ball';
-    if (f.falling) return 'hamster/drop';
-    if (f.glide) return 'hamster/glide';
-    if (f.speed) return 'hamster/blur';
-    if (f.wind) return 'hamster/wind';
-    return 'hamster/fly';
-  }
 
   #animFrame(sprite: SpriteAsset): number {
     const fps = sprite.meta.fps ?? SPRITE_FPS;

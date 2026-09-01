@@ -18,8 +18,10 @@ import type { Tuning } from '../tuning.ts';
  *     is not added until step 6;
  *   - powerup effects land after collision, so a wind pickup on a contact tick
  *     does not influence that bounce;
- *   - the skid test needs y from before the tick and after gravity, so it is a
- *     genuine two-tick predicate.
+ *   - the skid test compares y at the top of the tick with the pre-move y and
+ *     the predicted `y + yvel`, so it is a genuine two-tick predicate - on any
+ *     tick where the ground did not intervene, `prevY` and `p.y` are the same
+ *     value, and only the prediction can differ.
  *
  * Returns true when the shot is over.
  */
@@ -54,9 +56,35 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
     s.flags.rebound = false;
     p.doRotation = true;
     p.hit = false;
+    // `sndSlide.stop(); slideSound = false` - Game.as:550-551.
+    if (s.slideSound) {
+      s.slideSound = false;
+      out.push({ t: 'sfxStop', id: 'slide' });
+    }
   }
-  if (s.flags.slide && s.flags.skidding) p.doRotation = false;
-  else if (s.flags.skidding) p.doRotation = false;
+
+  // The three-way sound branch, Game.as:556-592. The slide loop starts once
+  // and then tracks |xvel|; the skid cue plays once; otherwise the flight loop
+  // tracks the speed. Both loops duck `sndFly` to 5 when they start.
+  if (s.flags.slide && s.flags.skidding) {
+    p.doRotation = false;
+    if (!s.slideSound) {
+      s.slideSound = true;
+      out.push({ t: 'sfx', id: 'slide', gain: C.SFX_VOLUME, loop: true });
+      out.push({ t: 'sfxGain', id: 'fly', gain: 5 });
+    } else {
+      out.push({ t: 'sfxGain', id: 'slide', gain: slideGain(p.xvel) });
+    }
+  } else if (s.flags.skidding) {
+    p.doRotation = false;
+    if (!s.skidSound) {
+      s.skidSound = true;
+      out.push({ t: 'sfx', id: 'skid', gain: C.SFX_VOLUME });
+      out.push({ t: 'sfxGain', id: 'fly', gain: 5 });
+    }
+  } else {
+    out.push({ t: 'sfxGain', id: 'fly', gain: flyGain(p.xvel, p.yvel) });
+  }
 
   if (s.flags.glide && (s.flags.falling || s.glidePoints === 0)) {
     s.flags.glide = false;
@@ -65,6 +93,10 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
 
   // 5. air resistance - applies always
   p.xvel *= C.DRAG;
+
+  // Not the original: `sim.js` recomputed the lift from the current xvel on
+  // every held tick instead of freezing it at the press. Off by default.
+  if (tuning.recomputeGlidePerTick && s.gravButton && s.glidePoints > 0) p.setGlideGravity();
 
   // 6. gravity
   p.yvel += p.grav;
@@ -82,13 +114,12 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
     out.push({ t: 'falling', on: false });
   }
 
-  // 8. skid detection - two ticks at or past the threshold, plus the prediction
+  // 8. skid detection - two ticks at or past the threshold, plus the prediction.
+  // The skid *sound* belongs to the branch above and plays on the next tick,
+  // exactly as `skidSound` does in the original.
   if (p.hit) {
     if (p.y >= C.SKID_Y && prevY >= C.SKID_Y && p.y + p.yvel >= C.SKID_Y) {
-      if (!s.flags.skidding) {
-        s.flags.skidding = true;
-        out.push({ t: 'sfx', id: 'skid', gain: C.SFX_VOLUME });
-      }
+      s.flags.skidding = true;
     }
   }
 
@@ -102,6 +133,7 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
   if (p.xvel < 1 && p.hit) {
     if (s.outcome === null) s.outcome = 'cheer';
     out.push({ t: 'sfxStop', id: 'fly' });
+    if (s.slideSound) out.push({ t: 'sfxStop', id: 'slide' });
     return true;
   }
 
@@ -118,7 +150,9 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
     s.glidePoints = Math.min(C.GLIDE_MAX, s.glidePoints + C.GLIDE_REGEN);
   }
 
-  // A faceplant ends the shot even though xvel is already 0 above.
+  // A faceplant normally ends the shot at step 11, since it zeroes xvel. The
+  // exception is a speed or wind pulse landing on the same tick: step 4 then
+  // adds xvel back, and only the outcome says the shot is over.
   return s.outcome === 'faceplant' || s.outcome === 'hole';
 }
 

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { C } from '@/sim/constants.ts';
+import { flyGain, slideGain } from '@/sim/phases/FlightPhase.ts';
 import type { CameraState } from '@/sim/state.ts';
 import { follow, newCamera, quickPanStep } from '@/sim/systems/CameraModel.ts';
+import { DEFAULT_TUNING } from '@/sim/tuning.ts';
 import { makeFlight, tick, withActiveTicks } from '../support/harness.ts';
 
 /**
@@ -65,6 +67,101 @@ describe('tick order', () => {
     tick(s);
     expect(s.flags.skidding).toBe(true);
   });
+
+  it('ends a fall on ground contact with an event, like glide', () => {
+    // A plain bounce out of a fall: `falling = false` at the end of
+    // checkCollision (Game.as:826) used to be silent.
+    const s = makeFlight({
+      y: 945,
+      yvel: 20,
+      xvel: 30,
+      ox: 118,
+      oy: 925,
+      flags: { falling: true },
+    });
+    const { events } = tick(s);
+    expect(s.flags.falling).toBe(false);
+    expect(events.filter(e => e.t === 'falling')).toEqual([{ t: 'falling', on: false }]);
+  });
+
+  it('turns a falling faceplant into a hole and still ends the fall', () => {
+    const s = makeFlight({
+      y: 945,
+      yvel: 60,
+      xvel: 30,
+      ox: 118,
+      oy: 880,
+      flags: { falling: true },
+    });
+    const { events, done } = tick(s);
+    expect(done).toBe(true);
+    expect(s.outcome).toBe('hole');
+    expect(events).toContainEqual({ t: 'falling', on: false });
+  });
+});
+
+describe('sound cues', () => {
+  it('re-sets the flight loop gain from the speed on every airborne tick', () => {
+    // Game.as:589-592, the `else` of the slide/skid branch. Measured before
+    // drag, since step 4 precedes step 5.
+    const s = makeFlight({ y: 600, xvel: 5, yvel: 3 });
+    const { events } = tick(s);
+    expect(events).toContainEqual({ t: 'sfxGain', id: 'fly', gain: flyGain(5, 3) });
+    expect(flyGain(5, 3)).toBe(11);
+  });
+
+  it('plays the skid cue once, on the tick after the skid starts, and ducks the flight loop', () => {
+    const s = makeFlight({ y: 944, yvel: 3, xvel: 5, hit: true });
+    tick(s);
+    const second = tick(s).events;
+    expect(s.flags.skidding).toBe(true);
+    expect(second.some(e => e.t === 'sfx' && e.id === 'skid')).toBe(false);
+
+    const third = tick(s).events;
+    expect(third).toContainEqual({ t: 'sfx', id: 'skid', gain: C.SFX_VOLUME });
+    expect(third).toContainEqual({ t: 'sfxGain', id: 'fly', gain: 5 });
+    expect(third.some(e => e.t === 'sfxGain' && e.id === 'fly' && e.gain !== 5)).toBe(false);
+
+    const fourth = tick(s).events;
+    expect(fourth.some(e => e.t === 'sfx' && e.id === 'skid')).toBe(false);
+    expect(fourth.some(e => e.t === 'sfxGain')).toBe(false);
+  });
+
+  it('starts the slide loop once and then tracks |xvel|', () => {
+    const s = makeFlight({
+      y: C.GROUND_Y,
+      xvel: 10,
+      yvel: 0,
+      hit: true,
+      flags: { slide: true, skidding: true },
+    });
+    const first = tick(s).events;
+    expect(first).toContainEqual({ t: 'sfx', id: 'slide', gain: C.SFX_VOLUME, loop: true });
+    expect(first).toContainEqual({ t: 'sfxGain', id: 'fly', gain: 5 });
+    expect(s.p.doRotation).toBe(false);
+
+    const second = tick(s).events;
+    expect(second.some(e => e.t === 'sfx' && e.id === 'slide')).toBe(false);
+    expect(second).toContainEqual({ t: 'sfxGain', id: 'slide', gain: slideGain(10 * C.DRAG) });
+    expect(slideGain(10 * C.DRAG)).toBe(45);
+  });
+
+  it('stops the slide loop when the shot ends', () => {
+    const s = makeFlight({
+      y: C.GROUND_Y,
+      xvel: 1.5,
+      yvel: 0,
+      hit: true,
+      flags: { slide: true, skidding: true },
+    });
+    tick(s);
+    let events = tick(s).events;
+    for (let i = 0; i < 100 && !events.some(e => e.t === 'sfxStop' && e.id === 'fly'); i++) {
+      events = tick(s).events;
+    }
+    expect(events).toContainEqual({ t: 'sfxStop', id: 'fly' });
+    expect(events).toContainEqual({ t: 'sfxStop', id: 'slide' });
+  });
 });
 
 describe('glide', () => {
@@ -80,6 +177,20 @@ describe('glide', () => {
 
     expect(s.p.xvel).toBeLessThan(50); // drag has been working
     expect(s.p.grav).toBeCloseTo(frozen, 10); // ...but the lift has not changed
+  });
+
+  it('can be switched to the sim.js reading, where the lift tracks the decaying xvel', () => {
+    const tuning = { ...DEFAULT_TUNING, recomputeGlidePerTick: true };
+    const s = makeFlight({ y: 600, xvel: 50, yvel: -5, gravButton: true });
+    s.p.setGlideGravity();
+    const frozen = s.p.grav;
+    for (let i = 0; i < 5; i++) {
+      tick(s, { tuning });
+      // Recomputed after drag on every held tick, so it follows the current xvel.
+      expect(s.p.grav).toBeCloseTo(C.GLIDE_FACTOR * s.p.xvel, 10);
+    }
+    expect(s.p.grav).not.toBeCloseTo(frozen, 6);
+    expect(Math.abs(s.p.grav)).toBeLessThan(Math.abs(frozen));
   });
 
   it('keeps draining and restores gravity every tick once the meter is empty', () => {

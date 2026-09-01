@@ -4,6 +4,7 @@ import type { Effects } from '@/render/effects/Effects.ts';
 import { launched, type PreLaunchLayout } from '@/render/PreLaunchScene.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
+import { hamsterRotation, poseFor } from '@/render/scene/pose.ts';
 import { distance, markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
@@ -237,7 +238,7 @@ export class GameRenderer implements Renderer {
       ctx.restore();
     }
 
-    const id = this.#poseFor(s);
+    const id = poseFor(s);
     const sprite = this.#assets.get(id);
     if (sprite === undefined) return;
 
@@ -253,12 +254,8 @@ export class GameRenderer implements Renderer {
       if (inside !== undefined) this.#blit(ctx, inside, this.#animFrame(inside), 0, 0);
       ctx.globalAlpha = BUBBLE_ALPHA;
     }
-    if (flying && h.doRotation) {
-      // The original writes `_rotation = radToDeg(atan2(yvel, xvel)) + 90`
-      // because its art is authored pointing up. The exported poses face
-      // right, so the +90 is dropped and the sprite aligns with velocity.
-      ctx.rotate(Math.atan2(h.yvel, h.xvel));
-    }
+    const rotation = hamsterRotation(s);
+    if (rotation !== 0) ctx.rotate(rotation);
     this.#blit(ctx, sprite, this.#animFrame(sprite), 0, 0);
     if (inBubble) ctx.globalAlpha = 1;
     ctx.restore();
@@ -271,32 +268,6 @@ export class GameRenderer implements Renderer {
       ctx.lineWidth = 1;
       ctx.strokeRect(h.x + box.cx - box.hw, h.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
     }
-  }
-
-  /** Which pose the original would have made visible for this state. */
-  #poseFor(s: SimSnapshot): SpriteId {
-    if (s.phaseKind === 'jumping' || s.phaseKind === 'ready') return 'hamster/jump';
-    if (s.phaseKind === 'settling') {
-      switch (s.outcome) {
-        case 'hole':
-          return 'hit/hole';
-        case 'cheer':
-          return 'hit/cheer';
-        case 'zero':
-          return 'hit/zero';
-        default:
-          return 'hit/faceplant';
-      }
-    }
-    const f = s.flags;
-    if (f.slide && f.skidding) return 'hamster/slide';
-    if (f.skidding) return 'hamster/skid';
-    if (f.bounce || f.superbounce) return 'hamster/ball';
-    if (f.falling) return 'hamster/drop';
-    if (f.glide) return 'hamster/glide';
-    if (f.speed) return 'hamster/blur';
-    if (f.wind) return 'hamster/wind';
-    return 'hamster/fly';
   }
 
   #animFrame(sprite: Sprite): number {
