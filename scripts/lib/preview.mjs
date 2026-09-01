@@ -128,17 +128,34 @@ export async function waitForBoot(page, timeout = 60000) {
 }
 
 /**
- * One shot, played: click to jump, click to hit the pillow, hold to glide.
- * The timings are the original's - the jump arc is about 700 ms of real time.
+ * One shot, played: jump, hit the pillow, hold to glide. The timings are the
+ * original's - the jump arc is about 700 ms of real time.
+ *
+ * Driven by the keyboard, not the mouse. `InputController` gives Space and a
+ * pointer identical meaning (press + confirm on the way down, release on the
+ * way up), and clicking a canvas has to pass Playwright's actionability checks
+ * against an element the renderer is repainting twenty times a second. Under
+ * the headless shell on a CI runner that never settled: both WebGL runs failed
+ * on a click that timed out against a perfectly healthy page, while the two
+ * Canvas2D runs passed. A key press has no hit test to fail.
  */
 export async function playOneShot(page) {
-  const canvas = page.locator('#stage');
-  await canvas.click({ force: true, timeout: 2000 });
+  // The listeners are on the canvas, so it has to hold focus. `focus()` in the
+  // page rather than Playwright's, which waits on the element the same way.
+  await page.$eval('#stage', element => element.focus());
+
+  const tap = async () => {
+    await page.keyboard.down(' ');
+    await sleep(40);
+    await page.keyboard.up(' ');
+  };
+
+  await tap();
   await sleep(700);
-  await canvas.click({ force: true, timeout: 2000 });
+  await tap();
   await sleep(120);
-  await page.mouse.down();
+  await page.keyboard.down(' ');
   await sleep(2600);
-  await page.mouse.up();
+  await page.keyboard.up(' ');
   await sleep(1200);
 }
