@@ -160,10 +160,56 @@ asset layer is data-driven behind a single manifest, so replacing the art with
 original or licensed work is a data change rather than a rewrite. The SWF itself
 is never committed.
 
+## What the pipeline checks
+
+`.github/workflows/ci.yml`, on every pull request and every push to `main`:
+
+| Job | Checks |
+| --- | --- |
+| `verify` | `npm audit` over runtime dependencies, Biome, sim purity, atlas integrity, three tsconfigs, the tests, the build, and the bundle budget |
+| `smoke` | opens the built page in Chromium, in both modes on both backends |
+| `dependency-review` | dependencies this pull request *adds* (pull requests only, opt-in) |
+| `deploy` | `wrangler deploy`, on pushes to `main` only, gated on the two above |
+
+Everything in `verify` is what `npm run verify` runs locally, so a green local
+run means a green job. The smoke test is separate because it costs a browser:
+run it yourself with `npm run build && npm run smoke`.
+
+Two of these exist because of bugs that got through everything else. The scene
+shader did not link on its first build - a run-time GPU failure no typecheck can
+see - so `smoke` opens the page. And the atlas is a build artifact nothing
+downstream can regenerate, because `build_sprites.py` needs the SWF, so
+`check:assets` verifies the manifest and the sheets still agree with each other.
+
+### Making them gates
+
+The checks report but do not block until `main` is protected. Under **Settings →
+Rules → Rulesets → New branch ruleset**, targeting `main`:
+
+- *Require a pull request before merging*
+- *Require status checks to pass*, adding `verify` and `smoke`, plus *Require
+  branches to be up to date before merging*
+
+`ci.yml` cancels superseded runs, so a check can sit as *cancelled* rather than
+*failed* while a newer run finishes. That is normal, and it does briefly look
+like a failure in the UI.
+
+`dependency-review` needs the repository's dependency graph, which is off:
+switch it on under **Settings → Code security**, then add a repository variable
+`DEPENDENCY_GRAPH` = `on` (Settings → Secrets and variables → Actions →
+Variables). Until then the job does not run - it is skipped rather than made
+non-blocking, because `continue-on-error` would also swallow the findings it
+exists to surface.
+
 ## Deploying
 
 Cloudflare Workers with the static-assets binding - no Worker code, so no
-invocations are billed:
+invocations are billed. Pushes to `main` deploy themselves once the repository
+has a `CLOUDFLARE_API_TOKEN` secret (Settings → Secrets and variables → Actions)
+created from the "Edit Cloudflare Workers" token template. Add
+`CLOUDFLARE_ACCOUNT_ID` as well if the token can see more than one account.
+
+By hand:
 
 ```sh
 npm run deploy        # verify, then wrangler deploy
@@ -201,3 +247,28 @@ the same root cause one step earlier.
 Workers Builds does not wait for GitHub checks, so running lint, the purity
 check, the typechecks and the tests there is what stops a red commit from
 reaching production.
+
+### Or from GitHub Actions instead
+
+`ci.yml` also has a `deploy` job that runs `npx wrangler deploy` on pushes to
+`main`, gated on `verify` **and** `smoke`. It only runs when a
+`CLOUDFLARE_API_TOKEN` repository secret exists (Settings → Secrets and
+variables → Actions, from the "Edit Cloudflare Workers" token template; add
+`CLOUDFLARE_ACCOUNT_ID` too if the token can see more than one account).
+
+**Pick one of the two.** With the dashboard connected *and* the secret set,
+every push deploys twice. The trade between them:
+
+| | Workers Builds | the `deploy` job |
+|---|---|---|
+| Waits for GitHub checks | no | yes |
+| Runs the browser smoke test | no - the build image has no browser | yes |
+| Build minutes billed by | Cloudflare | GitHub |
+
+The dashboard route runs `npm run verify` itself, so it does catch a red commit;
+what it cannot catch is the one thing only a browser sees, which is why the
+`deploy` job waits for `smoke`.
+
+Every build stamps its commit and date into the page - shown under the stage and
+logged on boot - so a deployed page can always be traced back to a commit. A
+trailing `+` on the hash means the tree was dirty when it was built.

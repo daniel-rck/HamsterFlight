@@ -10,16 +10,10 @@
 // the CPU and Pixi is heavily penalised for reasons that have nothing to do
 // with its design. Only a run on real hardware settles the question; this
 // harness exists so that run is one command.
-import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { chromium } from 'playwright';
-
-// Node's fetch and the browser both have to reach the loopback server directly.
-process.env.NO_PROXY = ['127.0.0.1', 'localhost', process.env.NO_PROXY].filter(Boolean).join(',');
-process.env.no_proxy = process.env.NO_PROXY;
+import { launchChromium, playOneShot, startServer, waitForBoot } from './lib/preview.mjs';
 
 const PORT = 4173;
-const ORIGIN = `http://127.0.0.1:${PORT}`;
 const SEED = Number(process.env.SEED ?? 12345);
 // Small enough that even the heaviest stress level closes several windows
 // inside RUN_MS, large enough for a stable p50.
@@ -28,47 +22,22 @@ const RUN_MS = Number(process.env.RUN_MS ?? 16000);
 const BACKENDS = ['canvas2d', 'pixi'];
 const STRESS = process.env.STRESS?.split(',').map(Number) ?? [1, 4, 16, 64];
 
-/** vite preview serves the real build, with the real chunk splitting. */
-async function startServer() {
-  const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort'], {
-    stdio: ['ignore', 'pipe', 'inherit'],
-  });
-  for (let attempt = 0; attempt < 60; attempt++) {
-    try {
-      const response = await fetch(ORIGIN);
-      if (response.ok) return server;
-    } catch {
-      // not up yet
-    }
-    await sleep(250);
-  }
-  server.kill();
-  throw new Error('vite preview did not come up');
-}
-
 /**
- * Jump, hit the pillow, then hold to glide - and restart when the run ends, so
- * the page keeps producing flight frames for the whole measurement window.
+ * Shot after shot, so the page keeps producing flight frames for the whole
+ * measurement window rather than sitting on the launcher between runs.
  */
 async function flyRepeatedly(page, signal) {
-  const canvas = page.locator('#stage');
   while (!signal.done) {
     try {
-      await canvas.click({ force: true, timeout: 2000 });
-      await sleep(700);
-      await canvas.click({ force: true, timeout: 2000 });
-      await sleep(120);
-      await page.mouse.down();
-      await sleep(2600);
-      await page.mouse.up();
-      await sleep(3500);
+      await playOneShot(page);
+      await sleep(2300);
     } catch {
       return;
     }
   }
 }
 
-async function measure(browser, backend, stress) {
+async function measure(browser, origin, backend, stress) {
   const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
   let gpu = null;
   page.on('pageerror', error => process.stderr.write(`  page error: ${error.message}\n`));
@@ -76,8 +45,8 @@ async function measure(browser, backend, stress) {
   const query = `?seed=${SEED}&profile&profileWindow=${WINDOW}&stress=${stress}${
     backend === 'pixi' ? '&renderer=pixi' : ''
   }`;
-  await page.goto(ORIGIN + query, { waitUntil: 'load' });
-  await page.waitForFunction(() => document.querySelector('#boot') === null, { timeout: 60000 });
+  await page.goto(origin + query, { waitUntil: 'load' });
+  await waitForBoot(page);
 
   gpu = await page.evaluate(() => {
     const probe = document.createElement('canvas').getContext('webgl2');
@@ -116,32 +85,19 @@ function median(values) {
 }
 
 async function main() {
-  const server = await startServer();
-  const browser = await chromium.launch({
-    // Set CHROMIUM_EXECUTABLE when the environment ships a Chromium that does
-    // not match this Playwright version's expected build, rather than
-    // downloading a second one.
-    ...(process.env.CHROMIUM_EXECUTABLE ? { executablePath: process.env.CHROMIUM_EXECUTABLE } : {}),
-    args: [
-      // Everything this harness loads is on loopback, and an ambient agent
-      // proxy in the environment would otherwise swallow it.
-      '--no-proxy-server',
-      '--use-gl=angle',
-      '--use-angle=swiftshader',
-      '--enable-unsafe-swiftshader',
-    ],
-  });
+  const { origin, stop } = await startServer(PORT);
+  const browser = await launchChromium();
   const results = [];
   try {
     for (const stress of STRESS) {
       for (const backend of BACKENDS) {
         process.stderr.write(`measuring ${backend} stress=${stress}...\n`);
-        results.push(await measure(browser, backend, stress));
+        results.push(await measure(browser, origin, backend, stress));
       }
     }
   } finally {
     await browser.close();
-    server.kill();
+    stop();
   }
 
   const gpu = results.find(row => row.gpu && row.gpu !== 'unknown')?.gpu ?? 'unknown';
