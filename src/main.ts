@@ -1,3 +1,4 @@
+import { versionLabel } from '@/app/build.ts';
 import { FixedTimestepLoop } from '@/app/FixedTimestepLoop.ts';
 import { FrameProfiler } from '@/app/FrameProfiler.ts';
 import { defaultRendererFor, modeFromUrl } from '@/app/GameMode.ts';
@@ -149,12 +150,15 @@ async function boot(): Promise<void> {
   });
 
   document.querySelector('#boot')?.remove();
+  const version = document.querySelector('#version');
+  if (version !== null) version.textContent = versionLabel();
   loop.start();
 
   window.addEventListener('pagehide', () => renderer.destroy(), { once: true });
 
   console.info(
-    '[hamsterflight] seed=%d mode=%s renderer=%s - append ?seed=%d to replay',
+    '[hamsterflight] build=%s seed=%d mode=%s renderer=%s - append ?seed=%d to replay',
+    versionLabel(),
     seed,
     mode,
     backend,

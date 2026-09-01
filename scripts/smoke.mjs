@@ -105,8 +105,13 @@ async function check(browser, origin, { mode, renderer }) {
     failures.push(`canvas has ${colours} distinct colour(s) - nothing was drawn`);
   }
 
+  // The build stamp is substituted at build time, so an empty slot means the
+  // define never fired - and the deployed page could not be identified.
+  const version = await page.evaluate(() => document.querySelector('#version')?.textContent ?? '');
+  if (version.trim() === '') failures.push('the build stamp is empty');
+
   await page.close();
-  return { label, failures, frames, colours };
+  return { label, failures, frames, colours, version };
 }
 
 async function main() {
@@ -123,7 +128,7 @@ async function main() {
     stop();
   }
 
-  console.log('');
+  console.log(`\nbuild ${results.find(result => result.version)?.version ?? '(none)'}`);
   for (const result of results) {
     const ok = result.failures.length === 0;
     console.log(
