@@ -140,6 +140,16 @@ describe('the hamster queue', () => {
     expect(queue.map(at => at.x)).toEqual([30.5, 15.5, 0.5, -14.5]);
   });
 
+  it('adopts the turn without a shuffle when the tab comes back', () => {
+    const scene = new PreLaunchScene();
+    scene.layout(snap({ turn: 3 }), 0);
+    // The turn advanced while the tab was hidden; `clear()` runs on the way in.
+    scene.clear();
+    const queue = only(scene.layout(snap({ turn: 4 }), 100).world, 'queue/hamster');
+    expect(queue.map(at => at.frame)).toEqual([0]);
+    expect(queue.map(at => at.x)).toEqual([30.5]);
+  });
+
   it('forgets the queue when the game restarts', () => {
     const scene = new PreLaunchScene();
     scene.layout(snap({ turn: 4 }), 0);

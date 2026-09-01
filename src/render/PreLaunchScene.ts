@@ -131,7 +131,8 @@ export class PreLaunchScene {
   #swing: 'idle' | 'hit' | 'miss' = 'idle';
   /** When the queue last shuffled, and which turn it shuffled into. */
   #shuffleStartedMs = Number.NEGATIVE_INFINITY;
-  #turn = 1;
+  /** Null until the first snapshot, so nothing animates on the way in. */
+  #turn: number | null = null;
 
   /**
    * Takes one tick's events. Only the two launch outcomes matter here: they
@@ -151,7 +152,7 @@ export class PreLaunchScene {
   clear(): void {
     this.#swing = 'idle';
     this.#shuffleStartedMs = Number.NEGATIVE_INFINITY;
-    this.#turn = 1;
+    this.#turn = null;
   }
 
   layout(s: SimSnapshot, nowMs: number): PreLaunchLayout {
@@ -159,8 +160,12 @@ export class PreLaunchScene {
     // fires on the first click of the new turn, and the original had already
     // shuffled by then. `nextHamster()` runs from `updateGameState()`, which is
     // the same moment `turn` increments here. Game.as:396-405, 984-1004.
+    // A drop - a restart - is adopted silently, and so is the first snapshot
+    // after `clear()`: the tab coming back should not replay a shuffle that
+    // happened while it was hidden.
     if (s.turn !== this.#turn) {
-      this.#shuffleStartedMs = s.turn > this.#turn ? nowMs : Number.NEGATIVE_INFINITY;
+      const advanced = this.#turn !== null && s.turn > this.#turn;
+      this.#shuffleStartedMs = advanced ? nowMs : Number.NEGATIVE_INFINITY;
       this.#turn = s.turn;
     }
 
