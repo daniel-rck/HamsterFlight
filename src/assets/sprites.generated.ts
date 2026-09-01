@@ -290,7 +290,7 @@ export const SPRITES = {
     h: 51,
     ox: -28.7,
     oy: -24.8,
-    verified: false,
+    verified: true,
     charId: 454,
     fps: 19,
     sheet: 0,

@@ -6,10 +6,12 @@ frames, so the top-left of the exported image sits at (xmin, ymin) relative to
 the sprite's registration point. Recovering those two numbers is what lets a
 renderer place the art exactly where Flash placed it.
 
-Getting it right needs a real display-list walk: PlaceObject2 can place a new
+Getting it right needs a real display-list walk: a placement tag can place a new
 character, or *move* one already at a depth without naming a character, and
 RemoveObject2 takes one away. Ignoring the move tags undercounts the bounds of
-every animated clip.
+every animated clip, and reading only PlaceObject2 misses the 24 PlaceObject3
+placements this SWF uses - among them the launch tower and both halves of the
+`_bounce` powerup.
 """
 import os
 import sys
@@ -19,6 +21,7 @@ from swfparse import R, load, tags
 
 SHAPE_TAGS = {2, 22, 32, 83}
 MORPH_TAGS = {46, 84}
+PLACE_TAGS = {26, 70}  # PlaceObject2 and PlaceObject3
 
 
 def sbits(rd, n):
@@ -55,6 +58,16 @@ def read_matrix(rd):
     return (sx, sy, r0, r1, tx / 20.0, ty / 20.0)
 
 
+def read_name(rd):
+    b = bytearray()
+    while True:
+        c = rd.u8()
+        if c == 0:
+            break
+        b.append(c)
+    return b.decode('latin1')
+
+
 def read_place2(data):
     """Returns (depth, charId|None, matrix|None, name|None, is_move)."""
     rd = R(data)
@@ -71,14 +84,49 @@ def read_place2(data):
     if flags & 16:
         rd.u16()
     if flags & 32:
-        b = bytearray()
-        while True:
-            c = rd.u8()
-            if c == 0:
-                break
-            b.append(c)
-        name = b.decode('latin1')
+        name = read_name(rd)
     return depth, cid, mat, name, is_move
+
+
+def read_place3(data):
+    """PlaceObject3, in the same shape `read_place2` returns.
+
+    Two extra flag bytes and two optional fields ahead of the character id, and
+    that is all this needs: everything past the name - filters, blend mode,
+    visibility - sits behind fields we never reach. Skipping tag 70 entirely,
+    which is what this file used to do, loses 24 placements including the
+    launch tower (`background_mc` depth 118) and every layer of the hills and
+    starfield clips, so their bounds came out short.
+    """
+    rd = R(data)
+    flags = rd.u8()
+    flags2 = rd.u8()
+    depth = rd.u16()
+    is_move = bool(flags & 1)
+    cid = mat = name = None
+    # HasClassName, or HasImage together with HasCharacter, prefixes a name.
+    if (flags2 & 8) or (flags2 & 16 and flags & 2):
+        read_name(rd)
+    if flags & 2:
+        cid = rd.u16()
+    if flags & 4:
+        mat = read_matrix(rd)
+    if flags & 8:
+        return depth, cid, mat, None, is_move  # colour transform: stop parsing
+    if flags & 16:
+        rd.u16()
+    if flags & 32:
+        name = read_name(rd)
+    return depth, cid, mat, name, is_move
+
+
+def read_place(code, data):
+    """Either placement tag, or None for anything else."""
+    if code == 26:
+        return read_place2(data)
+    if code == 70:
+        return read_place3(data)
+    return None
 
 
 def index_tags(tag_list, shapes, sprites):
@@ -135,9 +183,9 @@ class Resolver:
         count = 0
         display = {}
         for code, _name, _off, data in self.sprites[cid]:
-            if code == 26:
+            if code in PLACE_TAGS:
                 try:
-                    dep, ccid, mat, _nm, is_move = read_place2(data)
+                    dep, ccid, mat, _nm, is_move = read_place(code, data)
                 except Exception:
                     continue
                 if ccid is not None:
@@ -171,10 +219,10 @@ class Resolver:
         if sid not in self.sprites:
             return None
         for code, _name, _off, data in self.sprites[sid]:
-            if code != 26:
+            if code not in PLACE_TAGS:
                 continue
             try:
-                _dep, ccid, mat, name, _mv = read_place2(data)
+                _dep, ccid, mat, name, _mv = read_place(code, data)
             except Exception:
                 continue
             if name == child_name and ccid is not None and mat is not None:

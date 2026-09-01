@@ -16,6 +16,7 @@ from swfparse import load, R, tags
 
 SHAPE = {2, 22, 32, 83}
 MORPH = {46, 84}
+PLACE_TAGS = {26, 70}  # PlaceObject2 and PlaceObject3
 
 
 def sbits(rd, n):
@@ -52,11 +53,17 @@ def matrix(rd):
     return sx, sy, tx / 20.0, ty / 20.0
 
 
-def place(data):
+def place(data, code=26):
+    """PlaceObject2, or PlaceObject3 with its two extra flag bytes read first."""
     rd = R(data)
     f = rd.u8()
+    f2 = rd.u8() if code == 70 else 0
     depth = rd.u16()
     cid = mat = name = None
+    # PlaceObject3 can carry a class name ahead of the character id.
+    if (f2 & 8) or (f2 & 16 and f & 2):
+        while rd.u8():
+            pass
     if f & 2:
         cid = rd.u16()
     if f & 4:
@@ -105,10 +112,10 @@ def bounds(cid, shapes, sprites, memo, depth=0):
     memo[cid] = None
     acc = None
     for code, nm, off, data in sprites[cid]:
-        if code != 26:
+        if code not in PLACE_TAGS:
             continue
         try:
-            _d, ccid, mat, _n = place(data)
+            _d, ccid, mat, _n = place(data, code)
         except Exception:
             continue
         if ccid is None:
@@ -131,10 +138,10 @@ def child_box(sid, child_name, shapes, sprites, memo):
     if sid not in sprites:
         return None
     for code, nm, off, data in sprites[sid]:
-        if code != 26:
+        if code not in PLACE_TAGS:
             continue
         try:
-            _d, ccid, mat, name = place(data)
+            _d, ccid, mat, name = place(data, code)
         except Exception:
             continue
         if name != child_name or ccid is None or mat is None:
