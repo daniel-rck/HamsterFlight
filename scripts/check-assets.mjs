@@ -76,9 +76,7 @@ function parseManifest(text) {
  * them today, both `bush/${n}`, and neither would fail the typecheck if the
  * bushes were renamed.
  */
-const DYNAMIC_IDS = [
-  { pattern: /`([\w/]*)\$\{[^}]+\}`\s+as\s+SpriteId/g, expand: prefix => prefix },
-];
+const DYNAMIC_ID = /`([\w/]*)\$\{[^}]+\}`\s+as\s+SpriteId/g;
 
 async function sourceFiles(dir) {
   const out = [];
@@ -160,21 +158,18 @@ async function main() {
   const names = new Set(entries.map(entry => entry.name));
   for (const file of await sourceFiles(SOURCES)) {
     const text = await readFile(file, 'utf8');
-    for (const { pattern } of DYNAMIC_IDS) {
-      for (const [, prefix] of text.matchAll(pattern)) {
-        if (prefix === '') continue;
-        const matching = [...names].filter(name => name.startsWith(prefix));
-        if (matching.length === 0) {
-          note(`${file}: builds \`${prefix}\${...}\` as SpriteId, and no sprite starts with that`);
-        }
+    for (const [, prefix] of text.matchAll(DYNAMIC_ID)) {
+      if (prefix === '') continue;
+      if (![...names].some(name => name.startsWith(prefix))) {
+        note(`${file}: builds \`${prefix}\${...}\` as SpriteId, and no sprite starts with that`);
       }
     }
   }
 
-  report(problems, entries, sizes, densities);
+  report(problems, entries, densities);
 }
 
-function report(problems, entries, sizes, densities) {
+function report(problems, entries, densities) {
   if (problems.length > 0) {
     for (const problem of problems) console.error(`  ${problem}`);
     console.error(`\n${problems.length} atlas problem(s).`);

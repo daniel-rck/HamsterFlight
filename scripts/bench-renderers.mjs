@@ -85,7 +85,7 @@ function median(values) {
 }
 
 async function main() {
-  const { server, origin } = await startServer(PORT);
+  const { origin, stop } = await startServer(PORT);
   const browser = await launchChromium();
   const results = [];
   try {
@@ -97,7 +97,7 @@ async function main() {
     }
   } finally {
     await browser.close();
-    server.kill();
+    stop();
   }
 
   const gpu = results.find(row => row.gpu && row.gpu !== 'unknown')?.gpu ?? 'unknown';

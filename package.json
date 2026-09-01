@@ -12,6 +12,7 @@
     "build": "vite build",
     "bundle:report": "node scripts/bundle-report.mjs",
     "check:bundle": "node scripts/bundle-report.mjs --check",
+    "smoke": "node scripts/smoke.mjs",
     "bench:renderers": "node scripts/bench-renderers.mjs",
     "preview": "vite preview",
     "preview:cf": "npm run build && wrangler dev",

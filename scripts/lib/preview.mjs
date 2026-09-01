@@ -17,26 +17,61 @@ process.env.no_proxy = process.env.NO_PROXY;
  * `vite preview` over `dist`, so what is tested is the real build with the real
  * chunk splitting - not the dev server's unbundled modules.
  *
- * Returns `{ server, origin }`; the caller kills `server` when it is done.
+ * Returns `{ origin, stop }`; the caller calls `stop()` when it is done.
  */
 export async function startServer(port = 4173) {
   const origin = `http://127.0.0.1:${port}`;
+
+  // Refuse to run against someone else's server. `--strictPort` makes vite
+  // exit when the port is taken, but the poll below would then happily talk to
+  // whatever was already there - and a stale preview from an earlier run
+  // serves an earlier `dist`, so the test would pass on bytes nobody built.
+  try {
+    await fetch(origin);
+    throw new Error(
+      `something is already serving ${origin} - stop it first, or set a different port`,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('something is already')) throw error;
+  }
+
+  // `detached` puts the child in its own process group, so `stop()` can take
+  // the whole group down. Killing the pid alone kills only the `npx` wrapper
+  // and leaves the vite process it spawned reparented to init, still holding
+  // the port - which is what the guard above kept tripping over.
+  //
   // stdout ignored rather than piped: nothing reads it, and an unread pipe
   // keeps the handle - and therefore the whole process - alive after the child
   // is killed. Harmless in an interactive benchmark, a hung job in CI.
   const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], {
     stdio: ['ignore', 'ignore', 'inherit'],
+    detached: true,
   });
+  let exited = null;
+  server.on('exit', code => {
+    exited = code;
+  });
+
+  const stop = () => {
+    if (exited !== null || server.pid === undefined) return;
+    try {
+      process.kill(-server.pid, 'SIGTERM');
+    } catch {
+      server.kill('SIGTERM');
+    }
+  };
+
   for (let attempt = 0; attempt < 60; attempt++) {
+    if (exited !== null) throw new Error(`vite preview exited with ${exited} before serving`);
     try {
       const response = await fetch(origin);
-      if (response.ok) return { server, origin };
+      if (response.ok) return { origin, stop };
     } catch {
       // not up yet
     }
     await sleep(250);
   }
-  server.kill();
+  stop();
   throw new Error(`vite preview did not come up on ${origin}`);
 }
 
