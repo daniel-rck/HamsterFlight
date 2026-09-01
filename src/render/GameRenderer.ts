@@ -1,34 +1,45 @@
 import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
-import type { SpriteId } from '@/assets/sprites.generated.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
-import { launched, type PreLaunchLayout } from '@/render/PreLaunchScene.ts';
+import type { PreLaunchLayout } from '@/render/PreLaunchScene.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
+import {
+  altitudeOf,
+  animFrame,
+  BUBBLE_ALPHA,
+  bushes,
+  GROUND,
+  markers,
+  POWERUP_SPRITE,
+  pillowX,
+  rgbCss,
+  SHADOW_ALPHA,
+  SHADOW_MIN_SCALE,
+  shadowScale,
+  skyColours,
+  starField,
+} from '@/render/scene/decor.ts';
+import {
+  debugLines,
+  FONTS,
+  glideFill,
+  HUD,
+  HUD_COLOURS,
+  panelLines,
+  promptFor,
+} from '@/render/scene/hud.ts';
 import { hamsterRotation, poseFor } from '@/render/scene/pose.ts';
-import { distance, markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
-import { DEFAULT_TUNING } from '@/sim/tuning.ts';
-import type { PowerupKind } from '@/sim/types.ts';
+import { DEFAULT_TUNING, type Tuning } from '@/sim/tuning.ts';
 
-const POWERUP_SPRITE: Record<PowerupKind, SpriteId> = {
-  bounce: 'powerup/bounce',
-  speed: 'powerup/speed',
-  wind: 'powerup/wind',
-  slide: 'powerup/slide',
-  rebound: 'powerup/rebound',
-  superbounce: 'powerup/superbounce',
-};
+const CHROME = `rgba(12,20,30,${HUD_COLOURS.chromeAlpha})`;
+const PROMPT_CHROME = `rgba(12,20,30,${HUD_COLOURS.promptAlpha})`;
+const MARKER_INK = `rgba(255,255,255,${HUD_COLOURS.markerAlpha})`;
 
-/** Sprite frames advance on real time at the original stage rate. */
-const SPRITE_FPS = 19;
-
-/** Decoration counts at stress 1. Both renderers use these, so they compare. */
-const STAR_COUNT = 70;
-const BUSH_SPACING = 260;
-
-/** Enough bubble to still read as one, little enough to see the hamster. */
-const BUBBLE_ALPHA = 0.62;
+function hex(colour: number): string {
+  return `#${colour.toString(16).padStart(6, '0')}`;
+}
 
 /**
  * Canvas 2D renderer for the 600x400 stage.
@@ -36,13 +47,15 @@ const BUBBLE_ALPHA = 0.62;
  * It reads a `SimSnapshot` and nothing else, so it cannot influence physics.
  * Sprite placement comes entirely from the generated manifest's `ox`/`oy`,
  * which are the offsets Flash itself used - there are no per-sprite magic
- * numbers in here.
+ * numbers in here. What to draw is decided in `src/render/scene`; this file
+ * only puts it down in immediate mode.
  */
 export class GameRenderer implements Renderer {
   readonly #ctx: CanvasRenderingContext2D;
   readonly #canvas: HTMLCanvasElement;
   readonly #assets: AssetBundle;
   readonly #effects: Effects;
+  readonly #tuning: Tuning;
   readonly #stress: number;
   #dpr = 1;
   #showHitboxes: boolean;
@@ -62,6 +75,7 @@ export class GameRenderer implements Renderer {
     this.#canvas = canvas;
     this.#assets = assets;
     this.#effects = effects;
+    this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.resize();
@@ -72,6 +86,10 @@ export class GameRenderer implements Renderer {
     this.#canvas.width = Math.round(C.VIEW_W * this.#dpr);
     this.#canvas.height = Math.round(C.VIEW_H * this.#dpr);
     this.#ctx.imageSmoothingQuality = 'high';
+  }
+
+  resync(): void {
+    this.#lastFrameTime = 0;
   }
 
   toggleHitboxes(): void {
@@ -110,46 +128,34 @@ export class GameRenderer implements Renderer {
   // -- layers ---------------------------------------------------------------
 
   #sky(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
-    // The higher the hamster, the darker the sky - space is reachable.
-    const altitude = clamp((C.GROUND_Y - s.hamster.y) / Math.abs(C.SPACE_BG_Y), 0, 1);
+    const sky = skyColours(altitudeOf(s));
     const gradient = ctx.createLinearGradient(0, 0, 0, C.VIEW_H);
-    gradient.addColorStop(0, mix([12, 16, 40], [116, 182, 226], 1 - altitude));
-    gradient.addColorStop(1, mix([30, 40, 78], [176, 216, 240], 1 - altitude));
+    gradient.addColorStop(0, rgbCss(sky.top));
+    gradient.addColorStop(1, rgbCss(sky.bottom));
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, C.VIEW_W, C.VIEW_H);
 
-    if (altitude > 0.35) this.#stars(ctx, altitude);
-  }
-
-  #stars(ctx: CanvasRenderingContext2D, altitude: number): void {
-    ctx.globalAlpha = clamp((altitude - 0.35) / 0.4, 0, 1);
-    ctx.fillStyle = '#fff';
-    // Deterministic from a cheap hash, so the field is stable without state.
-    for (let i = 0; i < STAR_COUNT * this.#stress; i++) {
-      const h = Math.imul(i + 1, 0x9e3779b1) >>> 0;
-      const x = (h % 1000) / 1000;
-      const y = ((h >>> 10) % 1000) / 1000;
-      const r = 0.6 + ((h >>> 20) % 3) * 0.35;
-      ctx.beginPath();
-      ctx.arc(x * C.VIEW_W, y * C.VIEW_H, r, 0, Math.PI * 2);
-      ctx.fill();
+    if (sky.starAlpha > 0) {
+      ctx.globalAlpha = sky.starAlpha;
+      ctx.fillStyle = '#fff';
+      for (const star of starField(this.#stress)) {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
     }
-    ctx.globalAlpha = 1;
   }
 
   #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
-    ctx.fillStyle = '#5d9b47';
-    ctx.fillRect(-2000, C.GROUND_Y, 400000, 600);
-    ctx.fillStyle = '#4b7f38';
-    ctx.fillRect(-2000, C.GROUND_Y, 400000, 5);
+    ctx.fillStyle = hex(GROUND.colour);
+    ctx.fillRect(GROUND.x, C.GROUND_Y, GROUND.width, GROUND.height);
+    ctx.fillStyle = hex(GROUND.lipColour);
+    ctx.fillRect(GROUND.x, C.GROUND_Y, GROUND.width, GROUND.lip);
 
-    // Bushes, drawn from a stable hash of their position so no state is needed.
-    const spacing = BUSH_SPACING / this.#stress;
-    const from = Math.floor((-s.camera.x - 200) / spacing) * spacing;
-    for (let x = from; x < -s.camera.x + C.VIEW_W + 200; x += spacing) {
-      const h = Math.imul(x + 7919, 0x85ebca6b) >>> 0;
-      const bush = this.#assets.get(`bush/${(h % 5) + 1}` as SpriteId);
-      if (bush !== undefined) this.#blit(ctx, bush, 0, x + (h % 90), C.GROUND_Y);
+    for (const bush of bushes(s.camera.x, this.#stress)) {
+      const sprite = this.#assets.get(bush.sprite);
+      if (sprite !== undefined) this.#blit(ctx, sprite, 0, bush.x, bush.y);
     }
 
     for (const at of scene.world) {
@@ -158,27 +164,13 @@ export class GameRenderer implements Renderer {
     }
 
     const pillow = this.#assets.get('pillow');
-    if (pillow !== undefined) {
-      // `launch()` runs on the *second* click, so the pillow holds its rest
-      // position through the whole jump. Game.as:1029-1036, 1118-1121.
-      const x = launched(s.phaseKind) ? C.PILLOW_LAUNCH_X : C.PILLOW_REST_X;
-      this.#blit(ctx, pillow, 0, x, C.PILLOW_Y);
-    }
+    if (pillow !== undefined) this.#blit(ctx, pillow, 0, pillowX(s.phaseKind), C.PILLOW_Y);
 
-    // Distance markers, so progress is readable without the HUD.
-    ctx.fillStyle = 'rgba(255,255,255,.5)';
-    ctx.font = '10px ui-monospace, monospace';
-    const scale = markerScale(C.PX_PER_FOOT, this.#effects.enhanced);
-    const label = scale.step * scale.labelEvery;
-    const first = Math.max(
-      0,
-      Math.floor((-s.camera.x - 100) / scale.pixels / scale.step) * scale.step,
-    );
-    for (let at = first; at * scale.pixels < -s.camera.x + C.VIEW_W + 100; at += scale.step) {
-      const x = at * scale.pixels;
-      ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
-      if (at % label === 0) ctx.fillText(`${at}${scale.suffix}`, x + 3, C.GROUND_Y - 10);
-    }
+    const marks = markers(s.camera.x, this.#effects.enhanced);
+    ctx.fillStyle = MARKER_INK;
+    ctx.font = FONTS.marker;
+    for (const x of marks.ticks) ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
+    for (const label of marks.labels) ctx.fillText(label.text, label.x + 3, C.GROUND_Y - 10);
   }
 
   /** Impact clips, behind the hamster so it stays readable through them. */
@@ -193,7 +185,7 @@ export class GameRenderer implements Renderer {
   #particles(ctx: CanvasRenderingContext2D, now: number): void {
     for (const p of this.#effects.particles(now)) {
       ctx.globalAlpha = 1 - p.age;
-      ctx.fillStyle = `#${p.tint.toString(16).padStart(6, '0')}`;
+      ctx.fillStyle = hex(p.tint);
       ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
     }
     ctx.globalAlpha = 1;
@@ -204,15 +196,15 @@ export class GameRenderer implements Renderer {
       const sprite = this.#assets.get(POWERUP_SPRITE[item.kind]);
       if (sprite === undefined) continue;
       ctx.globalAlpha = item.taken ? 0.25 : 1;
-      const frame = this.#animFrame(sprite);
+      const frame = animFrame(sprite.meta, this.#elapsed);
       for (let i = 0; i < this.#stress; i++) {
         this.#blit(ctx, sprite, frame, item.x + i * 3, item.y + i * 3);
       }
       ctx.globalAlpha = 1;
 
       if (this.#showHitboxes) {
-        const box = DEFAULT_TUNING.boxes.powerups[item.kind];
-        ctx.strokeStyle = '#ff4d6d';
+        const box = this.#tuning.boxes.powerups[item.kind];
+        ctx.strokeStyle = hex(HUD_COLOURS.hitboxPowerup);
         ctx.lineWidth = 1;
         ctx.strokeRect(item.x + box.cx - box.hw, item.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
       }
@@ -223,16 +215,13 @@ export class GameRenderer implements Renderer {
     const h = s.hamster;
     if (!h.visible && s.phaseKind !== 'settling') return;
 
-    // The shadow scales linearly with height: 100 * (y - 700) / 263. Above
-    // y = 700 the factor goes negative, which Flash renders as a flip - for a
-    // symmetric ellipse that is invisible, so it is clamped to zero here.
     const shadow = this.#assets.get('shadow');
-    const scale = Math.max(0, (h.y - C.SHADOW_REF_Y) / C.SHADOW_DIV);
-    if (shadow !== undefined && scale > 0.02) {
+    const scale = shadowScale(h.y);
+    if (shadow !== undefined && scale > SHADOW_MIN_SCALE) {
       ctx.save();
       ctx.translate(h.x, C.SHADOW_Y);
       ctx.scale(scale, scale);
-      ctx.globalAlpha = 0.45;
+      ctx.globalAlpha = SHADOW_ALPHA;
       this.#blit(ctx, shadow, 0, 0, 0);
       ctx.globalAlpha = 1;
       ctx.restore();
@@ -242,7 +231,6 @@ export class GameRenderer implements Renderer {
     const sprite = this.#assets.get(id);
     if (sprite === undefined) return;
 
-    const flying = s.phaseKind === 'flying';
     ctx.save();
     ctx.translate(h.x, h.y);
     // The bubble is opaque in the original, so the hamster vanishes inside it
@@ -251,29 +239,25 @@ export class GameRenderer implements Renderer {
     const inBubble = id === 'hamster/ball' && this.#effects.enhanced;
     if (inBubble) {
       const inside = this.#assets.get('hamster/fly');
-      if (inside !== undefined) this.#blit(ctx, inside, this.#animFrame(inside), 0, 0);
+      if (inside !== undefined)
+        this.#blit(ctx, inside, animFrame(inside.meta, this.#elapsed), 0, 0);
       ctx.globalAlpha = BUBBLE_ALPHA;
     }
     const rotation = hamsterRotation(s);
     if (rotation !== 0) ctx.rotate(rotation);
-    this.#blit(ctx, sprite, this.#animFrame(sprite), 0, 0);
+    this.#blit(ctx, sprite, animFrame(sprite.meta, this.#elapsed), 0, 0);
     if (inBubble) ctx.globalAlpha = 1;
     ctx.restore();
 
     if (this.#showHitboxes) {
-      const box = flying
-        ? DEFAULT_TUNING.boxes.hamsterFlightCore
-        : DEFAULT_TUNING.boxes.hamsterJumpCore;
-      ctx.strokeStyle = '#4dd2ff';
+      const box =
+        s.phaseKind === 'flying'
+          ? this.#tuning.boxes.hamsterFlightCore
+          : this.#tuning.boxes.hamsterJumpCore;
+      ctx.strokeStyle = hex(HUD_COLOURS.hitboxHamster);
       ctx.lineWidth = 1;
       ctx.strokeRect(h.x + box.cx - box.hw, h.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
     }
-  }
-
-  #animFrame(sprite: Sprite): number {
-    const fps = sprite.meta.fps ?? SPRITE_FPS;
-    if (sprite.meta.frames <= 1) return 0;
-    return Math.floor((this.#elapsed / 1000) * fps) % sprite.meta.frames;
   }
 
   /**
@@ -315,86 +299,54 @@ export class GameRenderer implements Renderer {
       ctx.restore();
     }
 
-    ctx.font = '600 12px ui-monospace, monospace';
+    ctx.font = FONTS.hud;
 
-    const shots = s.shots.reduce((a, b) => a + b, 0);
     const metric = this.#effects.enhanced;
-    const panelLines = [
-      `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`,
-      `${distance(s.feet, metric)}   total ${distance(shots, metric)}`,
-    ];
-    // Shifted right of x = 118: the shot pips and the launch meter are back in
-    // the left column the original kept for them.
-    ctx.fillStyle = 'rgba(12,20,30,.55)';
-    ctx.fillRect(122, 10, 150, 16 * panelLines.length + 10);
-    ctx.fillStyle = '#eaf6ff';
-    for (const [i, line] of panelLines.entries()) ctx.fillText(line, 130, 28 + i * 16);
+    const panel = HUD.panel;
+    ctx.fillStyle = CHROME;
+    ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
+    ctx.fillStyle = HUD_COLOURS.ink;
+    for (const [i, line] of panelLines(s, metric).entries()) {
+      ctx.fillText(line, panel.textX, panel.baseline + i * panel.lineHeight);
+    }
 
     // Glide meter. The label sits beside the bar rather than on top of it, so
     // the fill never covers it.
-    const w = 110;
-    const barX = C.VIEW_W - w - 14;
-    ctx.fillStyle = '#eaf6ff';
+    const glide = HUD.glide;
+    const fill = glideFill(s);
+    ctx.fillStyle = HUD_COLOURS.ink;
     const label = 'glide';
-    ctx.fillText(label, barX - ctx.measureText(label).width - 8, 24);
-    ctx.fillStyle = 'rgba(12,20,30,.55)';
-    ctx.fillRect(barX, 10, w + 4, 18);
-    ctx.fillStyle = s.glidePoints > 0 ? '#ffd166' : '#ff6b6b';
-    ctx.fillRect(barX + 2, 12, w * (s.glidePoints / C.GLIDE_MAX), 14);
+    ctx.fillText(
+      label,
+      glide.x - ctx.measureText(label).width - glide.labelGap,
+      glide.labelBaseline,
+    );
+    ctx.fillStyle = CHROME;
+    ctx.fillRect(glide.x, glide.y, glide.w + 4, glide.h);
+    ctx.fillStyle = hex(fill.colour);
+    ctx.fillRect(glide.x + 2, glide.fillY, glide.w * fill.fraction, glide.fillH);
 
     if (this.#showHitboxes) {
-      ctx.fillStyle = 'rgba(12,20,30,.55)';
-      ctx.fillRect(10, C.VIEW_H - 58, 260, 48);
-      ctx.fillStyle = '#9fe3ff';
-      ctx.fillText(`x ${s.hamster.x.toFixed(1)}  y ${s.hamster.y.toFixed(1)}`, 18, C.VIEW_H - 42);
-      ctx.fillText(
-        `xvel ${s.hamster.xvel.toFixed(2)}  yvel ${s.hamster.yvel.toFixed(2)}`,
-        18,
-        C.VIEW_H - 28,
-      );
-      const active = Object.entries(s.flags)
-        .filter(([, on]) => on)
-        .map(([name]) => name);
-      ctx.fillText(`t${s.tick} ${s.phaseKind} ${active.join(' ')}`, 18, C.VIEW_H - 14);
-    }
-
-    const prompt = this.#prompt(s);
-    if (prompt !== null) {
-      ctx.font = 'bold 17px system-ui, sans-serif';
-      const width = ctx.measureText(prompt).width;
-      ctx.fillStyle = 'rgba(12,20,30,.62)';
-      ctx.fillRect((C.VIEW_W - width) / 2 - 14, C.VIEW_H - 64, width + 28, 32);
-      ctx.fillStyle = '#fff';
-      ctx.fillText(prompt, (C.VIEW_W - width) / 2, C.VIEW_H - 42);
-    }
-  }
-
-  #prompt(s: SimSnapshot): string | null {
-    if (s.paused) return 'paused - P to resume';
-    switch (s.phaseKind) {
-      case 'ready':
-        return 'click to jump';
-      case 'jumping':
-        return 'click again to hit the pillow';
-      case 'flying':
-        return s.flags.skidding ? null : 'hold to glide';
-      case 'gameOver': {
-        const total = s.shots.reduce((a, b) => a + b, 0);
-        return `${distance(total, this.#effects.enhanced)} total - click to play again`;
+      const debug = HUD.debug;
+      ctx.fillStyle = CHROME;
+      ctx.fillRect(debug.x, debug.y, debug.w, debug.h);
+      ctx.fillStyle = HUD_COLOURS.debugInk;
+      for (const [i, line] of debugLines(s).entries()) {
+        ctx.fillText(line, debug.textX, debug.baseline + i * debug.lineHeight);
       }
-      default:
-        return null;
+    }
+
+    const prompt = promptFor(s, metric);
+    if (prompt !== null) {
+      const box = HUD.prompt;
+      ctx.font = FONTS.prompt;
+      const width = ctx.measureText(prompt).width;
+      ctx.fillStyle = PROMPT_CHROME;
+      ctx.fillRect((C.VIEW_W - width) / 2 - box.pad, box.y, width + box.pad * 2, box.h);
+      ctx.fillStyle = HUD_COLOURS.promptInk;
+      ctx.fillText(prompt, (C.VIEW_W - width) / 2, box.baseline);
     }
   }
-}
-
-function clamp(value: number, low: number, high: number): number {
-  return value < low ? low : value > high ? high : value;
-}
-
-function mix(a: readonly number[], b: readonly number[], t: number): string {
-  const channel = (i: number): number => Math.round((a[i] ?? 0) + ((b[i] ?? 0) - (a[i] ?? 0)) * t);
-  return `rgb(${channel(0)}, ${channel(1)}, ${channel(2)})`;
 }
 
 /**

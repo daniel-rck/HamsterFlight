@@ -7,10 +7,13 @@ import { type AssetBundle, densityFor, loadSprites } from '@/assets/AssetLoader.
 import { InputController } from '@/input/InputController.ts';
 import { Effects } from '@/render/effects/Effects.ts';
 import { createCanvasRenderer } from '@/render/GameRenderer.ts';
+import { interpolate } from '@/render/interpolate.ts';
 import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
 import { C } from '@/sim/constants.ts';
 import { Simulation } from '@/sim/index.ts';
+import type { SimSnapshot } from '@/sim/state.ts';
+import { DEFAULT_TUNING } from '@/sim/tuning.ts';
 
 declare global {
   interface Window {
@@ -76,9 +79,57 @@ function setBootMessage(text: string): void {
   boot.hidden = false;
 }
 
+/**
+ * Re-fit the backing store when the stage changes size - a window drag, a
+ * scrollbar appearing, a monitor with a different pixel ratio. Coalesced into
+ * one call per frame: every `resize()` reallocates the canvas, and a drag
+ * fires dozens of events a second.
+ */
+function watchStageSize(
+  canvas: HTMLCanvasElement,
+  onChange: () => void,
+  signal: AbortSignal,
+): void {
+  let pending = 0;
+  const schedule = (): void => {
+    if (pending !== 0) return;
+    pending = requestAnimationFrame(() => {
+      pending = 0;
+      onChange();
+    });
+  };
+  signal.addEventListener('abort', () => cancelAnimationFrame(pending));
+
+  if (typeof ResizeObserver === 'function') {
+    const observer = new ResizeObserver(schedule);
+    observer.observe(canvas);
+    signal.addEventListener('abort', () => observer.disconnect());
+  } else {
+    window.addEventListener('resize', schedule, { signal });
+  }
+  // A ratio change does not fire `resize`; ask the media query instead, and
+  // re-arm it because the query is for the ratio we had, not the one we get.
+  const watchRatio = (): void => {
+    const query = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
+    query.addEventListener(
+      'change',
+      () => {
+        schedule();
+        watchRatio();
+      },
+      { once: true, signal },
+    );
+  };
+  if (typeof matchMedia === 'function') watchRatio();
+}
+
 async function boot(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>('#stage');
   if (canvas === null) throw new Error('#stage canvas missing');
+  // Everything boot() listens to hangs off this, so tearing the page down is
+  // one call rather than a list of removeEventListener pairs to keep in step.
+  const teardown = new AbortController();
+  const { signal } = teardown;
 
   const params = new URLSearchParams(window.location.search);
   const seed = seedFromUrl(params);
@@ -102,15 +153,24 @@ async function boot(): Promise<void> {
     console.error('[hamsterflight] sprite sheets missing: %s', assets.missing.join(', '));
   }
 
-  const sim = new Simulation({ seed });
+  const sim = new Simulation({ seed, tuning: DEFAULT_TUNING });
   const stress = stressFromUrl(params);
-  const effects = new Effects({ enhanced: mode === 'enhanced' });
+  // Shake, warp and particles honour the OS-level preference; the rest of the
+  // enhanced presentation - metres, the translucent bubble - is not motion.
+  const reducedMotion =
+    typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const effects = new Effects({
+    enhanced: mode === 'enhanced',
+    motion: mode === 'enhanced' && !reducedMotion,
+  });
   const { renderer, backend } = await pickRenderer(rendererName, canvas, assets, effects, {
     showHitboxes: params.has('debug'),
     stress,
+    tuning: DEFAULT_TUNING,
   });
   const input = new InputController();
   input.attach(canvas, { onToggleHitboxes: () => renderer.toggleHitboxes() });
+  signal.addEventListener('abort', () => input.detach());
 
   // The profiler wraps draw() from the outside, so neither backend can be
   // instrumented more kindly than the other.
@@ -121,57 +181,80 @@ async function boot(): Promise<void> {
   // benchmark reads this instead.
   if (profiler !== null) window.__hamsterProfile = profiler;
 
+  // The snapshot is taken once per tick, here, and the draw reads it back:
+  // both hooks used to build their own, twice the allocation for one picture.
+  let previous: SimSnapshot | null = null;
+  let current = sim.snapshot();
+
   const loop = new FixedTimestepLoop({
     step: () => {
       // The event stream used to be discarded here. Impact clips ride on it.
       const events = sim.step(input.drain());
       const now = performance.now();
-      const snapshot = sim.snapshot();
-      effects.consume(events, now, snapshot.hamster);
+      previous = current;
+      current = sim.snapshot();
+      effects.consume(events, now, current.hamster);
       // Grit comes off whenever the hamster is dragging along the ground, not
       // only during the `skidding` predicate - that one is a two-tick window
       // and fires in 2 runs out of 40, which is not an effect anyone would see.
       const dragging =
-        snapshot.phaseKind === 'flying' &&
-        snapshot.hamster.y >= C.SKID_Y &&
-        Math.abs(snapshot.hamster.xvel) > 2;
-      if (dragging) effects.emitSkidDust(snapshot.hamster.x, C.GROUND_Y, now);
+        current.phaseKind === 'flying' &&
+        current.hamster.y >= C.SKID_Y &&
+        Math.abs(current.hamster.xvel) > 2;
+      if (dragging) effects.emitSkidDust(current.hamster.x, C.GROUND_Y, now);
     },
-    // Physics snaps at 20 Hz - the original stage ran at 19 fps with no
-    // tweening - but sprite animation and the sky run on real time, so every
-    // frame is drawn rather than only the stepped ones.
-    draw: () => {
-      const snapshot = sim.snapshot();
+    // Physics snaps at 20 Hz; the picture does not. Every frame is drawn, with
+    // the hamster and the camera placed between the last two ticks by how far
+    // into the current tick the frame falls. The original stage ran at 19 fps
+    // with no tweening, so this is a deliberate departure - presentation only,
+    // the simulation and the scores are untouched.
+    draw: alpha => {
       const now = performance.now();
+      effects.prune(now);
+      const snapshot = interpolate(previous, current, alpha);
       if (profiler === null) renderer.draw(snapshot, now);
       else profiler.measure(() => renderer.draw(snapshot, now));
     },
   });
 
-  window.addEventListener('resize', () => renderer.resize());
+  watchStageSize(canvas, () => renderer.resize(), signal);
 
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      loop.stop();
-    } else {
-      // Clips started before the tab went away would all expire at once.
-      effects.clear();
-      loop.start();
-    }
-  });
+  const resume = (): void => {
+    // Clips started before the tab went away would all expire at once, and
+    // the renderer's animation clock must not count the time away either.
+    effects.clear();
+    renderer.resync();
+    loop.start();
+  };
+  document.addEventListener(
+    'visibilitychange',
+    () => {
+      if (document.hidden) loop.stop();
+      else resume();
+    },
+    { signal },
+  );
 
   // `pagehide` also fires on the way into the back/forward cache, and a page
-  // restored from there keeps running - so the renderer is only torn down
-  // when the document is really being discarded.
-  window.addEventListener('pagehide', event => {
-    loop.stop();
-    if (!event.persisted) renderer.destroy();
-  });
-  window.addEventListener('pageshow', event => {
-    if (!event.persisted) return;
-    effects.clear();
-    loop.start();
-  });
+  // restored from there keeps running - so everything is only torn down when
+  // the document is really being discarded.
+  window.addEventListener(
+    'pagehide',
+    event => {
+      loop.stop();
+      if (event.persisted) return;
+      renderer.destroy();
+      teardown.abort();
+    },
+    { signal },
+  );
+  window.addEventListener(
+    'pageshow',
+    event => {
+      if (event.persisted) resume();
+    },
+    { signal },
+  );
 
   const bootPanel = document.querySelector<HTMLElement>('#boot');
   if (bootPanel !== null) bootPanel.hidden = true;

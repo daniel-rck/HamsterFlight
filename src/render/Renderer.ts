@@ -1,10 +1,16 @@
 import type { AssetBundle } from '@/assets/AssetLoader.ts';
 import type { Effects } from '@/render/effects/Effects.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
+import type { Tuning } from '@/sim/tuning.ts';
 
 export interface RendererOptions {
   /** Draw the measured hitboxes over the art. */
   readonly showHitboxes?: boolean;
+  /**
+   * The boxes the simulation is actually running with, for the hitbox overlay.
+   * Defaults to `DEFAULT_TUNING`; pass the real one or the overlay lies.
+   */
+  readonly tuning?: Tuning;
   /**
    * Decoration multiplier, for profiling only. 1 is the real game.
    *
@@ -26,6 +32,8 @@ export interface RendererOptions {
 export interface Renderer {
   draw(s: SimSnapshot, now: number): void;
   resize(): void;
+  /** The tab was hidden: do not count the time away as animation time. */
+  resync(): void;
   toggleHitboxes(): void;
   destroy(): void;
 }

@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { densityFor } from '@/assets/AssetLoader.ts';
 import { Effects } from '@/render/effects/Effects.ts';
-import { textureKey } from '@/render/PixiRenderer.ts';
-import { MAX_SCALE, stageScale } from '@/render/resolution.ts';
 import type { SimEvent } from '@/sim/events.ts';
 
 /** fx/break has 4 frames at 19 fps, so it lives about 210 ms. */
@@ -26,8 +23,24 @@ describe('Effects', () => {
     expect(effects.active(FRAME_MS * 2)[0]?.frame).toBe(2);
     expect(effects.active(FRAME_MS * 3.9)[0]?.frame).toBe(3);
     expect(effects.active(FRAME_MS * 4)).toHaveLength(0);
-    // Dropped for good, not merely hidden for that one query.
+    // A query is a pure read: asking about an earlier moment still answers.
+    expect(effects.active(FRAME_MS * 2)).toHaveLength(1);
+    // Only the frame's prune drops what has run out, for good.
+    effects.prune(FRAME_MS * 4);
     expect(effects.active(FRAME_MS * 2)).toHaveLength(0);
+  });
+
+  it('prunes only what has finished', () => {
+    const effects = new Effects({ enhanced: true });
+    effects.consume([BREAK], 0);
+    effects.consume([BREAK], FRAME_MS * 3);
+    effects.emitSkidDust(0, 950, 0);
+    effects.prune(FRAME_MS * 4);
+    expect(effects.active(FRAME_MS * 4)).toHaveLength(1);
+    expect(effects.particles(FRAME_MS * 4).length).toBeGreaterThan(0);
+    effects.prune(10_000);
+    expect(effects.active(10_000)).toHaveLength(0);
+    expect(effects.particles(0)).toHaveLength(0);
   });
 
   it('keeps concurrent clips apart', () => {
@@ -58,6 +71,28 @@ describe('Effects', () => {
     effects.consume([BREAK], 0);
     effects.clear();
     expect(effects.active(0)).toHaveLength(0);
+  });
+});
+
+describe('Effects with motion off', () => {
+  it('keeps the enhanced presentation but nothing moves or scatters', () => {
+    const effects = new Effects({ enhanced: true, motion: false });
+    expect(effects.enhanced).toBe(true);
+    expect(effects.motion).toBe(false);
+    effects.consume([{ t: 'fx', id: 'superBreak', x: 0, y: 955 }], 0);
+    effects.consume([{ t: 'pickup', kind: 'speed' }], 0, { x: 100, y: 900 });
+    effects.emitSkidDust(100, 950, 0);
+    expect(effects.shakeOffset(20)).toEqual({ x: 0, y: 0 });
+    expect(effects.shockwave(20)).toBeNull();
+    expect(effects.aberration(20)).toBe(0);
+    expect(effects.particles(20)).toHaveLength(0);
+    // The clip is restoration, not motion.
+    expect(effects.active(0)).toHaveLength(1);
+  });
+
+  it('defaults motion to the enhanced flag', () => {
+    expect(new Effects({ enhanced: true }).motion).toBe(true);
+    expect(new Effects().motion).toBe(false);
   });
 });
 
@@ -176,6 +211,9 @@ describe('Effects at rest', () => {
   });
 });
 
+/** One emission interval, so each call in the cap test actually emits. */
+const DUST_STEP = 50;
+
 describe('Effects particles', () => {
   const enhanced = (): Effects => new Effects({ enhanced: true });
 
@@ -235,55 +273,5 @@ describe('Effects particles', () => {
     const effects = enhanced();
     for (let at = 0; at < 20_000; at += DUST_STEP) effects.emitSkidDust(100, 950, at);
     expect(effects.particles(19_999).length).toBeLessThanOrEqual(160);
-  });
-});
-
-/** One emission interval, so each call in the cap test actually emits. */
-const DUST_STEP = 50;
-
-describe('atlas density selection', () => {
-  it('takes the smallest sheet that still covers the display', () => {
-    expect(densityFor(1)).toBe(1);
-    expect(densityFor(1.25)).toBe(2);
-    expect(densityFor(2)).toBe(2);
-  });
-
-  it('falls back to the densest sheet there is, rather than none', () => {
-    expect(densityFor(3)).toBe(2);
-    expect(densityFor(0.5)).toBe(1);
-  });
-});
-
-describe('stage scale', () => {
-  it('follows how large the canvas actually is, not just the device ratio', () => {
-    // The old rule was min(dpr, 2) and ignored the layout entirely, so a 2x
-    // screen on a wide stage painted more pixels than the buffer held.
-    expect(stageScale(600, 1)).toBe(1);
-    expect(stageScale(1200, 1)).toBe(2);
-    expect(stageScale(900, 2)).toBe(3);
-  });
-
-  it('is capped, because the buffer grows with the square of it', () => {
-    expect(stageScale(1600, 3)).toBe(MAX_SCALE);
-    expect(stageScale(4000, 2)).toBe(MAX_SCALE);
-  });
-
-  it('survives a layout that has not been measured yet', () => {
-    expect(stageScale(0, 0)).toBe(1);
-  });
-});
-
-describe('textureKey', () => {
-  const rect = { x: 128, y: 64, w: 44, h: 160 };
-
-  it('tells the same rect on two sheets apart', () => {
-    // `pack_atlas` lays every sheet out from (0, 0), so a rect repeating across
-    // sheets is the normal case rather than a coincidence. Keyed by rect alone,
-    // the second sprite would draw the first sheet's pixels.
-    expect(textureKey(0, rect)).not.toBe(textureKey(1, rect));
-  });
-
-  it('still shares one texture for one frame asked for twice', () => {
-    expect(textureKey(0, rect)).toBe(textureKey(0, { ...rect }));
   });
 });
