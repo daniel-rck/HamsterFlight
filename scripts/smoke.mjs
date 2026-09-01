@@ -82,9 +82,15 @@ async function check(browser, origin, { mode, renderer }) {
 
   try {
     // `?profile` is what publishes the frame counter on window.
-    await page.goto(`${origin}/?seed=${SEED}&profile&mode=${mode}&renderer=${renderer}`, {
-      waitUntil: 'load',
-    });
+    const response = await page.goto(
+      `${origin}/?seed=${SEED}&profile&mode=${mode}&renderer=${renderer}`,
+      { waitUntil: 'load' },
+    );
+    // Checked explicitly, because a 404 page is a perfectly valid page: it
+    // loads, it has no `#boot` to wait for, and everything after this would
+    // fail somewhere far away from the cause.
+    const status = response?.status() ?? 0;
+    if (status !== 200) throw new Error(`the page answered ${status}`);
     await waitForBoot(page);
   } catch (error) {
     failures.push(`never finished booting: ${error.message}`);

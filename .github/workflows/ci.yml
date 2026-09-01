@@ -85,12 +85,13 @@ jobs:
 
       - run: npm ci
 
-      # The exact bytes `verify` just checked, rather than a second build that
-      # could differ.
-      - uses: actions/download-artifact@v7
-        with:
-          name: dist-${{ github.sha }}
-          path: dist
+      # Built here rather than downloaded from `verify`'s artifact. Reusing the
+      # artifact tests the exact bytes that were verified, which is the nicer
+      # property - but it puts the artifact action's path handling between the
+      # build and the test, and that is what went wrong first: the download
+      # produced no `dist/index.html`, the page 404'd, and the failure surfaced
+      # as a click timing out. A rebuild is two seconds and cannot do that.
+      - run: npm run build
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
