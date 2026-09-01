@@ -168,7 +168,7 @@ is never committed.
 | --- | --- |
 | `verify` | `npm audit` over runtime dependencies, Biome, sim purity, atlas integrity, three tsconfigs, the tests, the build, and the bundle budget |
 | `smoke` | opens the built page in Chromium, in both modes on both backends |
-| `dependency-review` | dependencies this pull request *adds* (pull requests only) |
+| `dependency-review` | dependencies this pull request *adds* (pull requests only, opt-in) |
 | `deploy` | `wrangler deploy`, on pushes to `main` only, gated on the two above |
 
 Everything in `verify` is what `npm run verify` runs locally, so a green local
@@ -193,6 +193,13 @@ Rules → Rulesets → New branch ruleset**, targeting `main`:
 `ci.yml` cancels superseded runs, so a check can sit as *cancelled* rather than
 *failed* while a newer run finishes. That is normal, and it does briefly look
 like a failure in the UI.
+
+`dependency-review` needs the repository's dependency graph, which is off:
+switch it on under **Settings → Code security**, then add a repository variable
+`DEPENDENCY_GRAPH` = `on` (Settings → Secrets and variables → Actions →
+Variables). Until then the job does not run - it is skipped rather than made
+non-blocking, because `continue-on-error` would also swallow the findings it
+exists to surface.
 
 ## Deploying
 

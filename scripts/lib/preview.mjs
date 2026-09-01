@@ -35,18 +35,32 @@ export async function startServer(port = 4173) {
     if (error instanceof Error && error.message.startsWith('something is already')) throw error;
   }
 
+  // `--host 127.0.0.1` because that is the address probed below and the address
+  // the browser is pointed at. Vite's default binds `localhost`, which on a
+  // GitHub runner resolves to ::1 first - so the server comes up perfectly and
+  // an IPv4 probe never reaches it.
+  //
   // `detached` puts the child in its own process group, so `stop()` can take
   // the whole group down. Killing the pid alone kills only the `npx` wrapper
   // and leaves the vite process it spawned reparented to init, still holding
   // the port - which is what the guard above kept tripping over.
   //
-  // stdout ignored rather than piped: nothing reads it, and an unread pipe
-  // keeps the handle - and therefore the whole process - alive after the child
-  // is killed. Harmless in an interactive benchmark, a hung job in CI.
-  const server = spawn('npx', ['vite', 'preview', '--port', String(port), '--strictPort'], {
-    stdio: ['ignore', 'ignore', 'inherit'],
-    detached: true,
-  });
+  // Both streams are piped *and drained*: an unread pipe keeps the handle - and
+  // therefore the whole process - alive after the child is killed, but a pipe
+  // nobody has is a failure with no explanation, which is how this cost a CI
+  // round. The tail goes into the timeout message.
+  const server = spawn(
+    'npx',
+    ['vite', 'preview', '--port', String(port), '--strictPort', '--host', '127.0.0.1'],
+    { stdio: ['ignore', 'pipe', 'pipe'], detached: true },
+  );
+  let output = '';
+  const collect = chunk => {
+    output = `${output}${chunk}`.slice(-2000);
+  };
+  server.stdout?.on('data', collect);
+  server.stderr?.on('data', collect);
+
   let exited = null;
   server.on('exit', code => {
     exited = code;
@@ -62,17 +76,21 @@ export async function startServer(port = 4173) {
   };
 
   for (let attempt = 0; attempt < 60; attempt++) {
-    if (exited !== null) throw new Error(`vite preview exited with ${exited} before serving`);
+    if (exited !== null) {
+      throw new Error(`vite preview exited with ${exited} before serving:\n${output}`);
+    }
     try {
-      const response = await fetch(origin);
-      if (response.ok) return { origin, stop };
+      // Any answer means it is listening. Insisting on 2xx here would turn a
+      // missing `dist/index.html` into a timeout that blames the wrong thing.
+      await fetch(origin);
+      return { origin, stop };
     } catch {
       // not up yet
     }
     await sleep(250);
   }
   stop();
-  throw new Error(`vite preview did not come up on ${origin}`);
+  throw new Error(`vite preview did not come up on ${origin}:\n${output}`);
 }
 
 export function launchChromium() {

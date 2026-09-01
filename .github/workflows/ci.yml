@@ -100,8 +100,15 @@ jobs:
 
   # Only reports dependencies this pull request *adds*, so it cannot thrash on
   # pre-existing advisories the way a full audit would.
+  #
+  # Needs the repository's dependency graph switched on (Settings → Code
+  # security), which cannot be detected from in here - the action just fails
+  # with "Dependency review is not supported on this repository". So it is
+  # opt-in on a repository variable: set DEPENDENCY_GRAPH to `on` once the
+  # graph is enabled. A variable rather than `continue-on-error`, because that
+  # would also swallow the real findings this exists to surface.
   dependency-review:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH == 'on'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
