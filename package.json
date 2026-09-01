@@ -16,13 +16,14 @@
     "preview:cf": "npm run build && wrangler dev",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sim.json && tsc -p tsconfig.node.json",
     "check:purity": "node scripts/check-sim-purity.mjs",
+    "check:assets": "node scripts/check-assets.mjs",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
     "bench": "node --experimental-strip-types scripts/bench-strategies.ts",
-    "verify": "npm run lint && npm run check:purity && npm run typecheck && npm run test && npm run build",
+    "verify": "npm run lint && npm run check:purity && npm run check:assets && npm run typecheck && npm run test && npm run build",
     "deploy": "npm run verify && wrangler deploy"
   },
   "devDependencies": {
