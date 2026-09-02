@@ -133,15 +133,24 @@ interface LiveFx {
 export interface EffectsOptions {
   /**
    * Everything this layer *adds* rather than restores: camera shake, chromatic
-   * aberration, the shockwave. Off in faithful mode, where the original stage
-   * neither moved nor warped. The impact clips are not gated by it - the
-   * original played those, so leaving them out was the deviation.
+   * aberration, the shockwave, the particles, plus the presentation choices
+   * that ride on the mode - metres instead of feet, the translucent bubble.
+   * Off in faithful mode, where the original stage neither moved nor warped.
+   * The impact clips are not gated by it - the original played those, so
+   * leaving them out was the deviation.
    *
    * The renderer choice would hide the shader effects anyway, since Canvas2D
    * has no filters. Gating them here as well means `?mode=faithful` stays
    * faithful even when a backend is forced with `?renderer=`.
    */
   readonly enhanced?: boolean;
+  /**
+   * The subset of `enhanced` that moves or warps the picture: shake,
+   * aberration, shockwave, particles, motion blur. Defaults to `enhanced`;
+   * `prefers-reduced-motion` turns it off on its own while the rest of the
+   * enhanced presentation stays.
+   */
+  readonly motion?: boolean;
 }
 
 export class Effects {
@@ -155,6 +164,7 @@ export class Effects {
    */
   readonly scene = new PreLaunchScene();
   readonly #enhanced: boolean;
+  readonly #motion: boolean;
   #live: LiveFx[] = [];
   #shakeStartedMs = 0;
   #shakeAmplitude = 0;
@@ -170,11 +180,17 @@ export class Effects {
 
   constructor(options: EffectsOptions = {}) {
     this.#enhanced = options.enhanced ?? false;
+    this.#motion = options.motion ?? this.#enhanced;
   }
 
   /** Whether the renderer should draw the additions as well as the original. */
   get enhanced(): boolean {
     return this.#enhanced;
+  }
+
+  /** Whether anything may shake, warp, blur or scatter. */
+  get motion(): boolean {
+    return this.#motion;
   }
 
   /**
@@ -193,7 +209,7 @@ export class Effects {
 
   /** Dust kicked up along the ground, while the hamster is still sliding. */
   emitSkidDust(x: number, y: number, nowMs: number): void {
-    if (!this.#enhanced) return;
+    if (!this.#motion) return;
     if (nowMs - this.#lastDustMs < DUST_INTERVAL_MS) return;
     this.#lastDustMs = nowMs;
     for (let i = 0; i < 3; i++) {
@@ -231,14 +247,12 @@ export class Effects {
     }
   }
 
-  /** Where the particles are this frame. Dead ones are dropped here. */
+  /** Where the particles are this frame. A pure read; `prune()` drops the dead. */
   particles(nowMs: number): readonly Particle[] {
     const out: Particle[] = [];
-    let keep = 0;
     for (const p of this.#particles) {
       const elapsed = nowMs - p.bornMs;
       if (elapsed < 0 || elapsed >= p.lifeMs) continue;
-      this.#particles[keep++] = p;
       out.push({
         x: p.x + p.vx * elapsed,
         y: p.y + p.vy * elapsed + 0.5 * p.gravity * elapsed * elapsed,
@@ -247,8 +261,30 @@ export class Effects {
         age: elapsed / p.lifeMs,
       });
     }
-    this.#particles.length = keep;
     return out;
+  }
+
+  /**
+   * Drop the clips and particles that have run out. Called once per frame by
+   * the loop, so `active()` and `particles()` can stay pure reads - a debug
+   * overlay or a test asking about an earlier moment no longer destroys what
+   * the renderer was about to draw.
+   */
+  prune(nowMs: number): void {
+    let keep = 0;
+    for (const fx of this.#live) {
+      const frame = Math.floor(((nowMs - fx.startedMs) / 1000) * FX_FPS);
+      if (frame >= fx.frames) continue;
+      this.#live[keep++] = fx;
+    }
+    this.#live.length = keep;
+
+    keep = 0;
+    for (const p of this.#particles) {
+      if (nowMs - p.bornMs >= p.lifeMs) continue;
+      this.#particles[keep++] = p;
+    }
+    this.#particles.length = keep;
   }
 
   /** Takes one tick's events. Cues this layer has no use for are ignored. */
@@ -265,13 +301,13 @@ export class Effects {
           startedMs: nowMs,
         });
         this.#shake(SHAKE_AMPLITUDE[event.id], nowMs);
-        const aberration = this.#enhanced ? ABERRATION_STRENGTH[event.id] : undefined;
+        const aberration = this.#motion ? ABERRATION_STRENGTH[event.id] : undefined;
         if (aberration !== undefined && aberration >= this.aberration(nowMs)) {
           this.#aberrationStartedMs = nowMs;
           this.#aberrationStrength = aberration;
         }
         const wave = SHOCKWAVE_AMPLITUDE[event.id];
-        if (this.#enhanced && wave >= (this.shockwave(nowMs)?.amplitude ?? 0)) {
+        if (this.#motion && wave >= (this.shockwave(nowMs)?.amplitude ?? 0)) {
           this.#waveStartedMs = nowMs;
           this.#waveAmplitude = wave;
           this.#waveX = event.x;
@@ -279,7 +315,7 @@ export class Effects {
         }
       } else if (event.t === 'shotDone' && event.outcome === 'faceplant') {
         this.#shake(SHAKE_AMPLITUDE.faceplant, nowMs);
-      } else if (event.t === 'pickup' && this.#enhanced && at !== undefined) {
+      } else if (event.t === 'pickup' && this.#motion && at !== undefined) {
         // The cue carries only the kind, so the burst goes where the hamster
         // was - which is where the overlap happened.
         this.#emitSparks(at.x, at.y, nowMs);
@@ -292,7 +328,7 @@ export class Effects {
    * is left of it, so a light bounce cannot cut a superbounce short.
    */
   #shake(amplitude: number, nowMs: number): void {
-    if (!this.#enhanced) return;
+    if (!this.#motion) return;
     if (amplitude < this.#remainingShake(nowMs)) return;
     this.#shakeStartedMs = nowMs;
     this.#shakeAmplitude = amplitude;
@@ -320,17 +356,14 @@ export class Effects {
     };
   }
 
-  /** What to draw this frame. Clips that have run out are dropped here. */
+  /** What to draw this frame. A pure read; `prune()` drops finished clips. */
   active(nowMs: number): readonly ActiveFx[] {
     const out: ActiveFx[] = [];
-    let keep = 0;
     for (const fx of this.#live) {
       const frame = Math.floor(((nowMs - fx.startedMs) / 1000) * FX_FPS);
       if (frame < 0 || frame >= fx.frames) continue;
-      this.#live[keep++] = fx;
       out.push({ sprite: fx.sprite, frame, x: fx.x, y: fx.y });
     }
-    this.#live.length = keep;
     return out;
   }
 
@@ -370,11 +403,16 @@ export class Effects {
   clear(): void {
     this.scene.clear();
     this.#live.length = 0;
+    this.#shakeStartedMs = 0;
     this.#shakeAmplitude = 0;
+    this.#aberrationStartedMs = 0;
     this.#aberrationStrength = 0;
     this.#waveAmplitude = 0;
     this.#waveStartedMs = 0;
     this.#particles.length = 0;
+    // Back to the start of the hash sequence too, or a restart would scatter
+    // its particles differently from a first run with the same seed.
+    this.#emitted = 0;
     this.#lastDustMs = Number.NEGATIVE_INFINITY;
   }
 }

@@ -1,6 +1,7 @@
+import { deepFreeze } from './freeze.ts';
 import { HITBOXES } from './hitboxes.generated.ts';
 import type { Box } from './math/aabb.ts';
-import type { PowerupKind } from './types.ts';
+import type { PowerupKind, ShotOutcome } from './types.ts';
 
 /**
  * Everything the bytecode does NOT tell us. Kept separate from `constants.ts`
@@ -23,26 +24,30 @@ export interface Tuning {
    */
   readonly powerupActiveTicks: Readonly<Record<PowerupKind, number>>;
   /**
-   * The pan-back geometry is now read from `GameCamera.as`, so only the
-   * safety cap remains here: it exists so the state machine can never
-   * soft-lock if a pan fails to converge.
+   * The pan-back geometry is read from `GameCamera.as`, so only the safety cap
+   * remains here: `settling` gives up waiting for `quickPanStep` to converge
+   * after this many ticks, so the state machine can never soft-lock.
    */
   readonly camera: {
     readonly maxPanTicks: number;
   };
-  /** How long each outcome animation holds before the turn advances. */
-  readonly outcomeHoldTicks: Readonly<Record<string, number>>;
+  /**
+   * How long each outcome clip plays before its last frame calls
+   * `setCamReset()`. The clip timelines are not in the constant table.
+   */
+  readonly outcomeHoldTicks: Readonly<Record<ShotOutcome, number>>;
   /**
    * `Bullet.increaseGravity` is called only from `onMouseDown` (Game.as:1040),
    * so the lift is frozen at `-0.17 * xvel` as measured at the press and does
    * NOT track the decaying xvel. `false` is the faithful behaviour; `true` is
-   * the reading `sim.js` assumed, kept switchable because it changes the
-   * optimal strategy and the golden values.
+   * the reading `sim.js` assumed - the lift is recomputed from the current
+   * xvel on every held tick - kept switchable because it changes the optimal
+   * strategy and the golden values.
    */
   readonly recomputeGlidePerTick: boolean;
 }
 
-export const DEFAULT_TUNING: Tuning = Object.freeze({
+export const DEFAULT_TUNING: Tuning = deepFreeze({
   boxes: {
     hamsterJumpCore: HITBOXES.hamsterJumpCore,
     hamsterFlightCore: HITBOXES.hamsterFlightCore,

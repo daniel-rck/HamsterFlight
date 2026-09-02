@@ -1,6 +1,14 @@
 import type { Projectile } from './entities/Projectile.ts';
 import type { EffectFlags, PowerupKind, ShotOutcome } from './types.ts';
 
+/**
+ * Mutability convention: phase payloads (`JumpState`, `FlightState`,
+ * `CameraState`, the `settling` counters) are the simulation's working state
+ * and are mutated in place by the phase steppers. `readonly` on a field here
+ * means "the reference is fixed", not "the object is immutable". `SimSnapshot`
+ * at the bottom is the one genuinely immutable shape - it is a copy.
+ */
+
 export interface PowerupInstance {
   readonly kind: PowerupKind;
   readonly x: number;
@@ -33,12 +41,20 @@ export interface FlightState {
   powerupMark: number;
   readonly camera: CameraState;
   outcome: ShotOutcome | null;
+  /** `slideSound` / `skidSound` - whether the loop has been started. Game.as:561, 580. */
+  slideSound: boolean;
+  skidSound: boolean;
 }
 
 /**
  * A discriminated union rather than the original's five loose booleans
  * (`shooting`, `faceplant`, `skidding`, `state`, `paused`), several of whose
  * combinations were unreachable only by convention.
+ *
+ * `settling` has two stages, matching the original's sequence after a shot:
+ * the outcome clip plays (`hold`, `Tuning.outcomeHoldTicks`), then its last
+ * frame calls `setCamReset()` and the camera quick-pans home (`pan`,
+ * `GameCamera.doQuickPanTo`); `onDone()` advances the turn on arrival.
  */
 export type Phase =
   | { readonly kind: 'ready' }
@@ -48,6 +64,8 @@ export type Phase =
       readonly kind: 'settling';
       readonly outcome: ShotOutcome;
       readonly feet: number;
+      stage: 'hold' | 'pan';
+      /** Ticks left in the current stage; in `pan` it is the safety cap. */
       ticksLeft: number;
       readonly camera: CameraState;
     }

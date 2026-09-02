@@ -1,0 +1,18 @@
+# Keeps the lockfile and the pinned action SHAs moving. Without it nothing here
+# ever updates on its own, and the `npm audit` gate in ci.yml would eventually
+# fire on a dependency nobody was bumping.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      dev-dependencies:
+        dependency-type: development
+    # pixi.js is the one runtime dependency and gets its own PR, so a major
+    # bump is never buried in a tooling batch.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

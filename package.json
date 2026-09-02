@@ -4,29 +4,37 @@
   "private": true,
   "type": "module",
   "description": "Faithful browser port of the Flash game Flight of the Hamsters, reconstructed from bytecode analysis",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/daniel-rck/HamsterFlight.git"
+  },
   "engines": {
     "node": ">=22"
   },
+  "packageManager": "npm@10.9.7",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "bundle:report": "node scripts/bundle-report.mjs",
-    "check:bundle": "node scripts/bundle-report.mjs --check",
-    "smoke": "node scripts/smoke.mjs",
-    "bench:renderers": "node scripts/bench-renderers.mjs",
+    "bundle:report": "node scripts/bundle-report.ts",
+    "check:bundle": "node scripts/bundle-report.ts --check",
+    "smoke": "node scripts/smoke.ts",
+    "bench:renderers": "node scripts/bench-renderers.ts",
     "preview": "vite preview",
     "preview:cf": "npm run build && wrangler dev",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.sim.json && tsc -p tsconfig.node.json",
-    "check:purity": "node scripts/check-sim-purity.mjs",
-    "check:assets": "node scripts/check-assets.mjs",
+    "check:purity": "node scripts/check-sim-purity.ts",
+    "check:assets": "node scripts/check-assets.ts",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "bench": "node --experimental-strip-types scripts/bench-strategies.ts",
+    "bench": "node scripts/bench-strategies.ts",
     "verify": "npm run lint && npm run check:purity && npm run check:assets && npm run typecheck && npm run test && npm run build && npm run check:bundle",
-    "deploy": "npm run verify && wrangler deploy"
+    "deploy": "npm run verify && npm run smoke && npm run check:cf && wrangler deploy",
+    "check:cf": "node scripts/check-cloudflare.ts",
+    "audit": "npm audit --omit=dev --audit-level=high"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.11",

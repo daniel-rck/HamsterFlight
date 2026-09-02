@@ -17,20 +17,24 @@ describe('jump phase', () => {
     const rng = mulberry32(42);
     const s = beginJump(rng);
     let boostTicks = 0;
-    let previous = s.yvel;
+    let boostedFrom: number | null = null;
     for (let t = 0; t < 30; t++) {
       const before = s.y;
       const yvelBefore = s.yvel;
       if (stepJump(s, rng, [])) break;
       // A jump of more than the gravity step means the boost fired.
       const delta = s.yvel - yvelBefore;
-      if (delta < -1) boostTicks++;
-      expect(before < C.JUMP_BOOST_Y || s.boost === false || boostTicks <= 1).toBe(true);
-      previous = s.yvel;
+      if (delta < -1) {
+        boostTicks++;
+        boostedFrom = before;
+      }
     }
     expect(boostTicks).toBe(1);
     expect(s.boost).toBe(true);
-    void previous;
+    // Tested against the position *before* the move, so the firing tick
+    // started above the threshold.
+    expect(boostedFrom).not.toBeNull();
+    expect(boostedFrom ?? 0).toBeLessThan(C.JUMP_BOOST_Y);
   });
 
   it('uses asymmetric gravity: 1.5 rising, 0.75 falling', () => {

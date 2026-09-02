@@ -15,9 +15,12 @@ const SHEET_URLS = import.meta.glob<string>('./sprites/sheet-*.png', {
  * Which atlas to fetch. The sheets share one layout, so a denser one is the
  * same rectangles multiplied - the smallest that still covers the display wins,
  * and a 1x screen never pays for art it cannot show.
+ *
+ * `scale` is sheet pixels per stage pixel actually needed - `stageScale()`,
+ * which folds the layout width in with the device pixel ratio.
  */
-export function densityFor(devicePixelRatio: number): number {
-  const covering = DENSITIES.find(density => density >= devicePixelRatio);
+export function densityFor(scale: number): number {
+  const covering = DENSITIES.find(density => density >= scale);
   return covering ?? DENSITIES[DENSITIES.length - 1] ?? 1;
 }
 
@@ -50,7 +53,7 @@ export interface AssetBundle {
   readonly sheets: readonly ImageBitmap[];
   /** The density actually loaded. */
   readonly density: number;
-  /** Sheets that failed to load; surfaced in the debug overlay, never fatal. */
+  /** Sheets that failed to load. Not fatal here; the caller decides whether to retry. */
   readonly missing: readonly string[];
 }
 
@@ -59,10 +62,22 @@ function sheetUrl(index: number, density: number): string | undefined {
   return SHEET_URLS[`./sprites/sheet-${index}${suffix}.png`];
 }
 
+/** A stalled connection used to leave "loading…" up forever. */
+const FETCH_TIMEOUT_MS = 20_000;
+
 async function loadSheet(url: string): Promise<ImageBitmap> {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  return createImageBitmap(await response.blob());
+  // AbortController + setTimeout rather than `AbortSignal.timeout`, which
+  // older browsers lack; a missing static would throw before the fetch and
+  // before the 1x retry ever got a chance.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('timed out')), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return await createImageBitmap(await response.blob());
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
@@ -78,7 +93,7 @@ async function loadSheet(url: string): Promise<ImageBitmap> {
  */
 export async function loadSprites(
   onProgress?: (progress: LoadProgress) => void,
-  density = densityFor(globalThis.devicePixelRatio || 1),
+  density = 1,
 ): Promise<AssetBundle> {
   const ids = Object.keys(SPRITES) as SpriteId[];
   const wanted = [...new Set(ids.map(id => SPRITES[id].sheet))].sort((a, b) => a - b);

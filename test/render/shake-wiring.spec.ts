@@ -114,19 +114,31 @@ function snapshot(): SimSnapshot {
   };
 }
 
-/** The world transform is the one carrying a non-zero translation. */
+/**
+ * `draw()` sets three transforms: the sky's, the world's and the HUD's, in
+ * that order. Looked up by position rather than by "the one that is
+ * translated", so a world transform that is accidentally identity fails here
+ * instead of passing against a camera at the origin.
+ */
 function worldTranslation(transforms: readonly Transform[]): readonly [number, number] {
-  const world = transforms.find(t => t[4] !== 0 || t[5] !== 0);
-  return world === undefined ? [0, 0] : [world[4], world[5]];
+  expect(transforms).toHaveLength(3);
+  const world = transforms[1];
+  if (world === undefined) throw new Error('no world transform recorded');
+  return [world[4], world[5]];
 }
 
-describe('impact shake wiring', () => {
+/** The renderer reads `window.devicePixelRatio`; there is no window under node. */
+function withFakeWindow(): void {
   beforeEach(() => {
     (globalThis as { window?: unknown }).window = { devicePixelRatio: 1 };
   });
   afterEach(() => {
-    (globalThis as { window?: unknown }).window = undefined;
+    delete (globalThis as { window?: unknown }).window;
   });
+}
+
+describe('impact shake wiring', () => {
+  withFakeWindow();
 
   it('displaces the world by the shake offset and leaves the HUD alone', () => {
     const effects = new Effects({ enhanced: true });
@@ -159,12 +171,7 @@ describe('impact shake wiring', () => {
 });
 
 describe('the hamster inside the bounce bubble', () => {
-  beforeEach(() => {
-    (globalThis as { window?: unknown }).window = { devicePixelRatio: 1 };
-  });
-  afterEach(() => {
-    (globalThis as { window?: unknown }).window = undefined;
-  });
+  withFakeWindow();
 
   function bouncing(): SimSnapshot {
     const s = snapshot();
@@ -201,12 +208,7 @@ describe('the hamster inside the bounce bubble', () => {
 });
 
 describe('particle wiring', () => {
-  beforeEach(() => {
-    (globalThis as { window?: unknown }).window = { devicePixelRatio: 1 };
-  });
-  afterEach(() => {
-    (globalThis as { window?: unknown }).window = undefined;
-  });
+  withFakeWindow();
 
   it('draws one fading quad per live particle', () => {
     const effects = new Effects({ enhanced: true });
@@ -243,12 +245,7 @@ describe('particle wiring', () => {
 });
 
 describe('manifest scale', () => {
-  beforeEach(() => {
-    (globalThis as { window?: unknown }).window = { devicePixelRatio: 1 };
-  });
-  afterEach(() => {
-    (globalThis as { window?: unknown }).window = undefined;
-  });
+  withFakeWindow();
 
   /** One sprite, cut from a sheet at `density` sheet pixels per stage pixel. */
   function scaledAssets(density: number): AssetBundle {

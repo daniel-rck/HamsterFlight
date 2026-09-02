@@ -19,7 +19,7 @@
       }
       body {
         margin: 0;
-        min-height: 100vh;
+        min-height: 100svh;
         display: grid;
         place-items: center;
         gap: 1rem;
@@ -30,6 +30,8 @@
       }
       .stage {
         width: min(100%, 1600px);
+        /* Letterbox on short screens instead of pushing the HUD below the fold. */
+        max-height: calc(100svh - 8rem);
         aspect-ratio: 3 / 2;
         border-radius: 10px;
         overflow: hidden;
@@ -42,7 +44,24 @@
         height: 100%;
         touch-action: none;
         cursor: pointer;
+      }
+      canvas:focus {
         outline: none;
+      }
+      /* The canvas is the only control on the page, so keyboard users must be
+         able to see when their Space will reach it rather than scroll. */
+      canvas:focus-visible {
+        outline: 3px solid #7fd4ff;
+        outline-offset: 2px;
+      }
+      noscript {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #1b2430;
+        padding: 1rem;
+        text-align: center;
       }
       #boot {
         position: absolute;
@@ -50,6 +69,10 @@
         display: grid;
         place-items: center;
         background: #1b2430;
+      }
+      /* The explicit display above would otherwise beat the hidden attribute. */
+      #boot[hidden] {
+        display: none;
       }
       footer {
         max-width: 900px;
@@ -72,12 +95,20 @@
   </head>
   <body>
     <div class="stage">
-      <canvas id="stage" width="600" height="400" tabindex="0" aria-label="Game stage"></canvas>
-      <div id="boot">loading…</div>
+      <canvas
+        id="stage"
+        width="600"
+        height="400"
+        tabindex="0"
+        aria-label="Game stage"
+        aria-describedby="how-to"
+      ></canvas>
+      <div id="boot" role="status" aria-live="polite">loading…</div>
+      <noscript>This game needs JavaScript to run.</noscript>
     </div>
     <footer>
-      Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide.
-      <kbd>P</kbd> pauses. Physics runs at a fixed 20&nbsp;Hz, as the original did.
+      <span id="how-to">Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide.
+      <kbd>P</kbd> pauses.</span> Physics runs at a fixed 20&nbsp;Hz, as the original did.
       <br />
       A fan reimplementation built from bytecode analysis of the original Flash game. Not
       affiliated with the original publisher. Sprites are extracted from the original SWF and

@@ -8,7 +8,7 @@ import { attemptLaunch } from './phases/Launch.ts';
 import { mulberry32 } from './rng/mulberry32.ts';
 import type { Rng } from './rng/Rng.ts';
 import type { FlightState, Phase, SimSnapshot } from './state.ts';
-import { follow, newCamera } from './systems/CameraModel.ts';
+import { follow, newCamera, quickPanStep } from './systems/CameraModel.ts';
 import { DEFAULT_TUNING, type Tuning } from './tuning.ts';
 import { noEffects, type ShotOutcome } from './types.ts';
 
@@ -55,16 +55,24 @@ export class Simulation {
     return this.#phase.kind;
   }
 
-  /** Advance exactly one 50 ms tick. */
+  /**
+   * Advance exactly one 50 ms tick.
+   *
+   * Commands are applied in the order given: `[press, togglePause]` handles the
+   * press and then pauses, `[togglePause, press]` pauses and drops the press.
+   * While paused nothing else moves and the tick counter does not advance.
+   */
   step(commands: readonly InputCommand[] = []): readonly SimEvent[] {
     const out: SimEvent[] = [];
 
     for (const cmd of commands) {
-      if (cmd.kind === 'togglePause') this.#paused = !this.#paused;
+      if (cmd.kind === 'togglePause') {
+        this.#paused = !this.#paused;
+      } else if (!this.#paused) {
+        this.#handle(cmd, out);
+      }
     }
     if (this.#paused) return out;
-
-    for (const cmd of commands) this.#handle(cmd, out);
 
     this.#tick++;
 
@@ -85,16 +93,41 @@ export class Simulation {
         }
         break;
       }
-      case 'settling': {
-        this.#phase.ticksLeft--;
-        if (this.#phase.ticksLeft <= 0) this.#advanceTurn(out);
+      case 'settling':
+        this.#stepSettling(out);
         break;
-      }
       default:
         break;
     }
 
     return out;
+  }
+
+  /**
+   * The outcome clip plays, then the camera quick-pans home. In the original
+   * the clip's last frame calls `setCamReset()` and `GameCamera` fires `onDone`
+   * when `doQuickPanTo` has converged, which is what advances the turn.
+   */
+  #stepSettling(out: SimEvent[]): void {
+    if (this.#phase.kind !== 'settling') return;
+    const st = this.#phase;
+    st.ticksLeft--;
+    if (st.stage === 'hold') {
+      if (st.ticksLeft <= 0) {
+        st.stage = 'pan';
+        st.ticksLeft = this.#tuning.camera.maxPanTicks;
+      }
+      return;
+    }
+    const arrived = quickPanStep(
+      st.camera,
+      C.CAM_RESET_TARGET_X,
+      C.CAM_RESET_TARGET_Y,
+      C.CAM_QPAN_TIME,
+    );
+    // The cap exists so the state machine cannot soft-lock; the pan converges
+    // geometrically, so it is never reached from any position in the game.
+    if (arrived || st.ticksLeft <= 0) this.#advanceTurn(out);
   }
 
   #handle(cmd: InputCommand, out: SimEvent[]): void {
@@ -169,10 +202,15 @@ export class Simulation {
       powerupMark: this.#turn === 1 ? C.POWERUP_MARK_INIT : C.POWERUP_MARK_RESET,
       camera: newCamera(),
       outcome: null,
+      slideSound: false,
+      skidSound: false,
     };
     follow(flight.camera, p.x, p.y);
 
     out.push({ t: 'launched', vel: result.vel, angleDeg: result.angleDeg });
+    // `shoot()` stops the menu music and starts the flight loop and the theme.
+    // Game.as:1151-1157.
+    out.push({ t: 'sfxStop', id: 'prelude' });
     out.push({ t: 'sfx', id: 'fly', gain: C.SFX_VOLUME, loop: true });
     out.push({ t: 'sfx', id: 'theme', gain: C.MUSIC_VOL, loop: true });
     this.#phase = { kind: 'flying', flight };
@@ -192,7 +230,8 @@ export class Simulation {
       kind: 'settling',
       outcome,
       feet,
-      ticksLeft: this.#tuning.outcomeHoldTicks[outcome] ?? 20,
+      stage: 'hold',
+      ticksLeft: this.#tuning.outcomeHoldTicks[outcome],
       camera,
     };
   }
@@ -206,6 +245,8 @@ export class Simulation {
       this.#phase = { kind: 'gameOver', total };
       return;
     }
+    // `nextHamster()` restarts the menu music. Game.as:986-990.
+    out.push({ t: 'sfx', id: 'prelude', gain: C.MUSIC_VOL, loop: true });
     this.#phase = { kind: 'ready' };
   }
 

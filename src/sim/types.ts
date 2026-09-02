@@ -1,3 +1,5 @@
+import { deepFreeze } from './freeze.ts';
+
 /**
  * `erasableSyntaxOnly` is on, so no `enum` anywhere: const objects plus derived
  * unions give the same ergonomics with none of the emit.
@@ -30,15 +32,21 @@ export interface PowerupSpec {
   readonly mode: PowerupMode;
   /** Ground item rather than airborne. */
   readonly groundItem: boolean;
+  /**
+   * Whether the pickup plays `sndPickup`. Only bounce (Game.as:700),
+   * superbounce (:715) and slide (:749) do; speed, wind and rebound are
+   * silent in the original.
+   */
+  readonly sound: boolean;
 }
 
-export const POWERUPS = Object.freeze({
-  bounce: { mode: 'arm', groundItem: false },
-  speed: { mode: 'pulse', groundItem: false },
-  wind: { mode: 'pulse', groundItem: false },
-  slide: { mode: 'latch', groundItem: false },
-  rebound: { mode: 'impulse', groundItem: true },
-  superbounce: { mode: 'arm', groundItem: false },
+export const POWERUPS = deepFreeze({
+  bounce: { mode: 'arm', groundItem: false, sound: true },
+  speed: { mode: 'pulse', groundItem: false, sound: false },
+  wind: { mode: 'pulse', groundItem: false, sound: false },
+  slide: { mode: 'latch', groundItem: false, sound: true },
+  rebound: { mode: 'impulse', groundItem: true, sound: false },
+  superbounce: { mode: 'arm', groundItem: false, sound: true },
 } as const satisfies Record<PowerupKind, PowerupSpec>);
 
 /**

@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { mash, never, runFullShot, smart } from '../support/harness.ts';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { bestShot, type HoldPolicy, hold, mash, median, never, smart } from '../support/harness.ts';
 
 /**
  * The successor to the strategy table in the reverse-engineering document
@@ -10,7 +10,7 @@ import { mash, never, runFullShot, smart } from '../support/harness.ts';
  *
  * What is asserted here instead is the qualitative shape the document and the
  * game's own help text both describe, which a faithful port must reproduce:
- * mashing the button flies high but not far, measured holding flies far.
+ * holding the button flies high but not far, measured holding flies far.
  */
 const SEEDS = Array.from({ length: 120 }, (_, i) => 0x5eed_0000 + i);
 
@@ -19,69 +19,81 @@ interface Stats {
   readonly max: number;
   readonly peakMedian: number;
   readonly landed: number;
+  readonly truncated: number;
 }
 
-function run(hold: Parameters<typeof runFullShot>[0]['hold']): Stats {
+function run(policy: HoldPolicy): Stats {
   const feet: number[] = [];
   const peaks: number[] = [];
+  let truncated = 0;
   for (const seed of SEEDS) {
-    // Click windows that actually connect vary by seed, so sweep and take the
-    // best connecting shot - that is what a competent player does.
-    let best = -1;
-    let bestPeak = 0;
-    for (let clickTick = 3; clickTick <= 26; clickTick++) {
-      const r = runFullShot({ seed, clickTick, ...(hold ? { hold } : {}) });
-      if (r.outcome === 'miss') continue;
-      if (r.feet > best) {
-        best = r.feet;
-        bestPeak = r.peakUp;
-      }
-    }
-    if (best >= 0) {
-      feet.push(best);
-      peaks.push(bestPeak);
-    }
+    const best = bestShot(seed, policy);
+    if (best === null) continue;
+    feet.push(best.feet);
+    peaks.push(best.peakUp);
+    if (best.truncated) truncated++;
   }
-  feet.sort((a, b) => a - b);
-  peaks.sort((a, b) => a - b);
   return {
-    median: feet[feet.length >> 1] ?? Number.NaN,
-    max: feet.at(-1) ?? Number.NaN,
-    peakMedian: peaks[peaks.length >> 1] ?? Number.NaN,
+    median: median(feet),
+    max: feet.reduce((a, b) => Math.max(a, b), 0),
+    peakMedian: median(peaks),
     landed: feet.length,
+    truncated,
   };
 }
 
 describe('strategy behaviour', () => {
-  const noHold = run(never);
-  const mashing = run(mash);
-  const measured = run(smart);
+  // ~10 000 full shots: computed once, inside the lifecycle rather than at
+  // collection time, so a hang is attributed to this file's setup.
+  let noHold: Stats;
+  let holding: Stats;
+  let mashing: Stats;
+  let measured: Stats;
 
-  it('lands a shot for most seeds', () => {
+  beforeAll(() => {
+    noHold = run(never);
+    holding = run(hold);
+    mashing = run(mash);
+    measured = run(smart);
+  });
+
+  afterAll(() => {
+    const row = (name: string, s: Stats) =>
+      `${name.padEnd(9)} median ${String(s.median).padStart(5)} ft   max ${String(s.max).padStart(6)} ft   peak ${String(s.peakMedian).padStart(6)} px`;
+    console.info(
+      [
+        '',
+        row('never', noHold),
+        row('hold', holding),
+        row('mash', mashing),
+        row('measured', measured),
+      ].join('\n'),
+    );
+  });
+
+  it('lands a shot for most seeds, and every shot ends', () => {
     expect(noHold.landed).toBeGreaterThan(SEEDS.length * 0.5);
+    for (const s of [noHold, holding, mashing, measured]) expect(s.truncated).toBe(0);
   });
 
   it('gliding beats not gliding', () => {
     expect(measured.median).toBeGreaterThan(noHold.median);
   });
 
-  it('mashing flies higher than it flies far', () => {
+  it('holding continuously flies higher than it flies far', () => {
     // The glide lift scales with xvel while drag eats xvel every tick, so
     // holding continuously climbs but does not travel.
-    expect(mashing.peakMedian).toBeGreaterThan(measured.peakMedian);
-    expect(mashing.median).toBeLessThan(measured.median);
+    expect(holding.peakMedian).toBeGreaterThan(measured.peakMedian);
+    expect(holding.median).toBeLessThan(measured.median);
+  });
+
+  it('mashing buys less lift than holding', () => {
+    // Half the ticks under lift, and the meter regenerates on the other half.
+    expect(mashing.peakMedian).toBeLessThan(holding.peakMedian);
+    expect(mashing.peakMedian).toBeGreaterThan(noHold.peakMedian);
   });
 
   it('measured holding produces a long tail', () => {
     expect(measured.max).toBeGreaterThan(measured.median * 2);
-  });
-
-  it('reports the table for the record', () => {
-    const row = (name: string, s: Stats) =>
-      `${name.padEnd(9)} median ${String(s.median).padStart(5)} ft   max ${String(s.max).padStart(6)} ft   peak ${String(s.peakMedian).padStart(6)} px`;
-    console.info(
-      ['', row('never', noHold), row('mash', mashing), row('measured', measured)].join('\n'),
-    );
-    expect(noHold.median).toBeGreaterThanOrEqual(0);
   });
 });

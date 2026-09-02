@@ -2,6 +2,7 @@ import { C } from '../constants.ts';
 import type { SimEvent } from '../events.ts';
 import { radToDeg } from '../math/angles.ts';
 import type { FlightState } from '../state.ts';
+import { clearFalling } from './PowerupPickups.ts';
 
 /**
  * `Game.checkCollision()` - Game.as:775-904.
@@ -20,6 +21,11 @@ import type { FlightState } from '../state.ts';
  *
  * The branch order below is the original's, cascade and all - an armed bounce
  * beats a steep impact, which is why the angle test cannot simply be hoisted.
+ *
+ * The impact clips are placed at the hamster's world x. The original pins them
+ * to screen x instead (`155 - camX`, `165 - camX`; Game.as:812, 831, 853),
+ * which is the same point while the camera is following at its 150 px anchor
+ * and differs only left of x = 150, where the camera has not started moving.
  */
 export function resolveGround(s: FlightState, out: SimEvent[]): void {
   const p = s.p;
@@ -79,6 +85,9 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
     p.y = C.GROUND_Y;
     p.xvel = 0;
     p.yvel = 0;
+    // Usually step 11 stops `sndFly` again on this same tick, as the original
+    // does via `resetSounds()`. Not always: a speed or wind pulse landing on
+    // this tick adds xvel back at step 4, so the stop here is load-bearing.
     out.push({ t: 'sfxStop', id: 'fly' });
     // A steep impact is punished twice: faceplant instead of bounce, and the
     // crater animation instead of the ordinary one.
@@ -97,5 +106,8 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
     if (!s.flags.skidding) out.push({ t: 'sfx', id: 'bump', gain: C.SFX_VOLUME });
   }
 
-  s.flags.falling = false;
+  // Every branch ends with `this.falling = false` (Game.as:826, 860, ...). The
+  // sibling `glide` flag emits its off-cue above; this one must too, or a
+  // renderer that saw `falling: true` never learns the drop pose is over.
+  clearFalling(s.flags, out);
 }

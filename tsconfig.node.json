@@ -1,8 +1,10 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "lib": ["ES2022"],
+    // DOM as well: the browser scripts hand functions to `page.evaluate`, and
+    // those bodies run in the page.
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["node"]
   },
-  "include": ["vite.config.ts", "vitest.config.ts", "scripts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "scripts", "src/app/global.d.ts"]
 }

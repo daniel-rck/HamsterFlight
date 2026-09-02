@@ -47,7 +47,10 @@ export const C = Object.freeze({
   BOUNCE_RESET_Y: 949,
   /** Two consecutive ticks at or below this start the skid. Game.as:625. */
   SKID_Y: 946,
-  /** Below this, and under 7 px/tick, the sprite stops rotating. Bullet.as:46. */
+  /**
+   * Below this y and under 7 px/tick of xvel the sprite stops rotating.
+   * Bullet.as:46 - display only, so it is applied in `src/render/scene`.
+   */
   NO_ROTATE_Y: 940,
   NO_ROTATE_XVEL: 7,
 

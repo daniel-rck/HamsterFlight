@@ -33,7 +33,7 @@ export function stepJump(s: JumpState, rng: Rng, out: SimEvent[]): boolean {
 
   if (s.y >= C.HAMSTER_START_Y) {
     s.y = C.HAMSTER_START_Y;
-    out.push({ t: 'sfx', id: 'hit' });
+    out.push({ t: 'sfx', id: 'hit', gain: C.SFX_VOLUME });
     return true;
   }
   return false;

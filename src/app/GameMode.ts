@@ -11,8 +11,44 @@ export type GameMode = 'enhanced' | 'faithful';
 
 export type RendererName = 'pixi' | 'canvas2d';
 
-export function modeFromUrl(params: URLSearchParams): GameMode {
-  return params.get('mode') === 'faithful' ? 'faithful' : 'enhanced';
+const MODES: readonly GameMode[] = ['enhanced', 'faithful'];
+const RENDERERS: readonly RendererName[] = ['pixi', 'canvas2d'];
+
+function isMode(value: string): value is GameMode {
+  return (MODES as readonly string[]).includes(value);
+}
+
+function isRenderer(value: string): value is RendererName {
+  return (RENDERERS as readonly string[]).includes(value);
+}
+
+/**
+ * These are the documented control surface, so a typo is reported rather than
+ * silently mapped onto a default that happens to be the wrong one.
+ */
+export function modeFromUrl(
+  params: URLSearchParams,
+  warn: (message: string) => void = console.warn,
+): GameMode {
+  const raw = params.get('mode');
+  if (raw === null) return 'enhanced';
+  if (isMode(raw)) return raw;
+  warn(`[hamsterflight] unknown ?mode=${raw}; expected ${MODES.join(' | ')}. Using enhanced.`);
+  return 'enhanced';
+}
+
+export function rendererFromUrl(
+  params: URLSearchParams,
+  mode: GameMode,
+  warn: (message: string) => void = console.warn,
+): RendererName {
+  const raw = params.get('renderer');
+  if (raw === null) return defaultRendererFor(mode);
+  if (isRenderer(raw)) return raw;
+  warn(
+    `[hamsterflight] unknown ?renderer=${raw}; expected ${RENDERERS.join(' | ')}. Using the mode's default.`,
+  );
+  return defaultRendererFor(mode);
 }
 
 export function defaultRendererFor(mode: GameMode): RendererName {

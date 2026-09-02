@@ -1,0 +1,16 @@
+HamsterFlight is a fan reimplementation of the Flash game "Flight of the
+Hamsters". It is not affiliated with or endorsed by the original publisher.
+
+The MIT licence in LICENSE applies to the original source code and
+documentation in this repository. The following are NOT covered by it and
+remain the property of their respective owners:
+
+  src/assets/sprites/**            sprite sheets extracted from the original SWF
+  src/assets/sprites.generated.ts  the placement manifest describing that art
+  reference/as2/**                 decompiled ActionScript from the original SWF
+
+They are included so the port can be verified against the original. Shipping
+them is a deliberate choice by the repository owner, discussed in README.md
+under "Assets"; replacing the art is a data change behind one manifest.
+
+The original SWF itself is never committed.

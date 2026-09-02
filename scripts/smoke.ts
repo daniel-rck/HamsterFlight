@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Does the game actually come up and draw, in every mode and on both backends?
 //
 //   npm run build && npm run smoke
@@ -13,16 +12,24 @@
 // Four combinations, because the two axes are independent: `enhanced` and
 // `faithful` differ in what they draw, `pixi` and `canvas2d` in how.
 import { setTimeout as sleep } from 'node:timers/promises';
-import { launchChromium, playOneShot, startServer, waitForBoot } from './lib/preview.mjs';
+import type { Browser, Page } from 'playwright';
+import { intEnv, run } from './lib/cli.ts';
+import {
+  launchChromium,
+  playOneShot,
+  startServer,
+  waitForBoot,
+  watchRequests,
+} from './lib/preview.ts';
 
-const PORT = 4174;
-const SEED = Number(process.env.SEED ?? 12345);
+const PORT = intEnv('PORT', 4174);
+const SEED = intEnv('SEED', 12345);
 const COMBINATIONS = [
   { mode: 'enhanced', renderer: 'pixi' },
   { mode: 'enhanced', renderer: 'canvas2d' },
   { mode: 'faithful', renderer: 'canvas2d' },
   { mode: 'faithful', renderer: 'pixi' },
-];
+] as const;
 
 /**
  * How many distinct colours the stage is showing.
@@ -41,10 +48,10 @@ const COMBINATIONS = [
  * both Pixi runs and passed both Canvas2D ones. A screenshot goes through the
  * compositor, so it sees what a person sees, on either backend.
  */
-async function distinctColours(page) {
+async function distinctColours(page: Page): Promise<number> {
   const shot = await page.locator('#stage').screenshot({ type: 'png' });
   return page.evaluate(
-    async source => {
+    async (source: string) => {
       const image = new Image();
       image.src = source;
       await image.decode();
@@ -55,9 +62,9 @@ async function distinctColours(page) {
       if (ctx === null) return 0;
       ctx.drawImage(image, 0, 0, scaled.width, scaled.height);
       const { data } = ctx.getImageData(0, 0, scaled.width, scaled.height);
-      const seen = new Set();
+      const seen = new Set<number>();
       for (let i = 0; i < data.length; i += 4) {
-        seen.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]);
+        seen.add(((data[i] ?? 0) << 16) | ((data[i + 1] ?? 0) << 8) | (data[i + 2] ?? 0));
       }
       return seen.size;
     },
@@ -73,7 +80,7 @@ const MIN_COLOURS = 8;
  * own message. Guarded, because the usual reason to be asking is that the page
  * is no longer answering at all.
  */
-async function describe(page) {
+async function describe(page: Page): Promise<string> {
   try {
     return await page.evaluate(() => {
       const stage = document.querySelector('#stage');
@@ -89,9 +96,21 @@ async function describe(page) {
   }
 }
 
-async function check(browser, origin, { mode, renderer }) {
+interface Result {
+  readonly label: string;
+  readonly failures: readonly string[];
+  readonly frames?: number;
+  readonly colours?: number;
+  readonly version?: string;
+}
+
+async function check(
+  browser: Browser,
+  origin: string,
+  { mode, renderer }: (typeof COMBINATIONS)[number],
+): Promise<Result> {
   const label = `${mode}/${renderer}`;
-  const failures = [];
+  const failures: string[] = [];
   const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
 
   // Both channels: an unhandled throw and a logged error are different events,
@@ -103,6 +122,8 @@ async function check(browser, origin, { mode, renderer }) {
   // A crashed renderer process takes the DOM with it, so everything after it
   // fails as "element not found" and blames the wrong thing.
   page.on('crash', () => failures.push('the tab crashed'));
+  // A chunk or the atlas answering 404 is exactly the failure this exists for.
+  watchRequests(page, failures);
 
   try {
     // `?profile` is what publishes the frame counter on window.
@@ -117,7 +138,9 @@ async function check(browser, origin, { mode, renderer }) {
     if (status !== 200) throw new Error(`the page answered ${status}`);
     await waitForBoot(page);
   } catch (error) {
-    failures.push(`never finished booting: ${error.message}`);
+    failures.push(
+      `never finished booting: ${error instanceof Error ? error.message : String(error)}`,
+    );
     await page.close();
     return { label, failures };
   }
@@ -146,7 +169,7 @@ async function check(browser, origin, { mode, renderer }) {
     version = await page.evaluate(() => document.querySelector('#version')?.textContent ?? '');
     if (version.trim() === '') failures.push('the build stamp is empty');
   } catch (error) {
-    failures.push(String(error).split('\n')[0]);
+    failures.push(String(error).split('\n')[0] ?? String(error));
     failures.push(await describe(page));
   }
 
@@ -154,18 +177,18 @@ async function check(browser, origin, { mode, renderer }) {
   return { label, failures, frames, colours, version };
 }
 
-async function main() {
-  const { origin, stop } = await startServer(PORT);
+async function main(): Promise<void> {
+  const server = await startServer(PORT);
   const browser = await launchChromium();
-  const results = [];
+  const results: Result[] = [];
   try {
     for (const combination of COMBINATIONS) {
       process.stderr.write(`checking ${combination.mode}/${combination.renderer}...\n`);
-      results.push(await check(browser, origin, combination));
+      results.push(await check(browser, server.origin, combination));
     }
   } finally {
     await browser.close();
-    stop();
+    await server.stop();
   }
 
   console.log(`\nbuild ${results.find(result => result.version)?.version ?? '(none)'}`);
@@ -185,4 +208,4 @@ async function main() {
   }
 }
 
-await main();
+run(main);
