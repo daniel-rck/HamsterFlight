@@ -25,10 +25,12 @@ const CHUNK_WARN_KB = 400;
  * Measured on the launcher commit:
  *   eager  14 264 B gzip     lazy  162 459 B gzip
  *   1x atlas 776 126 B       2x atlas 2 028 490 B
+ * Re-measured after the shared scene module, interpolation and the input and
+ * lifecycle hardening: eager 16.5 kB gzip. The lazy chunk shrank a little.
  */
 const BUDGET_KB = {
   // Every visitor pays this.
-  eager: 16,
+  eager: 19,
   // Only under ?renderer=pixi - but that is the default for enhanced mode.
   lazy: 182,
   // Per atlas sheet, per density.

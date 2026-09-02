@@ -3,14 +3,7 @@ import { C } from '@/sim/constants.ts';
 import type { SimEvent } from '@/sim/events.ts';
 import { DEFAULT_TUNING } from '@/sim/tuning.ts';
 import { POWERUP_KINDS, POWERUPS, type PowerupKind } from '@/sim/types.ts';
-import { makeFlight, tick } from '../support/harness.ts';
-
-/** A pickup of `kind` whose core is centred on the hamster's flight core. */
-function centredOn(kind: PowerupKind, x: number, y: number) {
-  const hamster = DEFAULT_TUNING.boxes.hamsterFlightCore;
-  const item = DEFAULT_TUNING.boxes.powerups[kind];
-  return { kind, x: x + hamster.cx - item.cx, y: y + hamster.cy - item.cy };
-}
+import { centredOn, makeFlight, tick } from '../support/harness.ts';
 
 const sfxIds = (events: readonly SimEvent[]) =>
   events.filter(e => e.t === 'sfx').map(e => (e.t === 'sfx' ? e.id : ''));

@@ -4,7 +4,7 @@ import { flyGain, slideGain } from '@/sim/phases/FlightPhase.ts';
 import type { CameraState } from '@/sim/state.ts';
 import { follow, newCamera, quickPanStep } from '@/sim/systems/CameraModel.ts';
 import { DEFAULT_TUNING } from '@/sim/tuning.ts';
-import { makeFlight, tick, withActiveTicks } from '../support/harness.ts';
+import { centredOn, makeFlight, tick, withActiveTicks } from '../support/harness.ts';
 
 /**
  * These are the fidelity guard. Each one fails if the tick order is rearranged
@@ -227,7 +227,7 @@ describe('powerup guards', () => {
         y: 600,
         xvel: 0,
         yvel: 0,
-        powerups: [{ kind: 'speed', x: 148 - 6.5, y: 600 - 6.25 }],
+        powerups: [centredOn('speed', C.HAMSTER_X, 600)],
       });
       tick(s, { tuning: withActiveTicks('speed', n) });
       tick(s, { tuning: withActiveTicks('speed', n) });
@@ -245,7 +245,7 @@ describe('powerup guards', () => {
       y: 600,
       xvel: 0,
       yvel: 0,
-      powerups: [{ kind: 'bounce', x: 148 - 5.9, y: 600 - 5.5 }],
+      powerups: [centredOn('bounce', C.HAMSTER_X, 600)],
     });
     const tuning = withActiveTicks('bounce', 4);
     const pickups: number[] = [];

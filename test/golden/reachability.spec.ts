@@ -34,10 +34,11 @@ describe('pillow reachability', () => {
     }
 
     const share = reachable / total;
-    // Wide band on purpose: the point is to notice movement, not to freeze a
-    // number that calibration is expected to change.
-    expect(share).toBeGreaterThan(0.5);
-    expect(share).toBeLessThanOrEqual(1);
+    // Measured at 68% with the extracted boxes. The band is wide enough not
+    // to flap on a rounding change and narrow enough that a recalibration of
+    // `core` - the one open measurement - shows up here first.
+    expect(share).toBeGreaterThan(0.6);
+    expect(share).toBeLessThan(0.76);
     console.info('[reachability] %d%% of jumps can reach the pillow', Math.round(share * 100));
   });
 });
