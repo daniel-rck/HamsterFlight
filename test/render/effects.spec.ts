@@ -74,6 +74,63 @@ describe('Effects', () => {
   });
 });
 
+describe('the pickup burst', () => {
+  const at = { x: 400, y: 820 };
+
+  it('resumes the clip of the collectible itself, past the item pose', () => {
+    const effects = new Effects();
+    effects.consume([{ t: 'pickup', kind: 'bounce' }], 1000, at);
+
+    const active = effects.active(1000);
+    expect(active).toHaveLength(1);
+    // Frames 0 and 1 are the ball; `_loc3_.play()` runs the smoke from 2.
+    expect(active[0]).toEqual({ sprite: 'powerup/bounce', frame: 2, x: 400, y: 820 });
+  });
+
+  it('runs the four smoke frames and stops before the blank tail', () => {
+    const effects = new Effects();
+    effects.consume([{ t: 'pickup', kind: 'bounce' }], 0, at);
+
+    expect(effects.active(FRAME_MS * 1)[0]?.frame).toBe(3);
+    expect(effects.active(FRAME_MS * 3.9)[0]?.frame).toBe(5);
+    // Frame 6 onwards is 20 frames of nothing at all, so the clip ends here.
+    expect(effects.active(FRAME_MS * 4)).toHaveLength(0);
+    effects.prune(FRAME_MS * 4);
+    expect(effects.active(FRAME_MS * 1)).toHaveLength(0);
+  });
+
+  it('gives the springboard its longer run', () => {
+    const effects = new Effects();
+    effects.consume([{ t: 'pickup', kind: 'rebound' }], 0, at);
+    expect(effects.active(FRAME_MS * 6)[0]).toEqual({
+      sprite: 'powerup/rebound',
+      frame: 8,
+      x: 400,
+      y: 820,
+    });
+    expect(effects.active(FRAME_MS * 7)).toHaveLength(0);
+  });
+
+  it('leaves wind alone, which never played its collectible', () => {
+    const effects = new Effects();
+    effects.consume([{ t: 'pickup', kind: 'wind' }], 0, at);
+    expect(effects.active(0)).toHaveLength(0);
+  });
+
+  it('needs a position to draw at', () => {
+    const effects = new Effects();
+    effects.consume([{ t: 'pickup', kind: 'speed' }], 0);
+    expect(effects.active(0)).toHaveLength(0);
+  });
+
+  it('is dropped by clear(), like every other clip in flight', () => {
+    const effects = new Effects();
+    effects.consume([{ t: 'pickup', kind: 'slide' }], 0, at);
+    effects.clear();
+    expect(effects.active(0)).toHaveLength(0);
+  });
+});
+
 describe('Effects with motion off', () => {
   it('keeps the enhanced presentation but nothing moves or scatters', () => {
     const effects = new Effects({ enhanced: true, motion: false });
@@ -86,8 +143,9 @@ describe('Effects with motion off', () => {
     expect(effects.shockwave(20)).toBeNull();
     expect(effects.aberration(20)).toBe(0);
     expect(effects.particles(20)).toHaveLength(0);
-    // The clip is restoration, not motion.
-    expect(effects.active(0)).toHaveLength(1);
+    // Both clips are restoration, not motion: the impact and the pickup burst
+    // are what the original drew, while the sparks above are this port's own.
+    expect(effects.active(0).map(fx => fx.sprite)).toEqual(['fx/superBreak', 'powerup/speed']);
   });
 
   it('defaults motion to the enhanced flag', () => {

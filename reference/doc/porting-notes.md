@@ -171,8 +171,9 @@ inferred:
 - **There really are two pillows in the ready pose.** The one on the operator's
   pole is the backdrop's own art; the one beside it is `game_mc.pillow`
   (char 234), the clip `getPillowCollision` hit-tests. Both are on the display
-  list, neither is hidden, and they overlap. That is the original, and the port
-  reproduces it.
+  list, neither is hidden, and they overlap. The port drew both for a while and
+  now draws only the first - see the divergence table below. The hit test is
+  unaffected: it never read the drawn position.
 - **`_root.background_mc.pillow._x = 117.3` in `onDone()` is a no-op.**
   `background_mc` has no child named `pillow`; the only instance of that name in
   the SWF is in `game_mc`. The line looks like a leftover from an earlier layout.
@@ -202,7 +203,6 @@ glued to.
 | Faceplant branch also requires `!slide` (Game.as:803) | **Reproduced.** The document's section 10 omits it. |
 | `xvel *= 1 + this.f` for superbounce | **Reproduced as written**, not as the literal 1.6. |
 | Impact angle exactly 70 degrees | **Reproduced.** Falls through to the final `else`, since it is neither `< 70` nor `> 70`. |
-| Two overlapping pillows in the ready pose | **Reproduced.** The swinging one is the backdrop's, the other is the collision clip; both are visible in the original. |
 | The queue's step and its 15 px move happen on different frames | **Reproduced.** Frame 26 does both at once, so the hamster appears to snap back 8 px as it moves up a slot. |
 
 ## Quirks deliberately dropped
@@ -217,6 +217,7 @@ glued to.
 | `loadTracker()` - loads a third-party analytics SWF | Dropped. |
 | `XML_Loader` / `plotNodes` / `gameData` | Dropped. Nothing in `onUpdate` reads it; it looks like an editor artifact. |
 | `MyDispatcher` / `mx.events.EventDispatcher` | Replaced by the returned `SimEvent[]`. |
+| Two overlapping pillows in the ready pose | The `game_mc.pillow` clip is no longer drawn. Both are visible in the original, but the static one reads as a rendering fault once the operator swings the other away, and it carries no information: the hit test uses `PILLOW_LAUNCH_X` regardless of where the clip is drawn. `C.PILLOW_REST_X` is kept as the measured value with no reader. |
 | `generateVehicle` | Dropped - never called from anywhere in the 1512 lines. |
 | `radainsToDegrees` typo | Renamed `radToDeg`, original name noted in a comment. |
 
@@ -239,6 +240,57 @@ camera shake, chromatic aberration, the shockwave. Anything the original drew
 and the port had been leaving out is on in both modes, because putting it back
 makes faithful mode more faithful, not less. That covers the `fx/*` impact clips
 and the whole pre-launch scene.
+
+**The outcome clip is drawn where the shot came down.** `createHitClip` takes
+`bc._x`/`bc._y` (Game.as:862-875, 964-967) - which is why `deleteBlt()` had to
+leave the projectile alive. The port reported the hamster back at (148, 956)
+for the whole `settling` phase, so the cheer, the faceplant and the crater all
+played at the launcher, normally far off the left edge. `settling` carries the
+landing position now; `onDone()` is what returns the hamster to the pad, and it
+does not run until the camera has panned home (Game.as:971-981). The
+faceplant's `+ 3` y offset is a display rule and lives in
+`src/render/scene/pose.ts`, next to the no-rotate one, and the shadow is hidden
+for every outcome as `blt.shadClip._visible = false` does.
+
+**A missed jump costs no turn.** `jumpFrame()` ends a jump that comes back down
+with `faceplant = true`, `shooting = true` and a zero (Game.as:1090-1096). With
+the hitboxes extracted from the shape records, about a third of the rolls cannot
+reach the launch window at all - see the reachability figure above - so the port
+returns to `ready` with the turn intact and lets the player jump again. Only a
+pillow hit ends a turn, and `ShotOutcome 'zero'` is therefore unreachable at run
+time. The original's one-swing-per-jump rule (`state = "launch"`, Game.as:1029-1037)
+is reproduced, which is what keeps the retry from being solved by mashing.
+
+**No clip is indexed off a free-running clock.** That used to be the default -
+one `animFrame(meta, elapsed)` for everything - and it was wrong for every clip
+the original does not loop:
+
+- The hamster's own clip is held on frame 1 until the click (`reset()`,
+  Game.as:365-366), started with `gotoAndPlay("jump")` on the first
+  `onMouseDown`, and each outcome clip is attached fresh when the shot ends.
+  `src/render/PoseClock.ts` reproduces that with one anchor per pose. Whether
+  the 36-frame jump clip carries a `stop()` on its last frame is not
+  recoverable from the exported art, so it loops; a jump lasts 1.7-2.5 s
+  against the clip's 1.9 s.
+- The powerup clips are attached and left standing, and `_loc3_.play()` at the
+  moment of pickup runs the rest (Game.as:701, 716, 727, 750, 768). Only the
+  first two frames are the collectible: `powerup/bounce`, `powerup/slide` and
+  `powerup/superbounce` are two frames of item, four of burst and twenty
+  blank; `powerup/speed` is two, four and two; `powerup/rebound` is a board
+  that flattens and springs back over its remaining seven. Running them made
+  every collectible blink out for most of a 1.4 s cycle. They are pinned to
+  frame 0 now (`POWERUP_IDLE_FRAME`), and the burst is played from the
+  `pickup` cue instead: `Effects` gives it the same short lifetime the `fx/*`
+  impacts have, resuming the collectible's own clip at frame 2 rather than
+  attaching a new one. It has to live in the renderer because the simulation
+  culls a taken item within a tick (`Tuning.powerupActiveTicks`), and that
+  number is load-bearing for the physics goldens. `wind` gets no burst: its
+  branch plays the hamster's own wind clip and never touches the collectible
+  (Game.as:733-746).
+
+What is left looping is genuinely looping and event-gated: the launcher wheels
+turn only while the hamster is jumping (`PreLaunchScene`), and the `fx/*`
+impacts run once from their cue and are pruned (`Effects`).
 
 **Rendering snaps rather than interpolating.** The original stage ran at 19 fps
 with no tweening, so snapping to the 20 Hz simulation is the faithful look, and

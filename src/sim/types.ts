@@ -62,6 +62,12 @@ export function powerupFromRoll(roll: number): PowerupKind {
   return 'superbounce';
 }
 
+/**
+ * `zero` is the original's outcome for a jump that never met the pillow. This
+ * port hands that turn back instead of scoring it, so the simulation no longer
+ * produces one - `src/sim/drive.ts` still uses the name as a driver-side label
+ * for "no shot happened".
+ */
 export type ShotOutcome = 'cheer' | 'faceplant' | 'hole' | 'zero';
 
 /** Flags the original keeps as independent booleans; combinations are real. */

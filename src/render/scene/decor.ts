@@ -1,8 +1,7 @@
-import type { SpriteId, SpriteMeta } from '@/assets/sprites.generated.ts';
-import { launched } from '@/render/PreLaunchScene.ts';
+import type { SpriteId } from '@/assets/sprites.generated.ts';
 import { markerScale } from '@/render/units.ts';
 import { C } from '@/sim/constants.ts';
-import type { Phase, SimSnapshot } from '@/sim/state.ts';
+import type { SimSnapshot } from '@/sim/state.ts';
 import type { PowerupKind } from '@/sim/types.ts';
 
 /**
@@ -31,8 +30,6 @@ export const BUSHES = [
   'bush/5',
 ] as const satisfies readonly SpriteId[];
 
-/** Sprite frames advance on real time at the original stage rate. */
-export const SPRITE_FPS = 19;
 /** Decoration counts at stress 1. Both renderers use these, so they compare. */
 export const STAR_COUNT = 70;
 export const BUSH_SPACING = 260;
@@ -168,11 +165,20 @@ export function markers(cameraX: number, metric: boolean): Markers {
   return { ticks, labels };
 }
 
-/** Which frame of a looping clip is showing after `elapsedMs` of real time. */
-export function animFrame(meta: Pick<SpriteMeta, 'frames' | 'fps'>, elapsedMs: number): number {
-  if (meta.frames <= 1) return 0;
-  return Math.floor((elapsedMs / 1000) * (meta.fps ?? SPRITE_FPS)) % meta.frames;
-}
+/**
+ * Powerup clips are attached and left standing on their first frame;
+ * `_loc3_.play()` at the moment of pickup is what runs the rest
+ * (Game.as:701, 716, 727, 750, 768). Only the first two frames are the
+ * collectible: `powerup/bounce`, `powerup/slide` and `powerup/superbounce` are
+ * two frames of item, four of burst and then twenty completely blank ones, and
+ * `powerup/speed` two, four and two. Indexing them off a free-running clock
+ * therefore blinked every collectible out for most of a 1.4 s cycle.
+ *
+ * The burst is not played: the simulation culls an item on the tick it is
+ * taken, so there is nothing left to animate. Restoring it means giving it a
+ * lifetime in the renderer, the way the `fx/*` impacts have one.
+ */
+export const POWERUP_IDLE_FRAME = 0;
 
 /**
  * The shadow scales linearly with height: `100 * (y - 700) / 263`. Above
@@ -185,11 +191,3 @@ export function shadowScale(y: number): number {
 
 /** Below this the shadow is too small to see and not worth a draw. */
 export const SHADOW_MIN_SCALE = 0.02;
-
-/**
- * `launch()` runs on the *second* click, so the pillow holds its rest position
- * through the whole jump. Game.as:1029-1036, 1118-1121.
- */
-export function pillowX(phase: Phase['kind']): number {
-  return launched(phase) ? C.PILLOW_LAUNCH_X : C.PILLOW_REST_X;
-}

@@ -1,23 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import { SPRITES } from '@/assets/sprites.generated.ts';
 import { interpolate } from '@/render/interpolate.ts';
 import {
   altitudeOf,
-  animFrame,
   BUSH_SPACING,
   BUSHES,
   bushes,
   markers,
-  pillowX,
+  POWERUP_IDLE_FRAME,
+  POWERUP_SPRITE,
   STAR_COUNT,
   shadowScale,
   skyColours,
   starField,
 } from '@/render/scene/decor.ts';
 import { debugLines, glideFill, panelLines, promptFor, totalFeet } from '@/render/scene/hud.ts';
-import { hamsterRotation, poseFor } from '@/render/scene/pose.ts';
+import { hamsterRotation, outcomeOffsetY, poseFor } from '@/render/scene/pose.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
-import { noEffects } from '@/sim/types.ts';
+import { noEffects, type ShotOutcome } from '@/sim/types.ts';
 
 /**
  * Both renderers draw from these functions, so this is the parity test: what
@@ -64,6 +65,16 @@ describe('pose', () => {
     expect(poseFor(flying({ phaseKind: 'settling', outcome: 'hole' }))).toBe('hit/hole');
     expect(poseFor(flying({ phaseKind: 'settling', outcome: 'zero' }))).toBe('hit/zero');
     expect(poseFor(flying({ phaseKind: 'settling', outcome: 'faceplant' }))).toBe('hit/faceplant');
+  });
+
+  it('drops the faceplant clip 3 px, and nothing else', () => {
+    const at = (phaseKind: 'flying' | 'settling', outcome: ShotOutcome | null) =>
+      outcomeOffsetY(flying({ phaseKind, outcome }));
+    expect(at('settling', 'faceplant')).toBe(3);
+    expect(at('settling', 'cheer')).toBe(0);
+    expect(at('settling', 'hole')).toBe(0);
+    // Only `createHitClip` gets the offset, so a shot still in the air does not.
+    expect(at('flying', 'faceplant')).toBe(0);
   });
 
   it('turns the sprite to its velocity, except crawling along the ground', () => {
@@ -148,24 +159,21 @@ describe('ground decoration', () => {
     expect(markers(0, false).labels[0]).toEqual({ x: 0, text: '0ft' });
   });
 
-  it('parks the pillow at rest until the swing, then at the launch spot', () => {
-    expect(pillowX('ready')).toBe(C.PILLOW_REST_X);
-    expect(pillowX('jumping')).toBe(C.PILLOW_REST_X);
-    expect(pillowX('flying')).toBe(C.PILLOW_LAUNCH_X);
-    expect(pillowX('settling')).toBe(C.PILLOW_LAUNCH_X);
+  it('leaves a collectible standing on its first frame', () => {
+    // `attachMovie` and nothing else: the clip runs only when `_loc3_.play()`
+    // fires on pickup. Every one of these is longer than the item pose -
+    // `powerup/bounce` is 26 frames, of which the last 20 are blank - so
+    // indexing them off a clock blinked the collectible out for most of every
+    // cycle. That is the whole reason this constant is not a frame counter.
+    expect(POWERUP_IDLE_FRAME).toBe(0);
+    const animated = Object.values(POWERUP_SPRITE).filter(id => SPRITES[id].frames > 1);
+    expect(animated.length).toBeGreaterThan(0);
+    for (const id of animated) expect(SPRITES[id].frames).toBeGreaterThan(2);
   });
 
   it('shrinks the shadow with height and never flips it', () => {
     expect(shadowScale(C.SHADOW_REF_Y + C.SHADOW_DIV)).toBeCloseTo(1, 10);
     expect(shadowScale(600)).toBe(0);
-  });
-
-  it('advances clip frames on the stage rate and wraps', () => {
-    expect(animFrame({ frames: 1 }, 5000)).toBe(0);
-    expect(animFrame({ frames: 4 }, 0)).toBe(0);
-    expect(animFrame({ frames: 4 }, 1000 / 19)).toBe(1);
-    expect(animFrame({ frames: 4 }, (1000 / 19) * 4)).toBe(0);
-    expect(animFrame({ frames: 4, fps: 38 }, 1000 / 19)).toBe(2);
   });
 });
 

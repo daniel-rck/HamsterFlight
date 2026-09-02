@@ -81,7 +81,15 @@ export class Simulation {
         const st = this.#phase.jump;
         const landed = stepJump(st, this.#rngJump, out);
         follow(this.#phase.camera, C.HAMSTER_X, st.y);
-        if (landed) this.#endShot('zero', 0, out);
+        // A jump that never met the pillow costs nothing. The original scored
+        // it as a zero and moved on (`faceplant = true`, `shooting = true` -
+        // Game.as:1090-1096), but the extracted geometry makes about a third of
+        // the rolls physically unable to reach the window at all, so the turn
+        // goes back on the pad instead. Only the pillow ends a turn.
+        if (landed) {
+          out.push({ t: 'jumpFailed' });
+          this.#phase = { kind: 'ready' };
+        }
         break;
       }
       case 'flying': {
@@ -141,6 +149,12 @@ export class Simulation {
         return;
       }
       if (phase.kind === 'jumping') {
+        // One swing per jump. The original's second click sets `state =
+        // "launch"`, after which no branch of `onMouseDown` fires again
+        // (Game.as:1029-1037) - so a whiff cannot be mashed away. That matters
+        // more here than it did there, because a whiff no longer costs a turn.
+        if (phase.jump.swung) return;
+        phase.jump.swung = true;
         out.push({ t: 'sfx', id: 'shoot', gain: C.SFX_VOLUME });
         this.#launch(out);
         return;
@@ -220,16 +234,21 @@ export class Simulation {
     this.#lastFeet = feet;
     this.#shots.push(feet);
     out.push({ t: 'shotDone', feet, outcome });
-    const camera =
+    const camera = this.#phase.kind === 'flying' ? this.#phase.flight.camera : newCamera();
+    // Where the outcome clip goes. `onShotDone` and the faceplant branch both
+    // read the projectile's last position for `createHitClip`, and the ground
+    // branches have already parked it on `GROUND_Y`. Only a shot can end, so
+    // the fallback is unreachable and exists to keep the phase total.
+    const at =
       this.#phase.kind === 'flying'
-        ? this.#phase.flight.camera
-        : this.#phase.kind === 'jumping'
-          ? this.#phase.camera
-          : newCamera();
+        ? { x: this.#phase.flight.p.x, y: this.#phase.flight.p.y }
+        : { x: C.HAMSTER_X, y: C.HAMSTER_START_Y };
     this.#phase = {
       kind: 'settling',
       outcome,
       feet,
+      x: at.x,
+      y: at.y,
       stage: 'hold',
       ticksLeft: this.#tuning.outcomeHoldTicks[outcome],
       camera,
@@ -303,7 +322,28 @@ export class Simulation {
       };
     }
 
-    const camera = phase.kind === 'settling' ? { ...phase.camera } : newCamera();
+    if (phase.kind === 'settling') {
+      return {
+        ...base,
+        // The outcome clip is attached where the shot came down, not back at
+        // the launcher - `onDone()` is what returns the hamster to (148, 956),
+        // and it does not run until the camera has panned home. Game.as:971-981.
+        hamster: {
+          x: phase.x,
+          y: phase.y,
+          xvel: 0,
+          yvel: 0,
+          visible: false,
+          doRotation: false,
+        },
+        camera: { ...phase.camera },
+        powerups: [],
+        glidePoints: C.GLIDE_MAX,
+        flags: noEffects(),
+        outcome: phase.outcome,
+      };
+    }
+
     return {
       ...base,
       hamster: {
@@ -314,11 +354,11 @@ export class Simulation {
         visible: phase.kind === 'ready',
         doRotation: false,
       },
-      camera,
+      camera: newCamera(),
       powerups: [],
       glidePoints: C.GLIDE_MAX,
       flags: noEffects(),
-      outcome: phase.kind === 'settling' ? phase.outcome : null,
+      outcome: null,
     };
   }
 }

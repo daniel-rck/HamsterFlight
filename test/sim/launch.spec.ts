@@ -4,7 +4,8 @@ import { PI_AS2 } from '@/sim/math/angles.ts';
 import { attemptLaunch } from '@/sim/phases/Launch.ts';
 import { DEFAULT_TUNING } from '@/sim/tuning.ts';
 
-const launch = (y: number, yvel: number) => attemptLaunch({ y, yvel, boost: true }, DEFAULT_TUNING);
+const launch = (y: number, yvel: number) =>
+  attemptLaunch({ y, yvel, boost: true, swung: false }, DEFAULT_TUNING);
 
 /** dy = y - PILLOW_Y - 5 is zero here, i.e. y = 745.9 - the optimum. */
 const LEVEL_Y = C.PILLOW_Y - C.LAUNCH_DY_BIAS;

@@ -19,9 +19,11 @@ Bun is the package manager, like the other apps in this family
 (`daniel-rck/web-base`); Node runs the scripts under `scripts/`.
 
 Press <kbd>Space</kbd> or click to jump, again to hit the pillow, then hold to
-glide. <kbd>P</kbd> pauses, <kbd>H</kbd> toggles the hitbox overlay. The
-keyboard works from the first keystroke; no click on the stage is needed first.
-Append `?seed=12345` to replay an exact run.
+glide. One swing per jump: miss it and the hamster lands back on the pad and
+you jump again, which costs nothing - only the pillow ends a turn.
+<kbd>P</kbd> pauses, <kbd>H</kbd> toggles the hitbox overlay. The keyboard works
+from the first keystroke; no click on the stage is needed first. Append
+`?seed=12345` to replay an exact run.
 
 | query parameter | effect |
 | --- | --- |
@@ -67,6 +69,7 @@ src/render/       Renderer interface plus two backends; read snapshots, cannot r
   scene/            what to draw, as pure functions of the snapshot - both backends consume it
   pixi/             the Pixi backend's texture cache, HUD, filters and pools
   interpolate.ts    places the hamster and camera between two ticks for the frame in between
+  PoseClock.ts      the hamster's clip frame, anchored to the phase rather than to a free clock
 src/input/        DOM events to discrete commands
 src/assets/       sprite frames plus the generated placement manifest
 reference/        research artifacts - decompilate, analysis, tools. Not a build input.

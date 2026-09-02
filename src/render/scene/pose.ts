@@ -35,6 +35,15 @@ export function poseFor(s: SimSnapshot): SpriteId {
 }
 
 /**
+ * `createHitClip(bc._x, bc._y + 3, ...)` for a faceplant, and the unmodified
+ * position for every other outcome. Game.as:869, 874, 967. A display rule, like
+ * the no-rotate one below, so it lives here rather than in the simulation.
+ */
+export function outcomeOffsetY(s: SimSnapshot): number {
+  return s.phaseKind === 'settling' && s.outcome === 'faceplant' ? 3 : 0;
+}
+
+/**
  * `Bullet.update()` - Bullet.as:42-47. The clip turns to face its velocity,
  * except while crawling along the ground (`xvel < 7 && y > 940` - the signed
  * xvel, as written) or when a skid has switched rotation off. The original

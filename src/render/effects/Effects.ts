@@ -1,6 +1,9 @@
 import { SPRITES, type SpriteId } from '@/assets/sprites.generated.ts';
+import { PoseClock } from '@/render/PoseClock.ts';
 import { PreLaunchScene } from '@/render/PreLaunchScene.ts';
+import { POWERUP_SPRITE } from '@/render/scene/decor.ts';
 import type { FxId, SimEvent } from '@/sim/events.ts';
+import type { PowerupKind } from '@/sim/types.ts';
 
 /** The three impact clips the original played and this port never drew. */
 const FX_SPRITE: Record<FxId, SpriteId> = {
@@ -11,6 +14,36 @@ const FX_SPRITE: Record<FxId, SpriteId> = {
 
 /** Impact clips animate on the original stage rate, like every other sprite. */
 const FX_FPS = 19;
+
+/**
+ * The pickup burst inside each powerup clip: where it starts and how long it
+ * runs. The clips are attached and left standing on frame 1, and
+ * `_loc3_.play()` at the moment of pickup runs the rest - Game.as:701, 716,
+ * 727, 750, 768. So frames 1 and 2 are the collectible and everything after is
+ * this.
+ *
+ * Read off the art: `powerup/bounce`, `powerup/slide` and
+ * `powerup/superbounce` are two frames of item, four of smoke and then twenty
+ * completely blank; `powerup/speed` is two, four and two; `powerup/rebound` is
+ * a board that flattens and springs back over its remaining seven.
+ *
+ * `wind` is absent on purpose - its branch plays the hamster's own wind clip
+ * and never touches the collectible (Game.as:733-746), and `powerup/wind` has
+ * a single frame to play anyway.
+ *
+ * This is restoration, not addition, so it is outside the `enhanced` and
+ * `motion` gates - the same reasoning that puts the `fx/*` clips and the whole
+ * pre-launch scene outside them.
+ */
+const PICKUP_BURST: Partial<
+  Record<PowerupKind, { readonly from: number; readonly frames: number }>
+> = {
+  bounce: { from: 2, frames: 4 },
+  superbounce: { from: 2, frames: 4 },
+  slide: { from: 2, frames: 4 },
+  speed: { from: 2, frames: 4 },
+  rebound: { from: 2, frames: 7 },
+};
 
 /**
  * How hard each impact hits the camera, in stage pixels on a 600x400 view.
@@ -114,8 +147,17 @@ interface LiveFx {
   readonly sprite: SpriteId;
   readonly x: number;
   readonly y: number;
+  /** First frame of the run. Non-zero for a clip that is resumed rather than
+   * attached - a powerup's burst starts partway through its own timeline. */
+  readonly from: number;
+  /** How many frames to play, counting from `from`. */
   readonly frames: number;
   readonly startedMs: number;
+}
+
+/** How many frames into its run a clip is. Negative before it starts. */
+function fxStep(fx: LiveFx, nowMs: number): number {
+  return Math.floor(((nowMs - fx.startedMs) / 1000) * FX_FPS);
 }
 
 /**
@@ -163,6 +205,11 @@ export class Effects {
    * to it, exactly like the `fx/*` clips above.
    */
   readonly scene = new PreLaunchScene();
+  /**
+   * Which frame of the hamster's own clip is showing. Also outside the
+   * `enhanced` gate, and for the same reason: it is what the original did.
+   */
+  readonly poses = new PoseClock();
   readonly #enhanced: boolean;
   readonly #motion: boolean;
   #live: LiveFx[] = [];
@@ -273,8 +320,7 @@ export class Effects {
   prune(nowMs: number): void {
     let keep = 0;
     for (const fx of this.#live) {
-      const frame = Math.floor(((nowMs - fx.startedMs) / 1000) * FX_FPS);
-      if (frame >= fx.frames) continue;
+      if (fxStep(fx, nowMs) >= fx.frames) continue;
       this.#live[keep++] = fx;
     }
     this.#live.length = keep;
@@ -297,6 +343,7 @@ export class Effects {
           sprite,
           x: event.x,
           y: event.y,
+          from: 0,
           frames: SPRITES[sprite].frames,
           startedMs: nowMs,
         });
@@ -315,10 +362,23 @@ export class Effects {
         }
       } else if (event.t === 'shotDone' && event.outcome === 'faceplant') {
         this.#shake(SHAKE_AMPLITUDE.faceplant, nowMs);
-      } else if (event.t === 'pickup' && this.#motion && at !== undefined) {
-        // The cue carries only the kind, so the burst goes where the hamster
-        // was - which is where the overlap happened.
-        this.#emitSparks(at.x, at.y, nowMs);
+      } else if (event.t === 'pickup' && at !== undefined) {
+        // The cue carries only the kind, so both of these go where the hamster
+        // was - which is where the overlap happened, within the width of the
+        // two hitboxes that had to touch for it to fire at all.
+        const burst = PICKUP_BURST[event.kind];
+        if (burst !== undefined) {
+          this.#live.push({
+            sprite: POWERUP_SPRITE[event.kind],
+            x: at.x,
+            y: at.y,
+            from: burst.from,
+            frames: burst.frames,
+            startedMs: nowMs,
+          });
+        }
+        // The sparks are this port's own addition, so they keep their gate.
+        if (this.#motion) this.#emitSparks(at.x, at.y, nowMs);
       }
     }
   }
@@ -360,9 +420,9 @@ export class Effects {
   active(nowMs: number): readonly ActiveFx[] {
     const out: ActiveFx[] = [];
     for (const fx of this.#live) {
-      const frame = Math.floor(((nowMs - fx.startedMs) / 1000) * FX_FPS);
-      if (frame < 0 || frame >= fx.frames) continue;
-      out.push({ sprite: fx.sprite, frame, x: fx.x, y: fx.y });
+      const step = fxStep(fx, nowMs);
+      if (step < 0 || step >= fx.frames) continue;
+      out.push({ sprite: fx.sprite, frame: fx.from + step, x: fx.x, y: fx.y });
     }
     return out;
   }
@@ -402,6 +462,7 @@ export class Effects {
   /** Drop everything in flight - on a restart, or when the tab comes back. */
   clear(): void {
     this.scene.clear();
+    this.poses.clear();
     this.#live.length = 0;
     this.#shakeStartedMs = 0;
     this.#shakeAmplitude = 0;

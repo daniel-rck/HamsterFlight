@@ -38,6 +38,12 @@ export type SimEvent =
   | { readonly t: 'pickup'; readonly kind: PowerupKind }
   | { readonly t: 'launched'; readonly vel: number; readonly angleDeg: number }
   | { readonly t: 'missed' }
+  /**
+   * The hamster came back down without the pillow ever connecting. The
+   * original spent the turn here; this port hands the turn back instead -
+   * see `Simulation.step`.
+   */
+  | { readonly t: 'jumpFailed' }
   | { readonly t: 'glide'; readonly on: boolean }
   | { readonly t: 'falling'; readonly on: boolean }
   | { readonly t: 'shotDone'; readonly feet: number; readonly outcome: ShotOutcome }

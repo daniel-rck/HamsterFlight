@@ -5,13 +5,12 @@ import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
 import {
   altitudeOf,
-  animFrame,
   BUBBLE_ALPHA,
   bushes,
   GROUND,
   markers,
+  POWERUP_IDLE_FRAME,
   POWERUP_SPRITE,
-  pillowX,
   rgbCss,
   SHADOW_ALPHA,
   SHADOW_MIN_SCALE,
@@ -28,7 +27,7 @@ import {
   panelLines,
   promptFor,
 } from '@/render/scene/hud.ts';
-import { hamsterRotation, poseFor } from '@/render/scene/pose.ts';
+import { hamsterRotation, outcomeOffsetY, poseFor } from '@/render/scene/pose.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 import { DEFAULT_TUNING, type Tuning } from '@/sim/tuning.ts';
@@ -163,9 +162,6 @@ export class GameRenderer implements Renderer {
       if (sprite !== undefined) this.#blit(ctx, sprite, at.frame, at.x, at.y);
     }
 
-    const pillow = this.#assets.get('pillow');
-    if (pillow !== undefined) this.#blit(ctx, pillow, 0, pillowX(s.phaseKind), C.PILLOW_Y);
-
     const marks = markers(s.camera.x, this.#effects.enhanced);
     ctx.fillStyle = MARKER_INK;
     ctx.font = FONTS.marker;
@@ -196,9 +192,8 @@ export class GameRenderer implements Renderer {
       const sprite = this.#assets.get(POWERUP_SPRITE[item.kind]);
       if (sprite === undefined) continue;
       ctx.globalAlpha = item.taken ? 0.25 : 1;
-      const frame = animFrame(sprite.meta, this.#elapsed);
       for (let i = 0; i < this.#stress; i++) {
-        this.#blit(ctx, sprite, frame, item.x + i * 3, item.y + i * 3);
+        this.#blit(ctx, sprite, POWERUP_IDLE_FRAME, item.x + i * 3, item.y + i * 3);
       }
       ctx.globalAlpha = 1;
 
@@ -216,7 +211,9 @@ export class GameRenderer implements Renderer {
     if (!h.visible && s.phaseKind !== 'settling') return;
 
     const shadow = this.#assets.get('shadow');
-    const scale = shadowScale(h.y);
+    // `blt.shadClip._visible = false` on every arm that ends a shot -
+    // Game.as:870, 876, 969 - so the outcome clip casts none.
+    const scale = s.phaseKind === 'settling' ? 0 : shadowScale(h.y);
     if (shadow !== undefined && scale > SHADOW_MIN_SCALE) {
       ctx.save();
       ctx.translate(h.x, C.SHADOW_Y);
@@ -232,7 +229,7 @@ export class GameRenderer implements Renderer {
     if (sprite === undefined) return;
 
     ctx.save();
-    ctx.translate(h.x, h.y);
+    ctx.translate(h.x, h.y + outcomeOffsetY(s));
     // The bubble is opaque in the original, so the hamster vanishes inside it
     // for the whole bounce. Enhanced mode draws the flier underneath and lets
     // the bubble sit over it.
@@ -240,12 +237,12 @@ export class GameRenderer implements Renderer {
     if (inBubble) {
       const inside = this.#assets.get('hamster/fly');
       if (inside !== undefined)
-        this.#blit(ctx, inside, animFrame(inside.meta, this.#elapsed), 0, 0);
+        this.#blit(ctx, inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed), 0, 0);
       ctx.globalAlpha = BUBBLE_ALPHA;
     }
     const rotation = hamsterRotation(s);
     if (rotation !== 0) ctx.rotate(rotation);
-    this.#blit(ctx, sprite, animFrame(sprite.meta, this.#elapsed), 0, 0);
+    this.#blit(ctx, sprite, this.#effects.poses.frame(s, sprite.meta, this.#elapsed), 0, 0);
     if (inBubble) ctx.globalAlpha = 1;
     ctx.restore();
 

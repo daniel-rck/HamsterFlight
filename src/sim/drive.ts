@@ -62,6 +62,9 @@ export function runShot(options: ShotOptions): ShotResult {
   for (let t = 0; t < options.clickTick && sim.phaseKind === 'jumping'; t++) sim.step();
 
   if (sim.phaseKind !== 'jumping') {
+    // The hamster came back down before `clickTick`. The simulation hands the
+    // turn back rather than scoring it, so this is the driver saying "no shot",
+    // not an outcome the game produced.
     return { feet: 0, outcome: 'zero', ticks: sim.tick, peakUp: 0, truncated: false };
   }
 

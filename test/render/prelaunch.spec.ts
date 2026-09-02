@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { launched, type Placement, PreLaunchScene } from '@/render/PreLaunchScene.ts';
+import { type Placement, PreLaunchScene } from '@/render/PreLaunchScene.ts';
 import { C } from '@/sim/constants.ts';
 import type { Phase, SimSnapshot } from '@/sim/state.ts';
 import { noEffects } from '@/sim/types.ts';
@@ -45,23 +45,6 @@ function only(world: readonly Placement[], sprite: string): Placement[] {
 function swingFrame(scene: PreLaunchScene, s: SimSnapshot, nowMs: number): number {
   return only(scene.layout(s, nowMs).world, 'launcher/swing')[0]?.frame ?? -1;
 }
-
-describe('launched', () => {
-  it('holds the pillow back for the whole jump', () => {
-    // The first click only starts the bob; `launch()` needs a second one.
-    expect(launched('ready')).toBe(false);
-    expect(launched('jumping')).toBe(false);
-  });
-
-  it('keeps the pillow forward until the camera has panned home', () => {
-    expect(launched('flying')).toBe(true);
-    expect(launched('settling')).toBe(true);
-  });
-
-  it('treats game over as parked', () => {
-    expect(launched('gameOver')).toBe(false);
-  });
-});
 
 describe('the launcher', () => {
   it('idles until the first click, then holds the wind-up', () => {
