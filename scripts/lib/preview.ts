@@ -7,6 +7,7 @@
 // their own. Kept in one place so the two cannot drift apart.
 import { type ChildProcess, spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
+import { fileURLToPath } from 'node:url';
 import { type Browser, chromium, type Page } from 'playwright';
 import { intEnv, ROOT } from './cli.ts';
 
@@ -41,7 +42,9 @@ async function listening(origin: string): Promise<boolean> {
  *
  * `process.execPath` with the tool's own entry point, rather than `npx`: it
  * skips the resolver, it works on Windows where `npx` is `npx.cmd`, and it
- * leaves exactly one process to stop. `detached` still puts the child in its
+ * leaves exactly one process to stop. The entry is a real filesystem path via
+ * `fileURLToPath`, not `URL.pathname`, which is percent-encoded and carries a
+ * leading slash before a Windows drive letter. `detached` still puts the child in its
  * own group on POSIX so anything it spawns goes with it.
  *
  * Both streams are piped *and drained*: an unread pipe keeps the handle - and
@@ -129,7 +132,7 @@ export function startServer(port = intEnv('PORT', 4173)): Promise<Server> {
   const origin = `http://127.0.0.1:${port}`;
   return startProcess(
     'vite preview',
-    new URL('../../node_modules/vite/bin/vite.js', import.meta.url).pathname,
+    fileURLToPath(new URL('../../node_modules/vite/bin/vite.js', import.meta.url)),
     ['preview', '--port', String(port), '--strictPort', '--host', '127.0.0.1'],
     origin,
   );
@@ -143,7 +146,7 @@ export function startWrangler(port = intEnv('PORT', 8788)): Promise<Server> {
   const origin = `http://127.0.0.1:${port}`;
   return startProcess(
     'wrangler dev',
-    new URL('../../node_modules/wrangler/bin/wrangler.js', import.meta.url).pathname,
+    fileURLToPath(new URL('../../node_modules/wrangler/bin/wrangler.js', import.meta.url)),
     ['dev', '--port', String(port), '--ip', '127.0.0.1', '--show-interactive-dev-session=false'],
     origin,
   );

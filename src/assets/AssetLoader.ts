@@ -66,9 +66,18 @@ function sheetUrl(index: number, density: number): string | undefined {
 const FETCH_TIMEOUT_MS = 20_000;
 
 async function loadSheet(url: string): Promise<ImageBitmap> {
-  const response = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-  if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-  return createImageBitmap(await response.blob());
+  // AbortController + setTimeout rather than `AbortSignal.timeout`, which
+  // older browsers lack; a missing static would throw before the fetch and
+  // before the 1x retry ever got a chance.
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('timed out')), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, { signal: controller.signal });
+    if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
+    return await createImageBitmap(await response.blob());
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /**
