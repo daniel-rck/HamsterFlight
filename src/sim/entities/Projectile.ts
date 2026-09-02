@@ -1,4 +1,4 @@
-import { C } from '../constants.ts';
+import { C } from "../constants.ts";
 
 /**
  * The hamster in flight - a direct port of `reference/as2/Bullet.as` with the

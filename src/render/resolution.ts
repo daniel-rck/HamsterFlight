@@ -1,4 +1,4 @@
-import { C } from '@/sim/constants.ts';
+import { C } from "@/sim/constants.ts";
 
 /**
  * Device pixels per stage pixel.

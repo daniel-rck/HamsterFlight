@@ -1,5 +1,5 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { bestShot, type HoldPolicy, hold, mash, median, never, smart } from '../support/harness.ts';
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { bestShot, type HoldPolicy, hold, mash, median, never, smart } from "../support/harness.ts";
 
 /**
  * The successor to the strategy table in the reverse-engineering document
@@ -42,7 +42,7 @@ function run(policy: HoldPolicy): Stats {
   };
 }
 
-describe('strategy behaviour', () => {
+describe("strategy behaviour", () => {
   // ~10 000 full shots: computed once, inside the lifecycle rather than at
   // collection time, so a hang is attributed to this file's setup.
   let noHold: Stats;
@@ -62,38 +62,38 @@ describe('strategy behaviour', () => {
       `${name.padEnd(9)} median ${String(s.median).padStart(5)} ft   max ${String(s.max).padStart(6)} ft   peak ${String(s.peakMedian).padStart(6)} px`;
     console.info(
       [
-        '',
-        row('never', noHold),
-        row('hold', holding),
-        row('mash', mashing),
-        row('measured', measured),
-      ].join('\n'),
+        "",
+        row("never", noHold),
+        row("hold", holding),
+        row("mash", mashing),
+        row("measured", measured),
+      ].join("\n"),
     );
   });
 
-  it('lands a shot for most seeds, and every shot ends', () => {
+  it("lands a shot for most seeds, and every shot ends", () => {
     expect(noHold.landed).toBeGreaterThan(SEEDS.length * 0.5);
     for (const s of [noHold, holding, mashing, measured]) expect(s.truncated).toBe(0);
   });
 
-  it('gliding beats not gliding', () => {
+  it("gliding beats not gliding", () => {
     expect(measured.median).toBeGreaterThan(noHold.median);
   });
 
-  it('holding continuously flies higher than it flies far', () => {
+  it("holding continuously flies higher than it flies far", () => {
     // The glide lift scales with xvel while drag eats xvel every tick, so
     // holding continuously climbs but does not travel.
     expect(holding.peakMedian).toBeGreaterThan(measured.peakMedian);
     expect(holding.median).toBeLessThan(measured.median);
   });
 
-  it('mashing buys less lift than holding', () => {
+  it("mashing buys less lift than holding", () => {
     // Half the ticks under lift, and the meter regenerates on the other half.
     expect(mashing.peakMedian).toBeLessThan(holding.peakMedian);
     expect(mashing.peakMedian).toBeGreaterThan(noHold.peakMedian);
   });
 
-  it('measured holding produces a long tail', () => {
+  it("measured holding produces a long tail", () => {
     expect(measured.max).toBeGreaterThan(measured.median * 2);
   });
 });

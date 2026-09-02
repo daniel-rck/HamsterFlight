@@ -1,4 +1,4 @@
-import type { FrameProfiler } from '@/app/FrameProfiler.ts';
+import type { FrameProfiler } from "@/app/FrameProfiler.ts";
 
 declare global {
   interface Window {

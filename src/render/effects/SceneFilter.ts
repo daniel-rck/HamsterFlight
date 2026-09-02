@@ -1,4 +1,4 @@
-import { defaultFilterVert, Filter, GlProgram } from 'pixi.js';
+import { defaultFilterVert, Filter, GlProgram } from "pixi.js";
 
 /**
  * The scene's single screen-space pass - the thing Canvas2D has no way to do
@@ -118,15 +118,15 @@ export interface SceneUniforms {
 export class SceneFilter extends Filter {
   constructor() {
     super({
-      glProgram: GlProgram.from({ vertex: defaultFilterVert, fragment, name: 'scene' }),
+      glProgram: GlProgram.from({ vertex: defaultFilterVert, fragment, name: "scene" }),
       resources: {
         sceneUniforms: {
-          uAberration: { value: 0, type: 'f32' },
-          uAltitude: { value: 0, type: 'f32' },
-          uCentre: { value: new Float32Array([0.5, 0.5]), type: 'vec2<f32>' },
-          uWaveProgress: { value: 0, type: 'f32' },
-          uWaveAmplitude: { value: 0, type: 'f32' },
-          uWaveCentre: { value: new Float32Array([0.5, 0.5]), type: 'vec2<f32>' },
+          uAberration: { value: 0, type: "f32" },
+          uAltitude: { value: 0, type: "f32" },
+          uCentre: { value: new Float32Array([0.5, 0.5]), type: "vec2<f32>" },
+          uWaveProgress: { value: 0, type: "f32" },
+          uWaveAmplitude: { value: 0, type: "f32" },
+          uWaveCentre: { value: new Float32Array([0.5, 0.5]), type: "vec2<f32>" },
         },
       },
     });

@@ -9,31 +9,31 @@
  * The driver is `src/sim/drive.ts`, the same one the golden tests use.
  */
 
-import { C } from '../src/sim/constants.ts';
-import { bestShot, hold, mash, median, never, runShot, smart } from '../src/sim/drive.ts';
+import { C } from "../src/sim/constants.ts";
+import { bestShot, hold, mash, median, never, runShot, smart } from "../src/sim/drive.ts";
 
 const argv = process.argv.slice(2);
-const seedIndex = argv.indexOf('--seeds');
-const seedCount = seedIndex === -1 ? 300 : Number.parseInt(argv[seedIndex + 1] ?? '', 10);
+const seedIndex = argv.indexOf("--seeds");
+const seedCount = seedIndex === -1 ? 300 : Number.parseInt(argv[seedIndex + 1] ?? "", 10);
 if (!Number.isInteger(seedCount) || seedCount < 1) {
-  console.error('--seeds wants a positive integer');
+  console.error("--seeds wants a positive integer");
   process.exitCode = 2;
 } else {
   const policies = [
-    ['never', never],
-    ['hold', hold],
-    ['mash', mash],
-    ['smart', smart],
+    ["never", never],
+    ["hold", hold],
+    ["mash", mash],
+    ["smart", smart],
   ] as const;
 
-  console.log(`tick  ${policies.map(([name]) => name.padStart(22)).join('')}`);
+  console.log(`tick  ${policies.map(([name]) => name.padStart(22)).join("")}`);
   for (let clickTick = 3; clickTick <= 26; clickTick++) {
     const cells = policies.map(([, policy]) => {
       const r = runShot({ seed: 0x5eed, clickTick, hold: policy });
-      if (r.outcome === 'miss') return 'miss'.padStart(21);
-      return `${r.feet} ft / ${r.peakUp} up${r.truncated ? '*' : ''}`.padStart(21);
+      if (r.outcome === "miss") return "miss".padStart(21);
+      return `${r.feet} ft / ${r.peakUp} up${r.truncated ? "*" : ""}`.padStart(21);
     });
-    console.log(String(clickTick).padStart(4), cells.join(' '));
+    console.log(String(clickTick).padStart(4), cells.join(" "));
   }
 
   console.log(`\n${seedCount} seeds, best connecting click per seed:`);
@@ -53,7 +53,7 @@ if (!Number.isInteger(seedCount) || seedCount < 1) {
         `  median ${String(median(feet)).padStart(5)} ft` +
         `  max ${String(feet.reduce((a, b) => Math.max(a, b), 0)).padStart(6)} ft` +
         `  median peak ${String(median(peaks)).padStart(7)} px` +
-        (truncated > 0 ? `  (${truncated} never ended)` : ''),
+        (truncated > 0 ? `  (${truncated} never ended)` : ""),
     );
   }
   console.log(`\n(ground at y=${C.GROUND_Y}, space background at y=${C.SPACE_BG_Y})`);

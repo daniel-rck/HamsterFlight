@@ -1,18 +1,18 @@
-import { describe, expect, it } from 'vitest';
-import { C } from '@/sim/constants.ts';
-import { flyGain, slideGain } from '@/sim/phases/FlightPhase.ts';
-import type { CameraState } from '@/sim/state.ts';
-import { follow, newCamera, quickPanStep } from '@/sim/systems/CameraModel.ts';
-import { DEFAULT_TUNING } from '@/sim/tuning.ts';
-import { centredOn, makeFlight, tick, withActiveTicks } from '../support/harness.ts';
+import { describe, expect, it } from "vitest";
+import { C } from "@/sim/constants.ts";
+import { flyGain, slideGain } from "@/sim/phases/FlightPhase.ts";
+import type { CameraState } from "@/sim/state.ts";
+import { follow, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
+import { DEFAULT_TUNING } from "@/sim/tuning.ts";
+import { centredOn, makeFlight, tick, withActiveTicks } from "../support/harness.ts";
 
 /**
  * These are the fidelity guard. Each one fails if the tick order is rearranged
  * into something that looks tidier, and each corresponds to a divergence found
  * in `reference/legacy/sim.js` - see reference/doc/porting-notes.md.
  */
-describe('tick order', () => {
-  it('tests the ground before adding gravity, not after', () => {
+describe("tick order", () => {
+  it("tests the ground before adding gravity, not after", () => {
     // 898.6 + 51 = 949.6, below the ground: no contact this tick.
     // An implementation that added gravity first would test
     // 898.6 + 51.99 = 950.59 and bounce a whole gravity step early.
@@ -22,7 +22,7 @@ describe('tick order', () => {
     expect(s.p.y).toBeGreaterThan(C.GROUND_Y);
   });
 
-  it('measures the impact angle from ox/oy, not from the current velocity', () => {
+  it("measures the impact angle from ox/oy, not from the current velocity", () => {
     // Identical xvel/yvel in both cases; only the previous position differs.
     // atan2(yvel, xvel) = atan2(15, 20) = 36.9 degrees would bounce in BOTH,
     // so a faceplant in the second case can only come from ox/oy.
@@ -33,11 +33,11 @@ describe('tick order', () => {
 
     const steep = makeFlight({ y: 940, yvel: 15, xvel: 20, ox: 146, oy: 880 });
     tick(steep);
-    expect(steep.outcome).toBe('faceplant');
+    expect(steep.outcome).toBe("faceplant");
     expect(steep.p.xvel).toBe(0);
   });
 
-  it('applies powerup effects after the bounce, not before', () => {
+  it("applies powerup effects after the bounce, not before", () => {
     // A wind pickup landing on a contact tick must not influence that bounce.
     const withWind = makeFlight({
       y: 945,
@@ -54,7 +54,7 @@ describe('tick order', () => {
     expect(withWind.p.yvel - without.p.yvel).toBeCloseTo(C.WIND_YVEL, 10);
   });
 
-  it('checks the skid threshold before integrating, so it takes two ticks', () => {
+  it("checks the skid threshold before integrating, so it takes two ticks", () => {
     // The predicate needs y from the top of the tick AND the position after
     // gravity, so a tick that *ends* past the threshold still does not skid -
     // the check ran on the pre-move position. Only the next tick can.
@@ -68,7 +68,7 @@ describe('tick order', () => {
     expect(s.flags.skidding).toBe(true);
   });
 
-  it('ends a fall on ground contact with an event, like glide', () => {
+  it("ends a fall on ground contact with an event, like glide", () => {
     // A plain bounce out of a fall: `falling = false` at the end of
     // checkCollision (Game.as:826) used to be silent.
     const s = makeFlight({
@@ -81,10 +81,10 @@ describe('tick order', () => {
     });
     const { events } = tick(s);
     expect(s.flags.falling).toBe(false);
-    expect(events.filter(e => e.t === 'falling')).toEqual([{ t: 'falling', on: false }]);
+    expect(events.filter((e) => e.t === "falling")).toEqual([{ t: "falling", on: false }]);
   });
 
-  it('turns a falling faceplant into a hole and still ends the fall', () => {
+  it("turns a falling faceplant into a hole and still ends the fall", () => {
     const s = makeFlight({
       y: 945,
       yvel: 60,
@@ -95,39 +95,39 @@ describe('tick order', () => {
     });
     const { events, done } = tick(s);
     expect(done).toBe(true);
-    expect(s.outcome).toBe('hole');
-    expect(events).toContainEqual({ t: 'falling', on: false });
+    expect(s.outcome).toBe("hole");
+    expect(events).toContainEqual({ t: "falling", on: false });
   });
 });
 
-describe('sound cues', () => {
-  it('re-sets the flight loop gain from the speed on every airborne tick', () => {
+describe("sound cues", () => {
+  it("re-sets the flight loop gain from the speed on every airborne tick", () => {
     // Game.as:589-592, the `else` of the slide/skid branch. Measured before
     // drag, since step 4 precedes step 5.
     const s = makeFlight({ y: 600, xvel: 5, yvel: 3 });
     const { events } = tick(s);
-    expect(events).toContainEqual({ t: 'sfxGain', id: 'fly', gain: flyGain(5, 3) });
+    expect(events).toContainEqual({ t: "sfxGain", id: "fly", gain: flyGain(5, 3) });
     expect(flyGain(5, 3)).toBe(11);
   });
 
-  it('plays the skid cue once, on the tick after the skid starts, and ducks the flight loop', () => {
+  it("plays the skid cue once, on the tick after the skid starts, and ducks the flight loop", () => {
     const s = makeFlight({ y: 944, yvel: 3, xvel: 5, hit: true });
     tick(s);
     const second = tick(s).events;
     expect(s.flags.skidding).toBe(true);
-    expect(second.some(e => e.t === 'sfx' && e.id === 'skid')).toBe(false);
+    expect(second.some((e) => e.t === "sfx" && e.id === "skid")).toBe(false);
 
     const third = tick(s).events;
-    expect(third).toContainEqual({ t: 'sfx', id: 'skid', gain: C.SFX_VOLUME });
-    expect(third).toContainEqual({ t: 'sfxGain', id: 'fly', gain: 5 });
-    expect(third.some(e => e.t === 'sfxGain' && e.id === 'fly' && e.gain !== 5)).toBe(false);
+    expect(third).toContainEqual({ t: "sfx", id: "skid", gain: C.SFX_VOLUME });
+    expect(third).toContainEqual({ t: "sfxGain", id: "fly", gain: 5 });
+    expect(third.some((e) => e.t === "sfxGain" && e.id === "fly" && e.gain !== 5)).toBe(false);
 
     const fourth = tick(s).events;
-    expect(fourth.some(e => e.t === 'sfx' && e.id === 'skid')).toBe(false);
-    expect(fourth.some(e => e.t === 'sfxGain')).toBe(false);
+    expect(fourth.some((e) => e.t === "sfx" && e.id === "skid")).toBe(false);
+    expect(fourth.some((e) => e.t === "sfxGain")).toBe(false);
   });
 
-  it('starts the slide loop once and then tracks |xvel|', () => {
+  it("starts the slide loop once and then tracks |xvel|", () => {
     const s = makeFlight({
       y: C.GROUND_Y,
       xvel: 10,
@@ -136,17 +136,17 @@ describe('sound cues', () => {
       flags: { slide: true, skidding: true },
     });
     const first = tick(s).events;
-    expect(first).toContainEqual({ t: 'sfx', id: 'slide', gain: C.SFX_VOLUME, loop: true });
-    expect(first).toContainEqual({ t: 'sfxGain', id: 'fly', gain: 5 });
+    expect(first).toContainEqual({ t: "sfx", id: "slide", gain: C.SFX_VOLUME, loop: true });
+    expect(first).toContainEqual({ t: "sfxGain", id: "fly", gain: 5 });
     expect(s.p.doRotation).toBe(false);
 
     const second = tick(s).events;
-    expect(second.some(e => e.t === 'sfx' && e.id === 'slide')).toBe(false);
-    expect(second).toContainEqual({ t: 'sfxGain', id: 'slide', gain: slideGain(10 * C.DRAG) });
+    expect(second.some((e) => e.t === "sfx" && e.id === "slide")).toBe(false);
+    expect(second).toContainEqual({ t: "sfxGain", id: "slide", gain: slideGain(10 * C.DRAG) });
     expect(slideGain(10 * C.DRAG)).toBe(45);
   });
 
-  it('stops the slide loop when the shot ends', () => {
+  it("stops the slide loop when the shot ends", () => {
     const s = makeFlight({
       y: C.GROUND_Y,
       xvel: 1.5,
@@ -156,16 +156,16 @@ describe('sound cues', () => {
     });
     tick(s);
     let events = tick(s).events;
-    for (let i = 0; i < 100 && !events.some(e => e.t === 'sfxStop' && e.id === 'fly'); i++) {
+    for (let i = 0; i < 100 && !events.some((e) => e.t === "sfxStop" && e.id === "fly"); i++) {
       events = tick(s).events;
     }
-    expect(events).toContainEqual({ t: 'sfxStop', id: 'fly' });
-    expect(events).toContainEqual({ t: 'sfxStop', id: 'slide' });
+    expect(events).toContainEqual({ t: "sfxStop", id: "fly" });
+    expect(events).toContainEqual({ t: "sfxStop", id: "slide" });
   });
 });
 
-describe('glide', () => {
-  it('freezes the lift at the xvel measured when the button went down', () => {
+describe("glide", () => {
+  it("freezes the lift at the xvel measured when the button went down", () => {
     // increaseGravity() is called only from onMouseDown (Game.as:1040), so the
     // lift does not track the decaying xvel. sim.js recomputed it every tick.
     const s = makeFlight({ y: 600, xvel: 50, yvel: -5, gravButton: true });
@@ -179,7 +179,7 @@ describe('glide', () => {
     expect(s.p.grav).toBeCloseTo(frozen, 10); // ...but the lift has not changed
   });
 
-  it('can be switched to the sim.js reading, where the lift tracks the decaying xvel', () => {
+  it("can be switched to the sim.js reading, where the lift tracks the decaying xvel", () => {
     const tuning = { ...DEFAULT_TUNING, recomputeGlidePerTick: true };
     const s = makeFlight({ y: 600, xvel: 50, yvel: -5, gravButton: true });
     s.p.setGlideGravity();
@@ -193,7 +193,7 @@ describe('glide', () => {
     expect(Math.abs(s.p.grav)).toBeLessThan(Math.abs(frozen));
   });
 
-  it('keeps draining and restores gravity every tick once the meter is empty', () => {
+  it("keeps draining and restores gravity every tick once the meter is empty", () => {
     const s = makeFlight({ y: 600, xvel: 50, yvel: -5, gravButton: true, glidePoints: 10 });
     s.p.setGlideGravity();
 
@@ -208,7 +208,7 @@ describe('glide', () => {
     expect(s.p.grav).toBeCloseTo(C.GRAV, 10);
   });
 
-  it('regenerates one point per tick up to the cap', () => {
+  it("regenerates one point per tick up to the cap", () => {
     const s = makeFlight({ y: 600, xvel: 30, yvel: -5, glidePoints: 40 });
     tick(s);
     expect(s.glidePoints).toBe(41);
@@ -218,8 +218,8 @@ describe('glide', () => {
   });
 });
 
-describe('powerup guards', () => {
-  it('re-applies speed on every overlapping tick - it has no guard', () => {
+describe("powerup guards", () => {
+  it("re-applies speed on every overlapping tick - it has no guard", () => {
     // Game.as:719 tests only the hitTest, unlike bounce/slide/rebound. So a
     // two-tick overlap really is +40 xvel, and duration multiplies effect.
     const at = (n: number) => {
@@ -227,10 +227,10 @@ describe('powerup guards', () => {
         y: 600,
         xvel: 0,
         yvel: 0,
-        powerups: [centredOn('speed', C.HAMSTER_X, 600)],
+        powerups: [centredOn("speed", C.HAMSTER_X, 600)],
       });
-      tick(s, { tuning: withActiveTicks('speed', n) });
-      tick(s, { tuning: withActiveTicks('speed', n) });
+      tick(s, { tuning: withActiveTicks("speed", n) });
+      tick(s, { tuning: withActiveTicks("speed", n) });
       return s.p.xvel;
     };
     const once = at(1);
@@ -240,23 +240,23 @@ describe('powerup guards', () => {
     expect(twice).toBeGreaterThan(once * 1.9);
   });
 
-  it('arms bounce only once, however long the overlap lasts', () => {
+  it("arms bounce only once, however long the overlap lasts", () => {
     const s = makeFlight({
       y: 600,
       xvel: 0,
       yvel: 0,
-      powerups: [centredOn('bounce', C.HAMSTER_X, 600)],
+      powerups: [centredOn("bounce", C.HAMSTER_X, 600)],
     });
-    const tuning = withActiveTicks('bounce', 4);
+    const tuning = withActiveTicks("bounce", 4);
     const pickups: number[] = [];
     for (let i = 0; i < 4; i++) {
-      pickups.push(tick(s, { tuning }).events.filter(e => e.t === 'pickup').length);
+      pickups.push(tick(s, { tuning }).events.filter((e) => e.t === "pickup").length);
     }
     expect(pickups.reduce((a, b) => a + b, 0)).toBe(1);
     expect(s.flags.bounce).toBe(true);
   });
 
-  it('caps the bounce and superbounce rebound velocities', () => {
+  it("caps the bounce and superbounce rebound velocities", () => {
     const bounce = makeFlight({
       y: 945,
       yvel: 40,
@@ -284,8 +284,8 @@ describe('powerup guards', () => {
   });
 });
 
-describe('camera', () => {
-  it('only moves x once the hamster is right of x = 150', () => {
+describe("camera", () => {
+  it("only moves x once the hamster is right of x = 150", () => {
     // GameCamera.doFollow assigns _x only when -targetX + 150 < 0. While the
     // hamster is on the launch pad at x = 148 the camera x must not budge,
     // because camX feeds the powerup spawn gate.
@@ -302,7 +302,7 @@ describe('camera', () => {
     expect(cam.x).toBe(-110);
   });
 
-  it('clamps y at -600 rather than following further down', () => {
+  it("clamps y at -600 rather than following further down", () => {
     const cam = newCamera();
     follow(cam, 300, 900); // -900 + 200 = -700, past the clamp
     expect(cam.y).toBe(C.CAM_Y_CLAMP);
@@ -310,7 +310,7 @@ describe('camera', () => {
     expect(cam.y).toBe(-500);
   });
 
-  it('halves the remaining pan distance each tick and arrives', () => {
+  it("halves the remaining pan distance each tick and arrives", () => {
     const cam: CameraState = { x: -4000, y: -600 };
     let ticks = 0;
     while (!quickPanStep(cam, C.CAM_RESET_TARGET_X, C.CAM_RESET_TARGET_Y, C.CAM_QPAN_TIME)) {

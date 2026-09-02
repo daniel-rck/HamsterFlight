@@ -1,7 +1,7 @@
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath } from "node:url";
 
 /** The repository root, so every script works from any working directory. */
-export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+export const ROOT = fileURLToPath(new URL("../../", import.meta.url));
 
 /**
  * An integer from the environment, or the fallback. `Number('abc')` is `NaN`
@@ -9,7 +9,7 @@ export const ROOT = fileURLToPath(new URL('../../', import.meta.url));
  */
 export function intEnv(name: string, fallback: number): number {
   const raw = process.env[name];
-  if (raw === undefined || raw === '') return fallback;
+  if (raw === undefined || raw === "") return fallback;
   const parsed = Number.parseInt(raw, 10);
   if (!Number.isFinite(parsed) || String(parsed) !== raw.trim()) {
     throw new Error(`${name}=${raw} is not an integer`);
@@ -20,8 +20,8 @@ export function intEnv(name: string, fallback: number): number {
 /** A comma-separated list of integers from the environment. */
 export function intListEnv(name: string, fallback: readonly number[]): readonly number[] {
   const raw = process.env[name];
-  if (raw === undefined || raw === '') return fallback;
-  return raw.split(',').map(part => {
+  if (raw === undefined || raw === "") return fallback;
+  return raw.split(",").map((part) => {
     const parsed = Number.parseInt(part, 10);
     if (!Number.isFinite(parsed)) throw new Error(`${name}=${raw} has a non-integer entry`);
     return parsed;

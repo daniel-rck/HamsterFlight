@@ -5,21 +5,21 @@
 // loopback requests, the software rasteriser flags that make WebGL work with no
 // GPU, and the Chromium build mismatch that shows up in containers which ship
 // their own. Kept in one place so the two cannot drift apart.
-import { type ChildProcess, spawn } from 'node:child_process';
-import { connect } from 'node:net';
-import { setTimeout as sleep } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
-import { type Browser, chromium, type Page } from 'playwright';
-import { intEnv, ROOT } from './cli.ts';
+import { type ChildProcess, spawn } from "node:child_process";
+import { connect } from "node:net";
+import { setTimeout as sleep } from "node:timers/promises";
+import { fileURLToPath } from "node:url";
+import { type Browser, chromium, type Page } from "playwright";
+import { intEnv, ROOT } from "./cli.ts";
 
 // The browser has to reach the loopback server directly; an ambient agent proxy
 // in the environment would otherwise swallow it. (The readiness probe below
 // uses a raw socket and does not go through fetch at all.)
-process.env.NO_PROXY = ['127.0.0.1', 'localhost', process.env.NO_PROXY].filter(Boolean).join(',');
+process.env.NO_PROXY = ["127.0.0.1", "localhost", process.env.NO_PROXY].filter(Boolean).join(",");
 process.env.no_proxy = process.env.NO_PROXY;
 
 /** How long to wait for a server to come up, overridable for slow machines. */
-const STARTUP_MS = intEnv('PREVIEW_TIMEOUT_MS', 15_000);
+const STARTUP_MS = intEnv("PREVIEW_TIMEOUT_MS", 15_000);
 const POLL_MS = 250;
 /** SIGTERM first; a child that ignores it gets SIGKILL after this. */
 const STOP_GRACE_MS = 3000;
@@ -39,15 +39,15 @@ export interface Server {
  */
 function listening(origin: string): Promise<boolean> {
   const { hostname, port } = new URL(origin);
-  return new Promise(resolve => {
+  return new Promise((resolve) => {
     const socket = connect({ host: hostname, port: Number(port) });
     const done = (up: boolean): void => {
       socket.destroy();
       resolve(up);
     };
     socket.setTimeout(1000, () => done(false));
-    socket.once('connect', () => done(true));
-    socket.once('error', () => done(false));
+    socket.once("connect", () => done(true));
+    socket.once("error", () => done(false));
   });
 }
 
@@ -83,19 +83,19 @@ async function startProcess(
 
   const child: ChildProcess = spawn(process.execPath, [entry, ...args], {
     cwd: ROOT,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: process.platform !== 'win32',
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: process.platform !== "win32",
   });
-  let output = '';
+  let output = "";
   const collect = (chunk: Buffer | string): void => {
     output = `${output}${chunk}`.slice(-2000);
   };
-  child.stdout?.on('data', collect);
-  child.stderr?.on('data', collect);
+  child.stdout?.on("data", collect);
+  child.stderr?.on("data", collect);
 
   let exited: number | null = null;
-  const gone = new Promise<void>(resolve => {
-    child.on('exit', code => {
+  const gone = new Promise<void>((resolve) => {
+    child.on("exit", (code) => {
       exited = code ?? -1;
       resolve();
     });
@@ -104,7 +104,7 @@ async function startProcess(
   const signal = (name: NodeJS.Signals): void => {
     if (exited !== null || child.pid === undefined) return;
     try {
-      if (process.platform === 'win32') child.kill(name);
+      if (process.platform === "win32") child.kill(name);
       else process.kill(-child.pid, name);
     } catch {
       child.kill(name);
@@ -112,10 +112,10 @@ async function startProcess(
   };
   const stop = async (): Promise<void> => {
     if (exited !== null) return;
-    signal('SIGTERM');
-    const grace = (): Promise<'timeout'> => sleep(STOP_GRACE_MS).then(() => 'timeout' as const);
-    if ((await Promise.race([gone, grace()])) === 'timeout') {
-      signal('SIGKILL');
+    signal("SIGTERM");
+    const grace = (): Promise<"timeout"> => sleep(STOP_GRACE_MS).then(() => "timeout" as const);
+    if ((await Promise.race([gone, grace()])) === "timeout") {
+      signal("SIGKILL");
       // A child that survives SIGKILL is not ours to wait for any longer.
       await Promise.race([gone, grace()]);
     }
@@ -143,12 +143,12 @@ async function startProcess(
  * runner resolves to ::1 first - so the server comes up perfectly and an IPv4
  * probe never reaches it.
  */
-export function startServer(port = intEnv('PORT', 4173)): Promise<Server> {
+export function startServer(port = intEnv("PORT", 4173)): Promise<Server> {
   const origin = `http://127.0.0.1:${port}`;
   return startProcess(
-    'vite preview',
-    fileURLToPath(new URL('../../node_modules/vite/bin/vite.js', import.meta.url)),
-    ['preview', '--port', String(port), '--strictPort', '--host', '127.0.0.1'],
+    "vite preview",
+    fileURLToPath(new URL("../../node_modules/vite/bin/vite.js", import.meta.url)),
+    ["preview", "--port", String(port), "--strictPort", "--host", "127.0.0.1"],
     origin,
   );
 }
@@ -159,12 +159,12 @@ export function startServer(port = intEnv('PORT', 4173)): Promise<Server> {
  * rather than wrangler's 8787 default, so it never collides with a
  * `bun run worker:dev` the developer has open.
  */
-export function startWrangler(port = intEnv('PORT', 8788)): Promise<Server> {
+export function startWrangler(port = intEnv("PORT", 8788)): Promise<Server> {
   const origin = `http://127.0.0.1:${port}`;
   return startProcess(
-    'wrangler dev',
-    fileURLToPath(new URL('../../node_modules/wrangler/bin/wrangler.js', import.meta.url)),
-    ['dev', '--port', String(port), '--ip', '127.0.0.1', '--show-interactive-dev-session=false'],
+    "wrangler dev",
+    fileURLToPath(new URL("../../node_modules/wrangler/bin/wrangler.js", import.meta.url)),
+    ["dev", "--port", String(port), "--ip", "127.0.0.1", "--show-interactive-dev-session=false"],
     origin,
   );
 }
@@ -178,12 +178,12 @@ export function launchChromium(): Promise<Browser> {
     args: [
       // Everything these scripts load is on loopback, and an ambient agent
       // proxy in the environment would otherwise swallow it.
-      '--no-proxy-server',
+      "--no-proxy-server",
       // WebGL with no GPU. Without these the Pixi backend has no context at
       // all, and a smoke test would be asserting on a page that never drew.
-      '--use-gl=angle',
-      '--use-angle=swiftshader',
-      '--enable-unsafe-swiftshader',
+      "--use-gl=angle",
+      "--use-angle=swiftshader",
+      "--enable-unsafe-swiftshader",
     ],
   });
 }
@@ -200,8 +200,8 @@ export function launchChromium(): Promise<Browser> {
 export async function waitForBoot(page: Page, timeout = 60_000): Promise<void> {
   await page.waitForFunction(
     () => {
-      const boot = document.querySelector<HTMLElement>('#boot');
-      return (boot === null || boot.hidden) && document.querySelector('#stage') !== null;
+      const boot = document.querySelector<HTMLElement>("#boot");
+      return (boot === null || boot.hidden) && document.querySelector("#stage") !== null;
     },
     undefined,
     { timeout },
@@ -222,31 +222,31 @@ export async function waitForBoot(page: Page, timeout = 60_000): Promise<void> {
  */
 export async function playOneShot(page: Page): Promise<void> {
   const tap = async (): Promise<void> => {
-    await page.keyboard.down(' ');
+    await page.keyboard.down(" ");
     await sleep(40);
-    await page.keyboard.up(' ');
+    await page.keyboard.up(" ");
   };
 
   await tap();
   await sleep(700);
   await tap();
   await sleep(120);
-  await page.keyboard.down(' ');
+  await page.keyboard.down(" ");
   await sleep(2600);
-  await page.keyboard.up(' ');
+  await page.keyboard.up(" ");
   await sleep(1200);
 }
 
 /** Collect every failed or 4xx/5xx subresource, so a 404'd chunk is a named failure. */
 export function watchRequests(page: Page, failures: string[]): void {
-  page.on('response', response => {
+  page.on("response", (response) => {
     if (response.status() >= 400) {
       failures.push(`${response.status()} ${new URL(response.url()).pathname}`);
     }
   });
-  page.on('requestfailed', request => {
+  page.on("requestfailed", (request) => {
     failures.push(
-      `request failed: ${new URL(request.url()).pathname} (${request.failure()?.errorText ?? '?'})`,
+      `request failed: ${new URL(request.url()).pathname} (${request.failure()?.errorText ?? "?"})`,
     );
   });
 }

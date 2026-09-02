@@ -1,7 +1,7 @@
-import { C } from '../constants.ts';
-import type { Rng } from '../rng/Rng.ts';
-import type { FlightState } from '../state.ts';
-import { POWERUPS, powerupFromRoll } from '../types.ts';
+import { C } from "../constants.ts";
+import type { Rng } from "../rng/Rng.ts";
+import type { FlightState } from "../state.ts";
+import { POWERUPS, powerupFromRoll } from "../types.ts";
 
 /**
  * `Game.generatePowerups()` - Game.as:1272-1335. One spawn per 150 px of

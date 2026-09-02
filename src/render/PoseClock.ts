@@ -1,6 +1,6 @@
-import type { SpriteMeta } from '@/assets/sprites.generated.ts';
-import { poseFor } from '@/render/scene/pose.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
+import type { SpriteMeta } from "@/assets/sprites.generated.ts";
+import { poseFor } from "@/render/scene/pose.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
 
 /**
  * Which frame of the hamster's own clip is showing.
@@ -55,17 +55,17 @@ export class PoseClock {
    * 1.7-2.5 s against the clip's 1.9 s, so a freeze would be visible on the
    * long ones.
    */
-  frame(s: SimSnapshot, meta: Pick<SpriteMeta, 'frames' | 'fps'>, nowMs: number): number {
+  frame(s: SimSnapshot, meta: Pick<SpriteMeta, "frames" | "fps">, nowMs: number): number {
     const pose = poseFor(s);
     if (pose !== this.#pose) {
       this.#pose = pose;
       this.#startedMs = nowMs;
     }
     if (meta.frames <= 1) return 0;
-    if (s.phaseKind === 'ready') return 0;
+    if (s.phaseKind === "ready") return 0;
 
     const step = clipStep(this.#startedMs, nowMs, meta.fps ?? FPS);
-    if (s.phaseKind === 'settling') return Math.min(step, meta.frames - 1);
+    if (s.phaseKind === "settling") return Math.min(step, meta.frames - 1);
     return step % meta.frames;
   }
 
@@ -74,7 +74,7 @@ export class PoseClock {
    * that shows through the enhanced mode's `hamster/ball` bubble. It shares the
    * anchor, so the two never drift apart.
    */
-  innerFrame(meta: Pick<SpriteMeta, 'frames' | 'fps'>, nowMs: number): number {
+  innerFrame(meta: Pick<SpriteMeta, "frames" | "fps">, nowMs: number): number {
     if (meta.frames <= 1) return 0;
     return clipStep(this.#startedMs, nowMs, meta.fps ?? FPS) % meta.frames;
   }

@@ -1,16 +1,16 @@
-import { C } from '@/sim/constants.ts';
-import { Projectile } from '@/sim/entities/Projectile.ts';
-import type { SimEvent } from '@/sim/events.ts';
-import { stepFlight } from '@/sim/phases/FlightPhase.ts';
-import { mulberry32 } from '@/sim/rng/mulberry32.ts';
-import type { Rng } from '@/sim/rng/Rng.ts';
-import type { FlightState, PowerupInstance } from '@/sim/state.ts';
-import { newCamera } from '@/sim/systems/CameraModel.ts';
-import { DEFAULT_TUNING, type Tuning } from '@/sim/tuning.ts';
-import { type EffectFlags, noEffects, type PowerupKind } from '@/sim/types.ts';
+import { C } from "@/sim/constants.ts";
+import { Projectile } from "@/sim/entities/Projectile.ts";
+import type { SimEvent } from "@/sim/events.ts";
+import { stepFlight } from "@/sim/phases/FlightPhase.ts";
+import { mulberry32 } from "@/sim/rng/mulberry32.ts";
+import type { Rng } from "@/sim/rng/Rng.ts";
+import type { FlightState, PowerupInstance } from "@/sim/state.ts";
+import { newCamera } from "@/sim/systems/CameraModel.ts";
+import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
+import { type EffectFlags, noEffects, type PowerupKind } from "@/sim/types.ts";
 
-export type { HoldPolicy, ShotResult } from '@/sim/drive.ts';
-export { bestShot, hold, mash, median, never, runShot, smart } from '@/sim/drive.ts';
+export type { HoldPolicy, ShotResult } from "@/sim/drive.ts";
+export { bestShot, hold, mash, median, never, runShot, smart } from "@/sim/drive.ts";
 
 export interface FlightSetup {
   readonly x?: number;
@@ -24,7 +24,7 @@ export interface FlightSetup {
   readonly glidePoints?: number;
   readonly gravButton?: boolean;
   readonly flags?: Partial<EffectFlags>;
-  readonly powerups?: readonly Omit<PowerupInstance, 'taken' | 'activeTicksLeft'>[];
+  readonly powerups?: readonly Omit<PowerupInstance, "taken" | "activeTicksLeft">[];
   /** Spawning is off unless a test wants it; this is the first spawn gate. */
   readonly powerupMark?: number;
 }
@@ -56,7 +56,7 @@ export function makeFlight(setup: FlightSetup = {}): FlightState {
     flags: { ...noEffects(), ...setup.flags },
     glidePoints: setup.glidePoints ?? C.GLIDE_MAX,
     gravButton: setup.gravButton ?? false,
-    powerups: (setup.powerups ?? []).map(it => ({ ...it, taken: false, activeTicksLeft: 0 })),
+    powerups: (setup.powerups ?? []).map((it) => ({ ...it, taken: false, activeTicksLeft: 0 })),
     powerupMark: setup.powerupMark ?? NO_SPAWNING,
     camera: newCamera(),
     outcome: null,
@@ -71,7 +71,7 @@ export function centredOn(
   x: number,
   y: number,
   tuning: Tuning = DEFAULT_TUNING,
-): Omit<PowerupInstance, 'taken' | 'activeTicksLeft'> {
+): Omit<PowerupInstance, "taken" | "activeTicksLeft"> {
   const hamster = tuning.boxes.hamsterFlightCore;
   const item = tuning.boxes.powerups[kind];
   return { kind, x: x + hamster.cx - item.cx, y: y + hamster.cy - item.cy };

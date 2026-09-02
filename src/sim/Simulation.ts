@@ -1,16 +1,16 @@
-import type { InputCommand } from './commands.ts';
-import { C } from './constants.ts';
-import { Projectile } from './entities/Projectile.ts';
-import type { SimEvent } from './events.ts';
-import { stepFlight } from './phases/FlightPhase.ts';
-import { beginJump, stepJump } from './phases/JumpPhase.ts';
-import { attemptLaunch } from './phases/Launch.ts';
-import { mulberry32 } from './rng/mulberry32.ts';
-import type { Rng } from './rng/Rng.ts';
-import type { FlightState, Phase, SimSnapshot } from './state.ts';
-import { follow, newCamera, quickPanStep } from './systems/CameraModel.ts';
-import { DEFAULT_TUNING, type Tuning } from './tuning.ts';
-import { noEffects, type ShotOutcome } from './types.ts';
+import type { InputCommand } from "./commands.ts";
+import { C } from "./constants.ts";
+import { Projectile } from "./entities/Projectile.ts";
+import type { SimEvent } from "./events.ts";
+import { stepFlight } from "./phases/FlightPhase.ts";
+import { beginJump, stepJump } from "./phases/JumpPhase.ts";
+import { attemptLaunch } from "./phases/Launch.ts";
+import { mulberry32 } from "./rng/mulberry32.ts";
+import type { Rng } from "./rng/Rng.ts";
+import type { FlightState, Phase, SimSnapshot } from "./state.ts";
+import { follow, newCamera, quickPanStep } from "./systems/CameraModel.ts";
+import { DEFAULT_TUNING, type Tuning } from "./tuning.ts";
+import { noEffects, type ShotOutcome } from "./types.ts";
 
 export interface SimulationOptions {
   readonly seed: number;
@@ -42,16 +42,16 @@ export class Simulation {
     // Separate streams so that changing spawn code cannot shift the jump
     // sequence, keeping goldens narrowly scoped. The original drew both from
     // one shared Math.random stream; unobservable, since its seed is unknowable.
-    this.#rngJump = master.fork('jump');
-    this.#rngPowerups = master.fork('powerups');
-    this.#phase = { kind: 'ready' };
+    this.#rngJump = master.fork("jump");
+    this.#rngPowerups = master.fork("powerups");
+    this.#phase = { kind: "ready" };
   }
 
   get tick(): number {
     return this.#tick;
   }
 
-  get phaseKind(): Phase['kind'] {
+  get phaseKind(): Phase["kind"] {
     return this.#phase.kind;
   }
 
@@ -66,7 +66,7 @@ export class Simulation {
     const out: SimEvent[] = [];
 
     for (const cmd of commands) {
-      if (cmd.kind === 'togglePause') {
+      if (cmd.kind === "togglePause") {
         this.#paused = !this.#paused;
       } else if (!this.#paused) {
         this.#handle(cmd, out);
@@ -77,7 +77,7 @@ export class Simulation {
     this.#tick++;
 
     switch (this.#phase.kind) {
-      case 'jumping': {
+      case "jumping": {
         const st = this.#phase.jump;
         const landed = stepJump(st, this.#rngJump, out);
         follow(this.#phase.camera, C.HAMSTER_X, st.y);
@@ -87,21 +87,21 @@ export class Simulation {
         // the rolls physically unable to reach the window at all, so the turn
         // goes back on the pad instead. Only the pillow ends a turn.
         if (landed) {
-          out.push({ t: 'jumpFailed' });
-          this.#phase = { kind: 'ready' };
+          out.push({ t: "jumpFailed" });
+          this.#phase = { kind: "ready" };
         }
         break;
       }
-      case 'flying': {
+      case "flying": {
         const flight = this.#phase.flight;
         const done = stepFlight(flight, this.#tuning, this.#rngPowerups, out);
         if (done) {
           const feet = Math.floor(flight.p.x / C.PX_PER_FOOT);
-          this.#endShot(flight.outcome ?? 'cheer', feet, out);
+          this.#endShot(flight.outcome ?? "cheer", feet, out);
         }
         break;
       }
-      case 'settling':
+      case "settling":
         this.#stepSettling(out);
         break;
       default:
@@ -117,12 +117,12 @@ export class Simulation {
    * when `doQuickPanTo` has converged, which is what advances the turn.
    */
   #stepSettling(out: SimEvent[]): void {
-    if (this.#phase.kind !== 'settling') return;
+    if (this.#phase.kind !== "settling") return;
     const st = this.#phase;
     st.ticksLeft--;
-    if (st.stage === 'hold') {
+    if (st.stage === "hold") {
       if (st.ticksLeft <= 0) {
-        st.stage = 'pan';
+        st.stage = "pan";
         st.ticksLeft = this.#tuning.camera.maxPanTicks;
       }
       return;
@@ -141,25 +141,25 @@ export class Simulation {
   #handle(cmd: InputCommand, out: SimEvent[]): void {
     const phase = this.#phase;
 
-    if (cmd.kind === 'press') {
-      if (phase.kind === 'ready') {
-        this.#phase = { kind: 'jumping', jump: beginJump(this.#rngJump), camera: newCamera() };
-        out.push({ t: 'turnStart', turn: this.#turn });
-        out.push({ t: 'sfx', id: 'jump', gain: C.SFX_VOLUME });
+    if (cmd.kind === "press") {
+      if (phase.kind === "ready") {
+        this.#phase = { kind: "jumping", jump: beginJump(this.#rngJump), camera: newCamera() };
+        out.push({ t: "turnStart", turn: this.#turn });
+        out.push({ t: "sfx", id: "jump", gain: C.SFX_VOLUME });
         return;
       }
-      if (phase.kind === 'jumping') {
+      if (phase.kind === "jumping") {
         // One swing per jump. The original's second click sets `state =
         // "launch"`, after which no branch of `onMouseDown` fires again
         // (Game.as:1029-1037) - so a whiff cannot be mashed away. That matters
         // more here than it did there, because a whiff no longer costs a turn.
         if (phase.jump.swung) return;
         phase.jump.swung = true;
-        out.push({ t: 'sfx', id: 'shoot', gain: C.SFX_VOLUME });
+        out.push({ t: "sfx", id: "shoot", gain: C.SFX_VOLUME });
         this.#launch(out);
         return;
       }
-      if (phase.kind === 'flying') {
+      if (phase.kind === "flying") {
         const f = phase.flight;
         // `shooting && !skidding` - Game.as:1039. Note there is no gravPoints
         // check: pressing on an empty meter still buys exactly one tick of
@@ -169,39 +169,39 @@ export class Simulation {
         f.gravButton = true;
         if (!f.flags.glide && !f.flags.falling) {
           f.flags.glide = true;
-          out.push({ t: 'glide', on: true });
+          out.push({ t: "glide", on: true });
         }
       }
       return;
     }
 
-    if (cmd.kind === 'release') {
-      if (phase.kind === 'flying') {
+    if (cmd.kind === "release") {
+      if (phase.kind === "flying") {
         phase.flight.p.restoreGravity();
         phase.flight.gravButton = false;
         if (phase.flight.flags.glide) {
           phase.flight.flags.glide = false;
-          out.push({ t: 'glide', on: false });
+          out.push({ t: "glide", on: false });
         }
       }
       return;
     }
 
-    if (cmd.kind === 'confirm' && phase.kind === 'gameOver') {
+    if (cmd.kind === "confirm" && phase.kind === "gameOver") {
       this.#turn = 1;
       this.#shots = [];
       this.#lastFeet = 0;
-      this.#phase = { kind: 'ready' };
+      this.#phase = { kind: "ready" };
     }
   }
 
   #launch(out: SimEvent[]): void {
-    if (this.#phase.kind !== 'jumping') return;
+    if (this.#phase.kind !== "jumping") return;
     const result = attemptLaunch(this.#phase.jump, this.#tuning);
 
     if (!result.hit) {
       // A miss does not end the jump - it runs on until the faceplant.
-      out.push({ t: 'missed' });
+      out.push({ t: "missed" });
       return;
     }
 
@@ -221,35 +221,35 @@ export class Simulation {
     };
     follow(flight.camera, p.x, p.y);
 
-    out.push({ t: 'launched', vel: result.vel, angleDeg: result.angleDeg });
+    out.push({ t: "launched", vel: result.vel, angleDeg: result.angleDeg });
     // `shoot()` stops the menu music and starts the flight loop and the theme.
     // Game.as:1151-1157.
-    out.push({ t: 'sfxStop', id: 'prelude' });
-    out.push({ t: 'sfx', id: 'fly', gain: C.SFX_VOLUME, loop: true });
-    out.push({ t: 'sfx', id: 'theme', gain: C.MUSIC_VOL, loop: true });
-    this.#phase = { kind: 'flying', flight };
+    out.push({ t: "sfxStop", id: "prelude" });
+    out.push({ t: "sfx", id: "fly", gain: C.SFX_VOLUME, loop: true });
+    out.push({ t: "sfx", id: "theme", gain: C.MUSIC_VOL, loop: true });
+    this.#phase = { kind: "flying", flight };
   }
 
   #endShot(outcome: ShotOutcome, feet: number, out: SimEvent[]): void {
     this.#lastFeet = feet;
     this.#shots.push(feet);
-    out.push({ t: 'shotDone', feet, outcome });
-    const camera = this.#phase.kind === 'flying' ? this.#phase.flight.camera : newCamera();
+    out.push({ t: "shotDone", feet, outcome });
+    const camera = this.#phase.kind === "flying" ? this.#phase.flight.camera : newCamera();
     // Where the outcome clip goes. `onShotDone` and the faceplant branch both
     // read the projectile's last position for `createHitClip`, and the ground
     // branches have already parked it on `GROUND_Y`. Only a shot can end, so
     // the fallback is unreachable and exists to keep the phase total.
     const at =
-      this.#phase.kind === 'flying'
+      this.#phase.kind === "flying"
         ? { x: this.#phase.flight.p.x, y: this.#phase.flight.p.y }
         : { x: C.HAMSTER_X, y: C.HAMSTER_START_Y };
     this.#phase = {
-      kind: 'settling',
+      kind: "settling",
       outcome,
       feet,
       x: at.x,
       y: at.y,
-      stage: 'hold',
+      stage: "hold",
       ticksLeft: this.#tuning.outcomeHoldTicks[outcome],
       camera,
     };
@@ -259,14 +259,14 @@ export class Simulation {
     this.#turn++;
     if (this.#turn >= C.GAME_OVER_TURN) {
       const total = this.#shots.reduce((a, b) => a + b, 0);
-      out.push({ t: 'gameOver', total, shots: [...this.#shots] });
-      out.push({ t: 'sfx', id: 'ending', gain: C.MUSIC_VOL });
-      this.#phase = { kind: 'gameOver', total };
+      out.push({ t: "gameOver", total, shots: [...this.#shots] });
+      out.push({ t: "sfx", id: "ending", gain: C.MUSIC_VOL });
+      this.#phase = { kind: "gameOver", total };
       return;
     }
     // `nextHamster()` restarts the menu music. Game.as:986-990.
-    out.push({ t: 'sfx', id: 'prelude', gain: C.MUSIC_VOL, loop: true });
-    this.#phase = { kind: 'ready' };
+    out.push({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
+    this.#phase = { kind: "ready" };
   }
 
   snapshot(): SimSnapshot {
@@ -282,7 +282,7 @@ export class Simulation {
       feet: this.#lastFeet,
     };
 
-    if (phase.kind === 'flying') {
+    if (phase.kind === "flying") {
       const f = phase.flight;
       return {
         ...base,
@@ -295,7 +295,7 @@ export class Simulation {
           doRotation: f.p.doRotation,
         },
         camera: { ...f.camera },
-        powerups: f.powerups.map(it => ({ ...it })),
+        powerups: f.powerups.map((it) => ({ ...it })),
         glidePoints: f.glidePoints,
         flags: { ...f.flags },
         feet: Math.floor(f.p.x / C.PX_PER_FOOT),
@@ -303,7 +303,7 @@ export class Simulation {
       };
     }
 
-    if (phase.kind === 'jumping') {
+    if (phase.kind === "jumping") {
       return {
         ...base,
         hamster: {
@@ -322,7 +322,7 @@ export class Simulation {
       };
     }
 
-    if (phase.kind === 'settling') {
+    if (phase.kind === "settling") {
       return {
         ...base,
         // The outcome clip is attached where the shot came down, not back at
@@ -351,7 +351,7 @@ export class Simulation {
         y: C.HAMSTER_START_Y,
         xvel: 0,
         yvel: 0,
-        visible: phase.kind === 'ready',
+        visible: phase.kind === "ready",
         doRotation: false,
       },
       camera: newCamera(),

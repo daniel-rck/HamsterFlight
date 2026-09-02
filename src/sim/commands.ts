@@ -10,9 +10,9 @@
  */
 export type InputCommand =
   /** Pointer went down: starts the jump, hits the pillow, or engages glide. */
-  | { readonly kind: 'press' }
+  | { readonly kind: "press" }
   /** Pointer released: disengages glide. */
-  | { readonly kind: 'release' }
+  | { readonly kind: "release" }
   /** Advance past an outcome or menu screen. */
-  | { readonly kind: 'confirm' }
-  | { readonly kind: 'togglePause' };
+  | { readonly kind: "confirm" }
+  | { readonly kind: "togglePause" };

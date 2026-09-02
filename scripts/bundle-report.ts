@@ -4,13 +4,13 @@
 //   bun run build && bun run check:bundle           # the table, then the budgets
 //
 // Read-only over dist/. Run `bun run build` first.
-import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { gzipSync } from 'node:zlib';
-import { ROOT, run } from './lib/cli.ts';
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { gzipSync } from "node:zlib";
+import { ROOT, run } from "./lib/cli.ts";
 
-const DIST = join(ROOT, 'dist');
-const ASSETS = join(DIST, 'assets');
+const DIST = join(ROOT, "dist");
+const ASSETS = join(DIST, "assets");
 // Vite's own warning limit, from vite.config.ts. Reported, never raised.
 const CHUNK_WARN_KB = 400;
 
@@ -77,13 +77,13 @@ async function main(): Promise<void> {
 
   let eager = new Set<string>();
   try {
-    eager = eagerChunks(await readFile(join(DIST, 'index.html'), 'utf8'));
+    eager = eagerChunks(await readFile(join(DIST, "index.html"), "utf8"));
   } catch {
     // No index.html: fall back to reporting every chunk as eager.
   }
 
   const rows: Row[] = [];
-  for (const name of names.filter(item => item.endsWith('.js'))) {
+  for (const name of names.filter((item) => item.endsWith(".js"))) {
     const source = await readFile(join(ASSETS, name));
     rows.push({
       name,
@@ -94,29 +94,29 @@ async function main(): Promise<void> {
   }
   rows.sort((a, b) => b.gzip - a.gzip);
 
-  const width = Math.max(24, ...rows.map(row => row.name.length));
-  const line = '-'.repeat(width + 26);
-  const head = `${'chunk'.padEnd(width)}  ${'raw'.padStart(10)}  ${'gzip'.padStart(10)}`;
+  const width = Math.max(24, ...rows.map((row) => row.name.length));
+  const line = "-".repeat(width + 26);
+  const head = `${"chunk".padEnd(width)}  ${"raw".padStart(10)}  ${"gzip".padStart(10)}`;
 
   const totals = { eager: { raw: 0, gzip: 0 }, lazy: { raw: 0, gzip: 0 } };
   for (const group of [false, true]) {
-    const groupRows = rows.filter(row => row.lazy === group);
+    const groupRows = rows.filter((row) => row.lazy === group);
     if (groupRows.length === 0) continue;
-    console.log(group ? '\nlazy - only downloaded with ?renderer=pixi' : 'eager - every visitor');
+    console.log(group ? "\nlazy - only downloaded with ?renderer=pixi" : "eager - every visitor");
     console.log(head);
     console.log(line);
     const bucket = group ? totals.lazy : totals.eager;
     for (const row of groupRows) {
       bucket.raw += row.raw;
       bucket.gzip += row.gzip;
-      const over = row.raw / 1024 > CHUNK_WARN_KB ? `  <- over ${CHUNK_WARN_KB} kB warn limit` : '';
+      const over = row.raw / 1024 > CHUNK_WARN_KB ? `  <- over ${CHUNK_WARN_KB} kB warn limit` : "";
       console.log(
         `${row.name.padEnd(width)}  ${kb(row.raw).padStart(10)}  ${kb(row.gzip).padStart(10)}${over}`,
       );
     }
     console.log(line);
     console.log(
-      `${'subtotal'.padEnd(width)}  ${kb(bucket.raw).padStart(10)}  ${kb(bucket.gzip).padStart(10)}`,
+      `${"subtotal".padEnd(width)}  ${kb(bucket.raw).padStart(10)}  ${kb(bucket.gzip).padStart(10)}`,
     );
   }
 
@@ -131,7 +131,7 @@ async function main(): Promise<void> {
   // The atlas is the largest thing a visitor downloads and is not a JS chunk,
   // so it is measured raw: a PNG is already compressed and gzip buys nothing.
   const sheets: { name: string; density: number; raw: number }[] = [];
-  for (const name of names.filter(item => /^sheet-.*\.png$/.test(item))) {
+  for (const name of names.filter((item) => /^sheet-.*\.png$/.test(item))) {
     // Vite content-hashes the name, so the density marker is mid-string:
     // `sheet-0@2x-C3sMDfDD.png`.
     const density = /@(\d+)x[-.]/.exec(name);
@@ -142,20 +142,20 @@ async function main(): Promise<void> {
     });
   }
   if (sheets.length > 0) {
-    console.log('\natlas - one request, one GPU texture');
+    console.log("\natlas - one request, one GPU texture");
     for (const sheet of sheets) {
       console.log(`${sheet.name.padEnd(width)}  ${kb(sheet.raw).padStart(10)}`);
     }
   }
 
-  if (!process.argv.includes('--check')) return;
+  if (!process.argv.includes("--check")) return;
 
   const over: string[] = [];
   const budget = (what: string, bytes: number, limitKb: number): void => {
     if (bytes / 1024 > limitKb) over.push(`${what}: ${kb(bytes)} over a ${limitKb} kB budget`);
   };
-  budget('eager JS (gzip)', totals.eager.gzip, BUDGET_KB.eager);
-  budget('lazy JS (gzip)', totals.lazy.gzip, BUDGET_KB.lazy);
+  budget("eager JS (gzip)", totals.eager.gzip, BUDGET_KB.eager);
+  budget("lazy JS (gzip)", totals.lazy.gzip, BUDGET_KB.lazy);
   for (const sheet of sheets) {
     const limit = BUDGET_KB.atlas[sheet.density];
     if (limit === undefined) {
@@ -165,15 +165,15 @@ async function main(): Promise<void> {
     budget(sheet.name, sheet.raw, limit);
   }
 
-  console.log('');
+  console.log("");
   if (over.length === 0) {
-    console.log('Within budget.');
+    console.log("Within budget.");
     return;
   }
   for (const item of over) console.error(`  ${item}`);
   console.error(
     `\n${over.length} over budget. If the growth is intended, raise the number in ` +
-      'BUDGET_KB so the increase shows up in the diff.',
+      "BUDGET_KB so the increase shows up in the diff.",
   );
   process.exitCode = 1;
 }

@@ -1,4 +1,4 @@
-import { C } from '@/sim/constants.ts';
+import { C } from "@/sim/constants.ts";
 
 /** Exactly one simulation step, then one draw. */
 export interface LoopHooks {
@@ -16,8 +16,8 @@ export interface LoopClock {
 
 const BROWSER_CLOCK: LoopClock = {
   now: () => performance.now(),
-  schedule: callback => requestAnimationFrame(callback),
-  cancel: handle => cancelAnimationFrame(handle),
+  schedule: (callback) => requestAnimationFrame(callback),
+  cancel: (handle) => cancelAnimationFrame(handle),
 };
 
 /** 20 Hz. Non-negotiable: every acceleration in the game is a per-tick value. */

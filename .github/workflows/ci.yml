@@ -12,6 +12,13 @@ jobs:
   # Lint, typecheck, test, build - shared with the other apps.
   ci:
     uses: daniel-rck/web-base/.github/workflows/web-app-ci.yml@main
+
+  # Guards the owned web-base building blocks this repo actually uses. It does
+  # NOT use layout, storage, router or pwa — a pixi canvas game has no React
+  # shell — and `check` reports those as "not adopted" rather than as drift.
+  # Never run it with --strict here for the same reason.
+  web-base-check:
+    uses: daniel-rck/web-base/.github/workflows/web-base-check.yml@main
     with:
       bun-version: "1.3.11"
 
@@ -22,13 +29,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.11"
       # The scripts run on Node (it executes TypeScript directly); .nvmrc is
       # also what Workers Builds uses.
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
       - run: bun install --frozen-lockfile
@@ -45,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
         with:
           # The build stamps the commit date into the page and the smoke test
           # fails on an empty stamp; two commits keeps `%cs` safe.
@@ -53,7 +60,7 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: "1.3.11"
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
       - run: bun install --frozen-lockfile
@@ -61,7 +68,7 @@ jobs:
       - name: Playwright version
         id: playwright
         run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@v6
+      - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}

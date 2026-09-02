@@ -8,11 +8,11 @@
 // The checker is a function over source text so test/scripts/purity.spec.ts
 // can prove it rejects what it claims to; a check that fails open is worse
 // than none.
-import { readdir, readFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
-import { isMain, ROOT, run } from './lib/cli.ts';
+import { readdir, readFile } from "node:fs/promises";
+import { join, relative } from "node:path";
+import { isMain, ROOT, run } from "./lib/cli.ts";
 
-export const SIM_ROOT = 'src/sim';
+export const SIM_ROOT = "src/sim";
 
 /**
  * Forbidden in `src/sim`, matched against the whole comment- and string-free
@@ -20,20 +20,20 @@ export const SIM_ROOT = 'src/sim';
  * (`Math.\n random()`) cannot slip through.
  */
 export const FORBIDDEN: readonly (readonly [RegExp, string])[] = [
-  [/\bMath\s*\.\s*random\b/, 'Math.random - inject an Rng instead (src/sim/rng)'],
+  [/\bMath\s*\.\s*random\b/, "Math.random - inject an Rng instead (src/sim/rng)"],
   [/\bMath\s*\[/, "computed access on Math (Math['random']) - inject an Rng instead"],
-  [/\bDate\s*\.\s*now\b/, 'Date.now - the sim steps in fixed ticks, it must not read a clock'],
-  [/\bnew\s+Date\b/, 'new Date - the sim steps in fixed ticks, it must not read a clock'],
-  [/\bsetTimeout\s*\(|\bsetInterval\s*\(/, 'timers - the loop drives the sim, not the reverse'],
-  [/\bperformance\s*\./, 'performance - time must not enter the sim'],
-  [/\bcrypto\b/, 'crypto - randomness is injected through Rng'],
-  [/\bglobalThis\b/, 'globalThis - the sim has no ambient environment'],
-  [/\bprocess\s*\./, 'process - the sim has no ambient environment'],
-  [/\.\s*sort\s*\(\s*\)/, '.sort() without a comparator - numbers sort as strings'],
-  [/\btoLocale\w*\s*\(/, 'toLocale* - locale-dependent output is not deterministic'],
+  [/\bDate\s*\.\s*now\b/, "Date.now - the sim steps in fixed ticks, it must not read a clock"],
+  [/\bnew\s+Date\b/, "new Date - the sim steps in fixed ticks, it must not read a clock"],
+  [/\bsetTimeout\s*\(|\bsetInterval\s*\(/, "timers - the loop drives the sim, not the reverse"],
+  [/\bperformance\s*\./, "performance - time must not enter the sim"],
+  [/\bcrypto\b/, "crypto - randomness is injected through Rng"],
+  [/\bglobalThis\b/, "globalThis - the sim has no ambient environment"],
+  [/\bprocess\s*\./, "process - the sim has no ambient environment"],
+  [/\.\s*sort\s*\(\s*\)/, ".sort() without a comparator - numbers sort as strings"],
+  [/\btoLocale\w*\s*\(/, "toLocale* - locale-dependent output is not deterministic"],
   [
     /\bMath\s*\.\s*hypot\b/,
-    'Math.hypot - the original uses sqrt(dx*dx+dy*dy); different algorithm',
+    "Math.hypot - the original uses sqrt(dx*dx+dy*dy); different algorithm",
   ],
 ];
 
@@ -53,52 +53,52 @@ export interface Violation {
  * a regex when the previous significant character cannot end an operand.
  */
 export function stripNonCode(src: string): string {
-  let out = '';
+  let out = "";
   let i = 0;
   const n = src.length;
-  const blank = (text: string): string => text.replace(/[^\n]/g, ' ');
-  let lastSignificant = '';
+  const blank = (text: string): string => text.replace(/[^\n]/g, " ");
+  let lastSignificant = "";
 
   while (i < n) {
     const two = src.slice(i, i + 2);
-    const ch = src[i] ?? '';
-    if (two === '/*') {
-      const end = src.indexOf('*/', i + 2);
+    const ch = src[i] ?? "";
+    if (two === "/*") {
+      const end = src.indexOf("*/", i + 2);
       const stop = end === -1 ? n : end + 2;
       out += blank(src.slice(i, stop));
       i = stop;
-    } else if (two === '//') {
-      const end = src.indexOf('\n', i);
+    } else if (two === "//") {
+      const end = src.indexOf("\n", i);
       const stop = end === -1 ? n : end;
       out += blank(src.slice(i, stop));
       i = stop;
-    } else if (ch === '"' || ch === "'" || ch === '`') {
+    } else if (ch === '"' || ch === "'" || ch === "`") {
       let j = i + 1;
-      while (j < n && src[j] !== ch) j += src[j] === '\\' ? 2 : 1;
+      while (j < n && src[j] !== ch) j += src[j] === "\\" ? 2 : 1;
       const stop = Math.min(j + 1, n);
       out += blank(src.slice(i, stop));
       i = stop;
       lastSignificant = ch;
-    } else if (ch === '/' && !/[\w$)\]]/.test(lastSignificant)) {
+    } else if (ch === "/" && !/[\w$)\]]/.test(lastSignificant)) {
       // Regex literal: skip to the closing slash, honouring escapes and classes.
       let j = i + 1;
       let inClass = false;
-      while (j < n && src[j] !== '\n') {
+      while (j < n && src[j] !== "\n") {
         const c = src[j];
-        if (c === '\\') j += 2;
-        else if (c === '[') {
+        if (c === "\\") j += 2;
+        else if (c === "[") {
           inClass = true;
           j++;
-        } else if (c === ']') {
+        } else if (c === "]") {
           inClass = false;
           j++;
-        } else if (c === '/' && !inClass) break;
+        } else if (c === "/" && !inClass) break;
         else j++;
       }
       const stop = Math.min(j + 1, n);
       out += blank(src.slice(i, stop));
       i = stop;
-      lastSignificant = '/';
+      lastSignificant = "/";
     } else {
       out += ch;
       if (!/\s/.test(ch)) lastSignificant = ch;
@@ -142,19 +142,19 @@ export function checkImports(file: string, code: string): Violation[] {
     const spec = match[2] ?? match[4];
     if (spec === undefined) continue;
     const line = lineOf(code, match.index ?? 0);
-    if (!spec.startsWith('./') && !spec.startsWith('../')) {
+    if (!spec.startsWith("./") && !spec.startsWith("../")) {
       out.push({ file, line, why: `imports '${spec}' - src/sim may only import from src/sim` });
       continue;
     }
     // Resolve relative to the file and make sure it stays under src/sim.
-    const dir = file.slice(0, file.lastIndexOf('/') + 1);
-    const parts = `${dir}${spec}`.split('/');
+    const dir = file.slice(0, file.lastIndexOf("/") + 1);
+    const parts = `${dir}${spec}`.split("/");
     const stack: string[] = [];
     for (const part of parts) {
-      if (part === '..') stack.pop();
-      else if (part !== '.' && part !== '') stack.push(part);
+      if (part === "..") stack.pop();
+      else if (part !== "." && part !== "") stack.push(part);
     }
-    const resolved = stack.join('/');
+    const resolved = stack.join("/");
     if (!resolved.startsWith(`${SIM_ROOT}/`)) {
       out.push({ file, line, why: `imports '${spec}', which leaves ${SIM_ROOT}/` });
     }
@@ -166,7 +166,7 @@ async function* walk(dir: string): AsyncGenerator<string> {
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) yield* walk(path);
-    else if (entry.name.endsWith('.ts')) yield path;
+    else if (entry.name.endsWith(".ts")) yield path;
   }
 }
 
@@ -178,10 +178,10 @@ export async function checkTree(
   for await (const path of walk(root)) {
     files++;
     // Reported and matched as `src/sim/...` regardless of where we were run from.
-    const file = relative(ROOT, path).split('\\').join('/');
+    const file = relative(ROOT, path).split("\\").join("/");
     // Note the source is stripped, not the file on disk: the import check runs
     // on the same comment-free text as the rules.
-    violations.push(...checkSource(file, await readFile(path, 'utf8')));
+    violations.push(...checkSource(file, await readFile(path, "utf8")));
   }
   return { files, violations };
 }

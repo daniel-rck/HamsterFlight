@@ -1,8 +1,8 @@
-import type { SpriteId } from '@/assets/sprites.generated.ts';
-import { markerScale } from '@/render/units.ts';
-import { C } from '@/sim/constants.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
-import type { PowerupKind } from '@/sim/types.ts';
+import type { SpriteId } from "@/assets/sprites.generated.ts";
+import { markerScale } from "@/render/units.ts";
+import { C } from "@/sim/constants.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
+import type { PowerupKind } from "@/sim/types.ts";
 
 /**
  * Everything both renderers decide identically about the scene, as pure
@@ -13,21 +13,21 @@ import type { PowerupKind } from '@/sim/types.ts';
  */
 
 export const POWERUP_SPRITE: Record<PowerupKind, SpriteId> = {
-  bounce: 'powerup/bounce',
-  speed: 'powerup/speed',
-  wind: 'powerup/wind',
-  slide: 'powerup/slide',
-  rebound: 'powerup/rebound',
-  superbounce: 'powerup/superbounce',
+  bounce: "powerup/bounce",
+  speed: "powerup/speed",
+  wind: "powerup/wind",
+  slide: "powerup/slide",
+  rebound: "powerup/rebound",
+  superbounce: "powerup/superbounce",
 };
 
 /** Indexed by the bush hash, so a renamed sprite is a compile error, not a blank. */
 export const BUSHES = [
-  'bush/1',
-  'bush/2',
-  'bush/3',
-  'bush/4',
-  'bush/5',
+  "bush/1",
+  "bush/2",
+  "bush/3",
+  "bush/4",
+  "bush/5",
 ] as const satisfies readonly SpriteId[];
 
 /** Decoration counts at stress 1. Both renderers use these, so they compare. */

@@ -7,12 +7,12 @@
  * The mode picks a default backend, it does not force one: `?renderer=` still
  * overrides, which is what the benchmark harness uses to compare the two.
  */
-export type GameMode = 'enhanced' | 'faithful';
+export type GameMode = "enhanced" | "faithful";
 
-export type RendererName = 'pixi' | 'canvas2d';
+export type RendererName = "pixi" | "canvas2d";
 
-const MODES: readonly GameMode[] = ['enhanced', 'faithful'];
-const RENDERERS: readonly RendererName[] = ['pixi', 'canvas2d'];
+const MODES: readonly GameMode[] = ["enhanced", "faithful"];
+const RENDERERS: readonly RendererName[] = ["pixi", "canvas2d"];
 
 function isMode(value: string): value is GameMode {
   return (MODES as readonly string[]).includes(value);
@@ -30,11 +30,11 @@ export function modeFromUrl(
   params: URLSearchParams,
   warn: (message: string) => void = console.warn,
 ): GameMode {
-  const raw = params.get('mode');
-  if (raw === null) return 'enhanced';
+  const raw = params.get("mode");
+  if (raw === null) return "enhanced";
   if (isMode(raw)) return raw;
-  warn(`[hamsterflight] unknown ?mode=${raw}; expected ${MODES.join(' | ')}. Using enhanced.`);
-  return 'enhanced';
+  warn(`[hamsterflight] unknown ?mode=${raw}; expected ${MODES.join(" | ")}. Using enhanced.`);
+  return "enhanced";
 }
 
 export function rendererFromUrl(
@@ -42,15 +42,15 @@ export function rendererFromUrl(
   mode: GameMode,
   warn: (message: string) => void = console.warn,
 ): RendererName {
-  const raw = params.get('renderer');
+  const raw = params.get("renderer");
   if (raw === null) return defaultRendererFor(mode);
   if (isRenderer(raw)) return raw;
   warn(
-    `[hamsterflight] unknown ?renderer=${raw}; expected ${RENDERERS.join(' | ')}. Using the mode's default.`,
+    `[hamsterflight] unknown ?renderer=${raw}; expected ${RENDERERS.join(" | ")}. Using the mode's default.`,
   );
   return defaultRendererFor(mode);
 }
 
 export function defaultRendererFor(mode: GameMode): RendererName {
-  return mode === 'enhanced' ? 'pixi' : 'canvas2d';
+  return mode === "enhanced" ? "pixi" : "canvas2d";
 }

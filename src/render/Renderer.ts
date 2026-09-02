@@ -1,7 +1,7 @@
-import type { AssetBundle } from '@/assets/AssetLoader.ts';
-import type { Effects } from '@/render/effects/Effects.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
-import type { Tuning } from '@/sim/tuning.ts';
+import type { AssetBundle } from "@/assets/AssetLoader.ts";
+import type { Effects } from "@/render/effects/Effects.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
+import type { Tuning } from "@/sim/tuning.ts";
 
 export interface RendererOptions {
   /** Draw the measured hitboxes over the art. */

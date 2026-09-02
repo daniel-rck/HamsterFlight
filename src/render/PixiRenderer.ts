@@ -8,10 +8,10 @@ import {
   Text,
   TextStyle,
   type Texture,
-} from 'pixi.js';
-import type { AssetBundle } from '@/assets/AssetLoader.ts';
-import type { Effects } from '@/render/effects/Effects.ts';
-import type { PreLaunchLayout } from '@/render/PreLaunchScene.ts';
+} from "pixi.js";
+import type { AssetBundle } from "@/assets/AssetLoader.ts";
+import type { Effects } from "@/render/effects/Effects.ts";
+import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import {
   hideFrom,
   place,
@@ -19,12 +19,12 @@ import {
   slab,
   solidRect,
   verticalFadeTexture,
-} from '@/render/pixi/helpers.ts';
-import { PixiHud } from '@/render/pixi/PixiHud.ts';
-import { SceneFilters } from '@/render/pixi/SceneFilters.ts';
-import { TextureCache } from '@/render/pixi/TextureCache.ts';
-import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
-import { stageScale } from '@/render/resolution.ts';
+} from "@/render/pixi/helpers.ts";
+import { PixiHud } from "@/render/pixi/PixiHud.ts";
+import { SceneFilters } from "@/render/pixi/SceneFilters.ts";
+import { TextureCache } from "@/render/pixi/TextureCache.ts";
+import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
+import { stageScale } from "@/render/resolution.ts";
 import {
   altitudeOf,
   BUBBLE_ALPHA,
@@ -39,12 +39,12 @@ import {
   shadowScale,
   skyColours,
   starField,
-} from '@/render/scene/decor.ts';
-import { FONTS, HUD_COLOURS } from '@/render/scene/hud.ts';
-import { hamsterRotation, outcomeOffsetY, poseFor } from '@/render/scene/pose.ts';
-import { C } from '@/sim/constants.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
-import { DEFAULT_TUNING, type Tuning } from '@/sim/tuning.ts';
+} from "@/render/scene/decor.ts";
+import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
+import { hamsterRotation, outcomeOffsetY, poseFor } from "@/render/scene/pose.ts";
+import { C } from "@/sim/constants.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
+import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
 
 /**
  * PixiJS v8 backend, built to be measured against the Canvas2D one.
@@ -162,12 +162,12 @@ export class PixiRenderer implements Renderer {
       resolution: dpr(canvas),
       backgroundAlpha: 1,
       // The sim never reads the pointer; input is bound to the canvas element.
-      eventMode: 'none',
+      eventMode: "none",
       // `SceneFilter` ships a GLSL program only. Auto-detection tries WebGL
       // first anyway, but a machine where WebGL fails and WebGPU succeeds
       // would boot and then throw on the first impact; pin it so it fails
       // over to Canvas2D at start-up instead, where main.ts catches it.
-      preference: 'webgl',
+      preference: "webgl",
     });
     return new PixiRenderer(app, canvas, assets, effects, options);
   }
@@ -216,7 +216,7 @@ export class PixiRenderer implements Renderer {
     stage.addChild(this.#overlay);
     stage.addChild(this.#hud.container);
 
-    const shadow = this.#assets.get('shadow');
+    const shadow = this.#assets.get("shadow");
     if (shadow !== undefined) {
       const texture = this.#textures.get(shadow, 0);
       if (texture !== undefined) this.#shadow.texture = texture;
@@ -387,7 +387,7 @@ export class PixiRenderer implements Renderer {
 
   #drawHamster(s: SimSnapshot): void {
     const h = s.hamster;
-    if (!h.visible && s.phaseKind !== 'settling') {
+    if (!h.visible && s.phaseKind !== "settling") {
       this.#hamsterPivot.visible = false;
       this.#shadowPivot.visible = false;
       return;
@@ -395,8 +395,8 @@ export class PixiRenderer implements Renderer {
 
     // `blt.shadClip._visible = false` on every arm that ends a shot -
     // Game.as:870, 876, 969 - so the outcome clip casts none.
-    const scale = s.phaseKind === 'settling' ? 0 : shadowScale(h.y);
-    const showShadow = this.#assets.get('shadow') !== undefined && scale > SHADOW_MIN_SCALE;
+    const scale = s.phaseKind === "settling" ? 0 : shadowScale(h.y);
+    const showShadow = this.#assets.get("shadow") !== undefined && scale > SHADOW_MIN_SCALE;
     this.#shadowPivot.visible = showShadow;
     if (showShadow) {
       this.#shadowPivot.position.set(h.x, C.SHADOW_Y);
@@ -416,11 +416,11 @@ export class PixiRenderer implements Renderer {
 
     // The bubble is opaque in the original, so the hamster vanishes inside it
     // for the whole bounce. Enhanced mode draws the flier underneath.
-    const inBubble = pose === 'hamster/ball' && this.#effects.enhanced;
+    const inBubble = pose === "hamster/ball" && this.#effects.enhanced;
     this.#hamsterInner.visible = inBubble;
     this.#hamster.alpha = inBubble ? BUBBLE_ALPHA : 1;
     if (inBubble) {
-      const inside = this.#assets.get('hamster/fly');
+      const inside = this.#assets.get("hamster/fly");
       const insideTexture =
         inside === undefined
           ? undefined
@@ -451,7 +451,7 @@ export class PixiRenderer implements Renderer {
 
     const h = s.hamster;
     const box =
-      s.phaseKind === 'flying'
+      s.phaseKind === "flying"
         ? this.#tuning.boxes.hamsterFlightCore
         : this.#tuning.boxes.hamsterJumpCore;
     g.rect(h.x + box.cx - box.hw, h.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
@@ -492,7 +492,7 @@ export class PixiRenderer implements Renderer {
   #labelAt(index: number): Text {
     return poolAt(this.#markerLabels, index, this.#markers, () => {
       const label = new Text({
-        text: '',
+        text: "",
         style: new TextStyle({ fontFamily: FONTS.mono, fontSize: 10, fill: HUD_COLOURS.markerInk }),
       });
       label.alpha = HUD_COLOURS.markerAlpha;

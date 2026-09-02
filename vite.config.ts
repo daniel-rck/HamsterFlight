@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
-import { defineConfig } from 'vite';
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vite";
 
 /**
  * What is running, stamped in at build time.
@@ -18,20 +18,20 @@ import { defineConfig } from 'vite';
 function buildStamp(): { commit: string; date: string } {
   const git = (...args: string[]): string | null => {
     try {
-      return execFileSync('git', args, {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
+      return execFileSync("git", args, {
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "ignore"],
       }).trim();
     } catch {
       return null;
     }
   };
 
-  const commit = git('rev-parse', '--short=8', 'HEAD');
-  const date = git('log', '-1', '--format=%cs');
+  const commit = git("rev-parse", "--short=8", "HEAD");
+  const date = git("log", "-1", "--format=%cs");
   if (commit !== null && date !== null) {
     // A dirty tree is a build nobody can reproduce from the hash, so say so.
-    const dirty = git('status', '--porcelain') !== '';
+    const dirty = git("status", "--porcelain") !== "";
     return { commit: dirty ? `${commit}+` : commit, date };
   }
 
@@ -41,7 +41,7 @@ function buildStamp(): { commit: string; date: string } {
     process.env.CF_PAGES_COMMIT_SHA ??
     null;
   return {
-    commit: env === null ? 'unknown' : env.slice(0, 8),
+    commit: env === null ? "unknown" : env.slice(0, 8),
     date: new Date().toISOString().slice(0, 10),
   };
 }
@@ -52,19 +52,19 @@ export default defineConfig({
   },
   // Absolute asset URLs: the site is deployed at the root, and public/_headers
   // matches on /assets/*. Relative URLs would break that under any subpath.
-  base: '/',
+  base: "/",
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
+      "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
   build: {
-    outDir: 'dist',
-    target: 'es2022',
+    outDir: "dist",
+    target: "es2022",
     // Maps are emitted for debugging a deployed build against its commit, but
     // not referenced from the bundle: a visitor's devtools do not reconstruct
     // src/ on their own. Open one by hand when a stack trace needs it.
-    sourcemap: 'hidden',
+    sourcemap: "hidden",
     // Never inline assets. Most sprite frames are 2-5 kB, which is under the
     // 4 kB default, so they would be base64'd into the JS bundle - hundreds of
     // them. As separate files they are content-hashed and cached immutably,

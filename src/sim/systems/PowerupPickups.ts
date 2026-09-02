@@ -1,9 +1,9 @@
-import { C } from '../constants.ts';
-import type { SimEvent } from '../events.ts';
-import { overlaps } from '../math/aabb.ts';
-import type { FlightState } from '../state.ts';
-import type { Tuning } from '../tuning.ts';
-import { type EffectFlags, POWERUPS, type PowerupKind } from '../types.ts';
+import { C } from "../constants.ts";
+import type { SimEvent } from "../events.ts";
+import { overlaps } from "../math/aabb.ts";
+import type { FlightState } from "../state.ts";
+import type { Tuning } from "../tuning.ts";
+import { type EffectFlags, POWERUPS, type PowerupKind } from "../types.ts";
 
 /**
  * `Game.checkPowerUpsColl()` - Game.as:672-774.
@@ -25,8 +25,8 @@ export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): vo
       if (!it.taken) {
         it.taken = true;
         it.activeTicksLeft = tuning.powerupActiveTicks[it.kind];
-        out.push({ t: 'pickup', kind: it.kind });
-        if (POWERUPS[it.kind].sound) out.push({ t: 'sfx', id: 'pickup', gain: C.SFX_VOLUME });
+        out.push({ t: "pickup", kind: it.kind });
+        if (POWERUPS[it.kind].sound) out.push({ t: "sfx", id: "pickup", gain: C.SFX_VOLUME });
       }
     }
     // Counted down whether or not the boxes still overlap, so a taken item
@@ -39,9 +39,9 @@ export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): vo
 function apply(s: FlightState, kind: PowerupKind, out: SimEvent[]): void {
   const flags = s.flags;
   switch (POWERUPS[kind].mode) {
-    case 'arm':
-      if (kind === 'bounce' ? flags.bounce : flags.superbounce) return;
-      if (kind === 'bounce') {
+    case "arm":
+      if (kind === "bounce" ? flags.bounce : flags.superbounce) return;
+      if (kind === "bounce") {
         flags.bounce = true;
         flags.superbounce = false;
       } else {
@@ -51,11 +51,11 @@ function apply(s: FlightState, kind: PowerupKind, out: SimEvent[]): void {
       // `this.falling = false; this.fallOff();` - Game.as:698, 713.
       clearFalling(flags, out);
       return;
-    case 'latch':
+    case "latch":
       if (flags.slide) return;
       flags.slide = true;
       return;
-    case 'impulse':
+    case "impulse":
       if (flags.rebound) return;
       flags.rebound = true;
       // A rebound while dragging along the ground picks the hamster back up:
@@ -68,7 +68,7 @@ function apply(s: FlightState, kind: PowerupKind, out: SimEvent[]): void {
       return;
     default:
       // pulse: speed and wind, no re-entry guard
-      if (kind === 'speed') flags.speed = true;
+      if (kind === "speed") flags.speed = true;
       else flags.wind = true;
   }
 }
@@ -77,5 +77,5 @@ function apply(s: FlightState, kind: PowerupKind, out: SimEvent[]): void {
 export function clearFalling(flags: EffectFlags, out: SimEvent[]): void {
   if (!flags.falling) return;
   flags.falling = false;
-  out.push({ t: 'falling', on: false });
+  out.push({ t: "falling", on: false });
 }

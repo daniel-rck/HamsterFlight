@@ -1,8 +1,8 @@
-import type { AssetBundle, Sprite } from '@/assets/AssetLoader.ts';
-import type { Effects } from '@/render/effects/Effects.ts';
-import type { PreLaunchLayout } from '@/render/PreLaunchScene.ts';
-import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
-import { stageScale } from '@/render/resolution.ts';
+import type { AssetBundle, Sprite } from "@/assets/AssetLoader.ts";
+import type { Effects } from "@/render/effects/Effects.ts";
+import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
+import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
+import { stageScale } from "@/render/resolution.ts";
 import {
   altitudeOf,
   BUBBLE_ALPHA,
@@ -17,7 +17,7 @@ import {
   shadowScale,
   skyColours,
   starField,
-} from '@/render/scene/decor.ts';
+} from "@/render/scene/decor.ts";
 import {
   debugLines,
   FONTS,
@@ -26,18 +26,18 @@ import {
   HUD_COLOURS,
   panelLines,
   promptFor,
-} from '@/render/scene/hud.ts';
-import { hamsterRotation, outcomeOffsetY, poseFor } from '@/render/scene/pose.ts';
-import { C } from '@/sim/constants.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
-import { DEFAULT_TUNING, type Tuning } from '@/sim/tuning.ts';
+} from "@/render/scene/hud.ts";
+import { hamsterRotation, outcomeOffsetY, poseFor } from "@/render/scene/pose.ts";
+import { C } from "@/sim/constants.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
+import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
 
 const CHROME = `rgba(12,20,30,${HUD_COLOURS.chromeAlpha})`;
 const PROMPT_CHROME = `rgba(12,20,30,${HUD_COLOURS.promptAlpha})`;
 const MARKER_INK = `rgba(255,255,255,${HUD_COLOURS.markerAlpha})`;
 
 function hex(colour: number): string {
-  return `#${colour.toString(16).padStart(6, '0')}`;
+  return `#${colour.toString(16).padStart(6, "0")}`;
 }
 
 /**
@@ -68,8 +68,8 @@ export class GameRenderer implements Renderer {
     effects: Effects,
     options: RendererOptions = {},
   ) {
-    const ctx = canvas.getContext('2d', { alpha: false });
-    if (ctx === null) throw new Error('2D canvas context unavailable');
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (ctx === null) throw new Error("2D canvas context unavailable");
     this.#ctx = ctx;
     this.#canvas = canvas;
     this.#assets = assets;
@@ -84,7 +84,7 @@ export class GameRenderer implements Renderer {
     this.#dpr = stageScale(this.#canvas.getBoundingClientRect().width, window.devicePixelRatio);
     this.#canvas.width = Math.round(C.VIEW_W * this.#dpr);
     this.#canvas.height = Math.round(C.VIEW_H * this.#dpr);
-    this.#ctx.imageSmoothingQuality = 'high';
+    this.#ctx.imageSmoothingQuality = "high";
   }
 
   resync(): void {
@@ -136,7 +136,7 @@ export class GameRenderer implements Renderer {
 
     if (sky.starAlpha > 0) {
       ctx.globalAlpha = sky.starAlpha;
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = "#fff";
       for (const star of starField(this.#stress)) {
         ctx.beginPath();
         ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
@@ -208,12 +208,12 @@ export class GameRenderer implements Renderer {
 
   #hamster(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
     const h = s.hamster;
-    if (!h.visible && s.phaseKind !== 'settling') return;
+    if (!h.visible && s.phaseKind !== "settling") return;
 
-    const shadow = this.#assets.get('shadow');
+    const shadow = this.#assets.get("shadow");
     // `blt.shadClip._visible = false` on every arm that ends a shot -
     // Game.as:870, 876, 969 - so the outcome clip casts none.
-    const scale = s.phaseKind === 'settling' ? 0 : shadowScale(h.y);
+    const scale = s.phaseKind === "settling" ? 0 : shadowScale(h.y);
     if (shadow !== undefined && scale > SHADOW_MIN_SCALE) {
       ctx.save();
       ctx.translate(h.x, C.SHADOW_Y);
@@ -233,9 +233,9 @@ export class GameRenderer implements Renderer {
     // The bubble is opaque in the original, so the hamster vanishes inside it
     // for the whole bounce. Enhanced mode draws the flier underneath and lets
     // the bubble sit over it.
-    const inBubble = id === 'hamster/ball' && this.#effects.enhanced;
+    const inBubble = id === "hamster/ball" && this.#effects.enhanced;
     if (inBubble) {
-      const inside = this.#assets.get('hamster/fly');
+      const inside = this.#assets.get("hamster/fly");
       if (inside !== undefined)
         this.#blit(ctx, inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed), 0, 0);
       ctx.globalAlpha = BUBBLE_ALPHA;
@@ -248,7 +248,7 @@ export class GameRenderer implements Renderer {
 
     if (this.#showHitboxes) {
       const box =
-        s.phaseKind === 'flying'
+        s.phaseKind === "flying"
           ? this.#tuning.boxes.hamsterFlightCore
           : this.#tuning.boxes.hamsterJumpCore;
       ctx.strokeStyle = hex(HUD_COLOURS.hitboxHamster);
@@ -312,7 +312,7 @@ export class GameRenderer implements Renderer {
     const glide = HUD.glide;
     const fill = glideFill(s);
     ctx.fillStyle = HUD_COLOURS.ink;
-    const label = 'glide';
+    const label = "glide";
     ctx.fillText(
       label,
       glide.x - ctx.measureText(label).width - glide.labelGap,

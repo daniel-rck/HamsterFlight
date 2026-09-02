@@ -1,5 +1,5 @@
-import { C } from '../constants.ts';
-import type { CameraState } from '../state.ts';
+import { C } from "../constants.ts";
+import type { CameraState } from "../state.ts";
 
 /**
  * Port of `GameCamera.doFollow` / `zero` / `getCameraPos`

@@ -1,7 +1,7 @@
-import { deepFreeze } from './freeze.ts';
-import { HITBOXES } from './hitboxes.generated.ts';
-import type { Box } from './math/aabb.ts';
-import type { PowerupKind, ShotOutcome } from './types.ts';
+import { deepFreeze } from "./freeze.ts";
+import { HITBOXES } from "./hitboxes.generated.ts";
+import type { Box } from "./math/aabb.ts";
+import type { PowerupKind, ShotOutcome } from "./types.ts";
 
 /**
  * Everything the bytecode does NOT tell us. Kept separate from `constants.ts`

@@ -1,6 +1,6 @@
-import { type Container, Sprite, Text, TextStyle, Texture } from 'pixi.js';
-import type { Sprite as SpriteAsset } from '@/assets/AssetLoader.ts';
-import { FONTS, HUD_COLOURS } from '@/render/scene/hud.ts';
+import { type Container, Sprite, Text, TextStyle, Texture } from "pixi.js";
+import type { Sprite as SpriteAsset } from "@/assets/AssetLoader.ts";
+import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
 
 /** Small Pixi conveniences with no renderer state, so they can be read alone. */
 
@@ -41,14 +41,14 @@ export function chrome(x: number, y: number, w: number, h: number, alpha: number
  * can fall back to a flat sky rather than a silently white one.
  */
 export function verticalFadeTexture(): Texture | null {
-  const canvas = document.createElement('canvas');
+  const canvas = document.createElement("canvas");
   canvas.width = 1;
   canvas.height = 256;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext("2d");
   if (ctx === null) return null;
   const gradient = ctx.createLinearGradient(0, 0, 0, 256);
-  gradient.addColorStop(0, 'rgba(255,255,255,1)');
-  gradient.addColorStop(1, 'rgba(255,255,255,0)');
+  gradient.addColorStop(0, "rgba(255,255,255,1)");
+  gradient.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, 1, 256);
   return Texture.from(canvas);
@@ -56,8 +56,8 @@ export function verticalFadeTexture(): Texture | null {
 
 export function monoText(fill: string = HUD_COLOURS.ink): Text {
   return new Text({
-    text: '',
-    style: new TextStyle({ fontFamily: FONTS.mono, fontSize: 12, fontWeight: '600', fill }),
+    text: "",
+    style: new TextStyle({ fontFamily: FONTS.mono, fontSize: 12, fontWeight: "600", fill }),
   });
 }
 
