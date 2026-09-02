@@ -63,6 +63,11 @@ export const C = Object.freeze({
   // -- world / launch geometry -------------------------------------------
   HAMSTER_X: 148,
   HAMSTER_START_Y: 956,
+  /**
+   * Where `game_mc.pillow` sits until `launch()` moves it. The port no longer
+   * draws that clip - the pillow you see is the one in the launcher's own art -
+   * so this is kept as the measured value and read by nothing.
+   */
   PILLOW_REST_X: 117.3,
   /** `launch()` moves the pillow before testing. Game.as:1120. */
   PILLOW_LAUNCH_X: 140,

@@ -2,7 +2,7 @@ import { SPRITES, type SpriteId } from '@/assets/sprites.generated.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimEvent } from '@/sim/events.ts';
 import { launchMeterValue } from '@/sim/phases/JumpPhase.ts';
-import type { Phase, SimSnapshot } from '@/sim/state.ts';
+import type { SimSnapshot } from '@/sim/state.ts';
 
 /**
  * Everything at the launcher end of the world: the tower, the operator
@@ -94,19 +94,6 @@ export interface PreLaunchLayout {
   readonly hud: readonly Placement[];
   /** Stage space, drawn over the dial. Null whenever the dial is down. */
   readonly needle: Needle | null;
-}
-
-/**
- * True once `launch()` has fired.
- *
- * The original arms the launcher on the first click (`state = "jump"`) but only
- * swings on the second, and it is that second click that moves the pillow to
- * `PILLOW_LAUNCH_X`. Game.as:1016-1037, 1118-1121. It stays there for the whole
- * flight and is put back by `onDone()` once the camera has panned home.
- * Game.as:979-980.
- */
-export function launched(phase: Phase['kind']): boolean {
-  return phase === 'flying' || phase === 'settling';
 }
 
 /**

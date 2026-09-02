@@ -9,14 +9,15 @@ export function beginJump(rng: Rng): JumpState {
     y: C.HAMSTER_START_Y,
     yvel: (rng.int(C.JUMP_YVEL_RAND) + C.JUMP_YVEL_BASE) * -1,
     boost: false,
+    swung: false,
   };
 }
 
 /**
  * `Game.jumpFrame()` - Game.as:1072-1117. One 50 ms tick.
  *
- * Returns true when the hamster has landed back on the pad, i.e. the player
- * missed the window entirely and the shot is a zero.
+ * Returns true when the hamster has landed back on the pad, i.e. the pillow
+ * never connected. `Simulation` hands the turn back rather than scoring it.
  */
 export function stepJump(s: JumpState, rng: Rng, out: SimEvent[]): boolean {
   // The one-shot boost is tested against the position *before* this tick's

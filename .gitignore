@@ -35,3 +35,4 @@ playwright-report/
 .env.*
 .dev.vars.*
 .idea/
+.claude/

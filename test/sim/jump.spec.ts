@@ -39,11 +39,11 @@ describe('jump phase', () => {
 
   it('uses asymmetric gravity: 1.5 rising, 0.75 falling', () => {
     // Past the boost window and already falling, so only the 0.75 term applies.
-    const s = { y: 800, yvel: 4, boost: true };
+    const s = { y: 800, yvel: 4, boost: true, swung: false };
     stepJump(s, mulberry32(1), []);
     expect(s.yvel).toBeCloseTo(4 + C.JUMP_GRAV_FALLING, 10);
 
-    const rising = { y: 800, yvel: -4, boost: true };
+    const rising = { y: 800, yvel: -4, boost: true, swung: false };
     stepJump(rising, mulberry32(1), []);
     expect(rising.yvel).toBeCloseTo(-4 + C.JUMP_GRAV_RISING, 10);
   });

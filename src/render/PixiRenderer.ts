@@ -27,13 +27,12 @@ import type { Renderer, RendererOptions } from '@/render/Renderer.ts';
 import { stageScale } from '@/render/resolution.ts';
 import {
   altitudeOf,
-  animFrame,
   BUBBLE_ALPHA,
   bushes,
   GROUND,
   markers,
+  POWERUP_IDLE_FRAME,
   POWERUP_SPRITE,
-  pillowX,
   rgbInt,
   SHADOW_ALPHA,
   SHADOW_MIN_SCALE,
@@ -42,7 +41,7 @@ import {
   starField,
 } from '@/render/scene/decor.ts';
 import { FONTS, HUD_COLOURS } from '@/render/scene/hud.ts';
-import { hamsterRotation, poseFor } from '@/render/scene/pose.ts';
+import { hamsterRotation, outcomeOffsetY, poseFor } from '@/render/scene/pose.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 import { DEFAULT_TUNING, type Tuning } from '@/sim/tuning.ts';
@@ -94,9 +93,8 @@ export class PixiRenderer implements Renderer {
   /** Follows the world but sits outside the filtered scene, like the Canvas2D overlay. */
   readonly #overlay = new Container();
   readonly #debugBoxes = new Graphics();
-  /** The launcher and the queue, over the bushes and under the pillow. */
+  /** The launcher and the queue, over the bushes and under the markers. */
   readonly #launcher = new Container();
-  readonly #pillow = new Sprite();
   readonly #shadowPivot = new Container();
   readonly #shadow = new Sprite();
   readonly #hamsterPivot = new Container();
@@ -206,7 +204,6 @@ export class PixiRenderer implements Renderer {
       ground,
       this.#bushes,
       this.#launcher,
-      this.#pillow,
       this.#markers,
       this.#powerups,
       this.#fxLayer,
@@ -219,11 +216,6 @@ export class PixiRenderer implements Renderer {
     stage.addChild(this.#overlay);
     stage.addChild(this.#hud.container);
 
-    const pillow = this.#assets.get('pillow');
-    if (pillow !== undefined) {
-      const texture = this.#textures.get(pillow, 0);
-      if (texture !== undefined) this.#pillow.texture = texture;
-    }
     const shadow = this.#assets.get('shadow');
     if (shadow !== undefined) {
       const texture = this.#textures.get(shadow, 0);
@@ -324,11 +316,6 @@ export class PixiRenderer implements Renderer {
     }
     hideFrom(this.#bushPool, used);
 
-    const pillowAsset = this.#assets.get('pillow');
-    this.#pillow.visible = pillowAsset !== undefined;
-    if (pillowAsset !== undefined)
-      place(this.#pillow, pillowAsset, pillowX(s.phaseKind), C.PILLOW_Y);
-
     const marks = markers(s.camera.x, this.#effects.enhanced);
     for (const [i, x] of marks.ticks.entries()) {
       const tick = this.#tickAt(i);
@@ -350,7 +337,7 @@ export class PixiRenderer implements Renderer {
     for (const item of s.powerups) {
       const asset = this.#assets.get(POWERUP_SPRITE[item.kind]);
       if (asset === undefined) continue;
-      const texture = this.#textures.get(asset, animFrame(asset.meta, this.#elapsed));
+      const texture = this.#textures.get(asset, POWERUP_IDLE_FRAME);
       if (texture === undefined) continue;
       for (let i = 0; i < this.#stress; i++) {
         const sprite = poolAt(this.#powerupPool, used++, this.#powerups, () => new Sprite());
@@ -406,7 +393,9 @@ export class PixiRenderer implements Renderer {
       return;
     }
 
-    const scale = shadowScale(h.y);
+    // `blt.shadClip._visible = false` on every arm that ends a shot -
+    // Game.as:870, 876, 969 - so the outcome clip casts none.
+    const scale = s.phaseKind === 'settling' ? 0 : shadowScale(h.y);
     const showShadow = this.#assets.get('shadow') !== undefined && scale > SHADOW_MIN_SCALE;
     this.#shadowPivot.visible = showShadow;
     if (showShadow) {
@@ -419,7 +408,7 @@ export class PixiRenderer implements Renderer {
     const texture =
       asset === undefined
         ? undefined
-        : this.#textures.get(asset, animFrame(asset.meta, this.#elapsed));
+        : this.#textures.get(asset, this.#effects.poses.frame(s, asset.meta, this.#elapsed));
     if (asset === undefined || texture === undefined) {
       this.#hamsterPivot.visible = false;
       return;
@@ -435,7 +424,7 @@ export class PixiRenderer implements Renderer {
       const insideTexture =
         inside === undefined
           ? undefined
-          : this.#textures.get(inside, animFrame(inside.meta, this.#elapsed));
+          : this.#textures.get(inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed));
       if (inside !== undefined && insideTexture !== undefined) {
         this.#hamsterInner.texture = insideTexture;
         place(this.#hamsterInner, inside, 0, 0);
@@ -445,7 +434,7 @@ export class PixiRenderer implements Renderer {
     }
 
     this.#hamsterPivot.visible = true;
-    this.#hamsterPivot.position.set(h.x, h.y);
+    this.#hamsterPivot.position.set(h.x, h.y + outcomeOffsetY(s));
     this.#hamsterPivot.rotation = hamsterRotation(s);
     this.#hamster.texture = texture;
     place(this.#hamster, asset, 0, 0);

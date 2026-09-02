@@ -23,6 +23,8 @@ export interface JumpState {
   yvel: number;
   /** The one-shot boost below y = 930 fires once per jump. */
   boost: boolean;
+  /** The pillow swings once per jump, hit or miss. Game.as:1029-1037. */
+  swung: boolean;
 }
 
 export interface CameraState {
@@ -64,6 +66,14 @@ export type Phase =
       readonly kind: 'settling';
       readonly outcome: ShotOutcome;
       readonly feet: number;
+      /**
+       * Where the shot came down - the `createHitClip(x, y, ...)` arguments,
+       * read off `bc._x`/`bc._y` (Game.as:862-875, 964-967). The outcome clip
+       * is drawn there, which is why the projectile had to survive
+       * `deleteBlt()` in the original.
+       */
+      readonly x: number;
+      readonly y: number;
       stage: 'hold' | 'pan';
       /** Ticks left in the current stage; in `pan` it is the safety cap. */
       ticksLeft: number;
