@@ -10,10 +10,13 @@ original SWF and remain the copyright of their respective owners - see
 ## Quick start
 
 ```sh
-npm install
-npm run dev          # http://localhost:5173
-npm run verify       # lint, sim purity, atlas, typecheck, tests, build, bundle budget
+bun install
+bun run dev          # http://localhost:5173
+bun run verify       # lint, sim purity, atlas, typecheck, tests, build, bundle budget
 ```
+
+Bun is the package manager, like the other apps in this family
+(`daniel-rck/web-base`); Node runs the scripts under `scripts/`.
 
 Press <kbd>Space</kbd> or click to jump, again to hit the pillow, then hold to
 glide. <kbd>P</kbd> pauses, <kbd>H</kbd> toggles the hitbox overlay. The
@@ -85,7 +88,7 @@ the strategy table in section 12 of the analysis was produced by
 order, impact-angle derivation, and the frozen glide lift. Its hitboxes were
 also a 40 px approximation, where the real bounds are now extracted from the
 shape records. So the tests assert the qualitative shape the analysis describes,
-not its numbers. Run `npm run bench` for the current table.
+not its numbers. Run `bun run bench` for the current table.
 
 ## Two renderers
 
@@ -102,14 +105,14 @@ capability rather than speed. The evaluation document still holds the numbers,
 including the ones that argue against.
 
 ```sh
-npm run bundle:report                          # per-chunk gzip cost
-STRESS=1,4,16,64,256 npm run bench:renderers   # frame cost, both backends
+bun run bundle:report                          # per-chunk gzip cost
+STRESS=1,4,16,64,256 bun run bench:renderers   # frame cost, both backends
 ```
 
 The benchmark drives a real browser through a scripted flight. Numbers taken
 without a GPU are software-rasterised and understate Pixi; the document says
 which columns survive that and which do not. The exact kilobyte figures in
-the prose are from the evaluation; `npm run bundle:report` has the current
+the prose are from the evaluation; `bun run bundle:report` has the current
 ones, and `check:bundle` fails the build when they grow past their budget.
 
 ## What is drawn, and what departs from the original
@@ -138,7 +141,7 @@ count and, crucially, the `ox`/`oy` offset of the image relative to the entity
 position - the offsets Flash itself used - so the renderer contains no
 per-sprite magic numbers.
 
-The frames - 526 of them across 40 sprites, as `npm run check:assets` reports -
+The frames - 526 of them across 40 sprites, as `bun run check:assets` reports -
 ship as **packed atlas sheets** rather than one file each. Boot went from
 hundreds of HTTP requests to one, and the WebGL backend can batch every sprite
 into a single draw call because they all live on one GPU texture. The manifest records
@@ -191,22 +194,19 @@ is never committed.
 
 ## What the pipeline checks
 
-`.github/workflows/ci.yml`, on every pull request and every push to `main`:
+`.github/workflows/ci.yml` gates every pull request and every push to `main`.
+It does not deploy; see [Deploying](#deploying).
 
 | Job | Checks |
 | --- | --- |
-| `verify` | `npm run audit` over runtime dependencies, then `npm run verify`: Biome, sim purity, atlas integrity, three tsconfigs, the tests, the build, and the bundle budget |
-| `actionlint` | the workflow file itself |
+| `ci` | the shared workflow from `daniel-rck/web-base`: Biome, three tsconfigs, the tests, the build |
+| `checks` | what only this app has: sim purity, atlas integrity, the bundle budget |
 | `smoke` | opens the built page in Chromium, in both modes on both backends; then serves it through `wrangler dev` and checks the headers, the immutable caching and the real 404s |
-| `dependency-review` | dependencies this pull request *adds* (pull requests only, opt-in) |
-| `gate`, `deploy` | `wrangler deploy`, on pushes to `main` only, gated on `verify` and `smoke` and switched on by the secret |
 
-`npm run verify` locally is the `verify` job minus the audit, which is one step
-away from it as `npm run audit` because an advisory database update can turn a
-green tree red without a code change. The smoke test is separate because it
-costs a browser: run it yourself with `npm run build && npm run smoke`, and
-`npm run check:cf` for the Cloudflare half. Actions are pinned to commit SHAs
-and Dependabot moves them.
+Everything in `ci` and `checks` is `bun run verify` locally, so a green local
+run means green jobs. The smoke test is separate because it costs a browser:
+run it yourself with `bun run build && bun run smoke`, and `bun run check:cf`
+for the Cloudflare half.
 
 Two of these exist because of bugs that got through everything else. The scene
 shader did not link on its first build - a run-time GPU failure no typecheck can
@@ -216,95 +216,32 @@ downstream can regenerate, because `build_sprites.py` needs the SWF, so
 
 ### Making them gates
 
-The checks report but do not block until `main` is protected. Under **Settings →
+Until `main` is protected, the checks report but do not block. Under **Settings →
 Rules → Rulesets → New branch ruleset**, targeting `main`:
 
 - *Require a pull request before merging*
-- *Require status checks to pass*, adding `verify` and `smoke`, plus *Require
-  branches to be up to date before merging*
-
-`ci.yml` cancels superseded runs, so a check can sit as *cancelled* rather than
-*failed* while a newer run finishes. That is normal, and it does briefly look
-like a failure in the UI.
-
-`dependency-review` needs the repository's dependency graph, which is off:
-switch it on under **Settings → Code security**, then add a repository variable
-`DEPENDENCY_GRAPH` = `on` (Settings → Secrets and variables → Actions →
-Variables). Until then the job does not run - it is skipped rather than made
-non-blocking, because `continue-on-error` would also swallow the findings it
-exists to surface.
+- *Require status checks to pass*, adding `ci`, `checks` and `smoke`, plus
+  *Require branches to be up to date before merging*
 
 ## Deploying
 
 Cloudflare Workers with the static-assets binding - no Worker code, so no
-invocations are billed. Pushes to `main` deploy themselves once the repository
-has a `CLOUDFLARE_API_TOKEN` secret (Settings → Secrets and variables → Actions)
-created from the "Edit Cloudflare Workers" token template. Add
-`CLOUDFLARE_ACCOUNT_ID` as well if the token can see more than one account.
+invocations are billed. **Cloudflare Workers Builds deploys every push to
+`main`** through the dashboard's Git integration; nothing deploys from GitHub
+Actions. The step-by-step setup, including the one setting that is easy to get
+wrong, is in **[SETUP.md](SETUP.md)**.
 
-By hand:
+By hand, with the same gates CI applies:
 
 ```sh
-npm run deploy        # verify, smoke, check:cf, then wrangler deploy - the same gates CI applies
-npm run preview:cf    # build, then serve dist/ through wrangler with real asset semantics
+bun run verify && bun run smoke && bun run check:cf
+bun run worker:deploy                  # wrangler deploy
+bun run build && bun run worker:dev    # serve dist/ through wrangler locally, real header and 404 semantics
 ```
 
 The build emits source maps but does not reference them from the bundle
 (`sourcemap: 'hidden'`), so a deployed stack trace can be mapped by hand
 against the stamped commit without handing every visitor the source.
-
-### Cloudflare project settings
-
-Connecting the repository in the dashboard (Workers & Pages → Import a
-repository) needs exactly these:
-
-| Field | Value |
-|---|---|
-| Build command | `npm ci && npm run verify` |
-| Deploy command | `npx wrangler deploy` (the default) |
-| Root directory | `/` |
-| Node version | from `.nvmrc` |
-
-**The build command is not optional, and leaving it empty is the failure that
-looks like a broken deployment.** Workers Builds runs the deploy command on its
-own if no build command is set, so `dist/` is never created and `wrangler`
-stops with:
-
-```
-✘ [ERROR] The directory specified by the "assets.directory" field in your
-  configuration file does not exist: /opt/buildhome/repo/dist
-```
-
-That is the build not having run, not a misconfigured `wrangler.jsonc`. On a
-repository with no `package.json` at all the same situation reports itself
-differently - `Could not detect a directory containing static files` - which is
-the same root cause one step earlier.
-
-`npm run verify` rather than `npm run build` as the build command is deliberate:
-Workers Builds does not wait for GitHub checks, so running lint, the purity
-check, the typechecks and the tests there is what stops a red commit from
-reaching production.
-
-### Or from GitHub Actions instead
-
-`ci.yml` also has a `deploy` job that runs `npx wrangler deploy` on pushes to
-`main`, gated on `verify` **and** `smoke`. It only runs when a
-`CLOUDFLARE_API_TOKEN` repository secret exists (Settings → Secrets and
-variables → Actions, from the "Edit Cloudflare Workers" token template; add
-`CLOUDFLARE_ACCOUNT_ID` too if the token can see more than one account).
-
-**Pick one of the two.** With the dashboard connected *and* the secret set,
-every push deploys twice. The trade between them:
-
-| | Workers Builds | the `deploy` job |
-|---|---|---|
-| Waits for GitHub checks | no | yes |
-| Runs the browser smoke test | no - the build image has no browser | yes |
-| Build minutes billed by | Cloudflare | GitHub |
-
-The dashboard route runs `npm run verify` itself, so it does catch a red commit;
-what it cannot catch is the one thing only a browser sees, which is why the
-`deploy` job waits for `smoke`.
 
 Every build stamps its commit and date into the page - shown under the stage and
 logged on boot - so a deployed page can always be traced back to a commit. A

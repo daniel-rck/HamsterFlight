@@ -6,12 +6,15 @@
 // GPU, and the Chromium build mismatch that shows up in containers which ship
 // their own. Kept in one place so the two cannot drift apart.
 import { type ChildProcess, spawn } from 'node:child_process';
+import { connect } from 'node:net';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import { type Browser, chromium, type Page } from 'playwright';
 import { intEnv, ROOT } from './cli.ts';
 
-// Node's fetch and the browser both have to reach the loopback server directly.
+// The browser has to reach the loopback server directly; an ambient agent proxy
+// in the environment would otherwise swallow it. (The readiness probe below
+// uses a raw socket and does not go through fetch at all.)
 process.env.NO_PROXY = ['127.0.0.1', 'localhost', process.env.NO_PROXY].filter(Boolean).join(',');
 process.env.no_proxy = process.env.NO_PROXY;
 
@@ -27,14 +30,25 @@ export interface Server {
   stop(): Promise<void>;
 }
 
-/** True when something already answers on `origin`. Any response counts. */
-async function listening(origin: string): Promise<boolean> {
-  try {
-    await fetch(origin);
-    return true;
-  } catch {
-    return false;
-  }
+/**
+ * True when something accepts a TCP connection on `origin`'s port. A raw
+ * connect rather than `fetch`, so no proxy setting of the runtime - Node's or
+ * Bun's - can sit between this probe and the loopback server it is asking
+ * about. Any listener counts; insisting on an HTTP 2xx here would turn a
+ * missing `dist/index.html` into a timeout that blames the wrong thing.
+ */
+function listening(origin: string): Promise<boolean> {
+  const { hostname, port } = new URL(origin);
+  return new Promise(resolve => {
+    const socket = connect({ host: hostname, port: Number(port) });
+    const done = (up: boolean): void => {
+      socket.destroy();
+      resolve(up);
+    };
+    socket.setTimeout(1000, () => done(false));
+    socket.once('connect', () => done(true));
+    socket.once('error', () => done(false));
+  });
 }
 
 /**
@@ -99,10 +113,11 @@ async function startProcess(
   const stop = async (): Promise<void> => {
     if (exited !== null) return;
     signal('SIGTERM');
-    const timer = sleep(STOP_GRACE_MS).then(() => 'timeout' as const);
-    if ((await Promise.race([gone, timer])) === 'timeout') {
+    const grace = (): Promise<'timeout'> => sleep(STOP_GRACE_MS).then(() => 'timeout' as const);
+    if ((await Promise.race([gone, grace()])) === 'timeout') {
       signal('SIGKILL');
-      await gone;
+      // A child that survives SIGKILL is not ours to wait for any longer.
+      await Promise.race([gone, grace()]);
     }
   };
 
@@ -140,7 +155,9 @@ export function startServer(port = intEnv('PORT', 4173)): Promise<Server> {
 
 /**
  * `wrangler dev` over `dist`, which is the only local server that applies
- * `wrangler.jsonc` and `public/_headers` the way production does.
+ * `wrangler.jsonc` and `public/_headers` the way production does. Port 8788
+ * rather than wrangler's 8787 default, so it never collides with a
+ * `bun run worker:dev` the developer has open.
  */
 export function startWrangler(port = intEnv('PORT', 8788)): Promise<Server> {
   const origin = `http://127.0.0.1:${port}`;

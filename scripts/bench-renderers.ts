@@ -2,7 +2,7 @@
 // the FrameProfiler windows, so the PixiJS evaluation rests on measurements
 // rather than on argument.
 //
-//   npm run build && npm run bench:renderers
+//   bun run build && bun run bench:renderers
 //
 // IMPORTANT - read the numbers with the reported GPU in mind. Under a software
 // rasteriser (headless CI, a container with no /dev/dri) WebGL is emulated on

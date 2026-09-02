@@ -1,17 +1,14 @@
-# Keeps the lockfile and the pinned action SHAs moving. Without it nothing here
-# ever updates on its own, and the `npm audit` gate in ci.yml would eventually
-# fire on a dependency nobody was bumping.
+# Keeps the lockfile and the actions moving; without it nothing here updates on
+# its own. The shared CI workflow itself is maintained in daniel-rck/web-base.
 version: 2
 updates:
-  - package-ecosystem: npm
+  - package-ecosystem: bun
     directory: /
     schedule:
       interval: weekly
     groups:
       dev-dependencies:
         dependency-type: development
-    # pixi.js is the one runtime dependency and gets its own PR, so a major
-    # bump is never buried in a tooling batch.
   - package-ecosystem: github-actions
     directory: /
     schedule:

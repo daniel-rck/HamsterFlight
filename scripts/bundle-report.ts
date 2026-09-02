@@ -1,9 +1,9 @@
 // What a visitor downloads, chunk by chunk, gzipped the way the CDN serves it.
 //
-//   npm run build && npm run bundle:report          # the table
-//   npm run build && npm run check:bundle           # the table, then the budgets
+//   bun run build && bun run bundle:report          # the table
+//   bun run build && bun run check:bundle           # the table, then the budgets
 //
-// Read-only over dist/. Run `npm run build` first.
+// Read-only over dist/. Run `bun run build` first.
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
   try {
     names = (await readdir(ASSETS)).sort();
   } catch {
-    throw new Error('dist/assets not found - run "npm run build" first.');
+    throw new Error('dist/assets not found - run "bun run build" first.');
   }
 
   let eager = new Set<string>();
