@@ -4,7 +4,7 @@
 // This serves `dist/` through `wrangler dev`, the only local server that
 // applies them, and asserts each decision the config records.
 //
-//   npm run build && npm run check:cf
+//   bun run build && bun run check:cf
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { intEnv, ROOT, run } from './lib/cli.ts';
@@ -26,7 +26,7 @@ async function probe(origin: string, path: string): Promise<Probe> {
 
 async function main(): Promise<void> {
   const html = await readFile(join(ROOT, 'dist/index.html'), 'utf8').catch(() => {
-    throw new Error('dist/index.html not found - run "npm run build" first.');
+    throw new Error('dist/index.html not found - run "bun run build" first.');
   });
   const chunk = html.match(/src="(\/assets\/[^"]+\.js)"/)?.[1];
   if (chunk === undefined) throw new Error('dist/index.html has no module script');

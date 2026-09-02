@@ -11,4 +11,4 @@ reference/** linguist-vendored
 
 # Collapsed on GitHub; still diffable locally, because a transitive bump is
 # exactly what a lockfile diff is for.
-package-lock.json linguist-generated=true
+bun.lock linguist-generated=true

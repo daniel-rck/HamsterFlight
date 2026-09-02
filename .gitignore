@@ -1,5 +1,9 @@
-# dependencies
+# dependencies. This project uses Bun (bun.lock); stray lockfiles from other
+# package managers are ignored so they cannot drift alongside it.
 node_modules/
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
 
 # build output
 dist/

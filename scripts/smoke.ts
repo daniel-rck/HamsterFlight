@@ -1,6 +1,6 @@
 // Does the game actually come up and draw, in every mode and on both backends?
 //
-//   npm run build && npm run smoke
+//   bun run build && bun run smoke
 //
 // This exists because of a bug the rest of the suite structurally cannot see.
 // The scene shader did not link on its first build - `uInputSize` was declared

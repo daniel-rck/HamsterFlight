@@ -4,230 +4,67 @@ on:
   pull_request:
   push:
     branches: [main]
-  # A deploy can be re-run by hand - after a Cloudflare outage, say - without
-  # pushing an empty commit.
-  workflow_dispatch:
 
-# Superseded pull-request runs are cancelled. Pushes to main are not: cancelling
-# one mid-`wrangler deploy` leaves the upload in an undefined state.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
-permissions:
-  contents: read
-
-# Actions are pinned to commits, not tags: the deploy job holds a Cloudflare
-# credential, and a moved tag is a moved credential. Dependabot bumps them.
+# CI gates the pull request; it does not deploy. Cloudflare Workers Builds
+# deploys every push to `main` through the dashboard's Git integration, the
+# same way as the other apps in this family - see SETUP.md.
 jobs:
-  verify:
+  # Lint, typecheck, test, build - shared with the other apps.
+  ci:
+    uses: daniel-rck/web-base/.github/workflows/web-app-ci.yml@main
+    with:
+      bun-version: "1.3.11"
+
+  # What only this app checks: the simulation stays pure, the atlas and its
+  # manifest agree, and the bundle stays inside its budget. Cheap, so it runs
+  # alongside `ci` rather than after it.
+  checks:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
         with:
-          # The build stamps the commit date into the page, and `%cs` needs the
-          # commit object - a depth-1 checkout has it, but not if the action
-          # ever switches to a treeless fetch. Two commits is cheap insurance.
-          fetch-depth: 2
-          # `npm ci` runs lifecycle scripts from two hundred packages; none of
-          # them needs a token that can push.
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+          bun-version: "1.3.11"
+      # The scripts run on Node (it executes TypeScript directly); .nvmrc is
+      # also what Workers Builds uses.
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
+      - run: bun install --frozen-lockfile
+      - run: bun run check:purity
+      - run: bun run check:assets
+      - run: bun run build
+      - run: bun run check:bundle
 
-      - run: npm ci
-
-      # Runtime dependencies only. There is exactly one - pixi.js - and a
-      # finding there is actually shipped to visitors. Auditing the dev chain of
-      # a game with no server side would mostly block unrelated work on
-      # advisories nobody can act on.
-      - name: Audit runtime dependencies
-        run: npm run audit
-
-      # Cheapest gates first so a failure surfaces fast.
-      - name: Lint and format
-        run: npx biome ci .
-
-      - name: Sim purity
-        run: npm run check:purity
-
-      - name: Atlas integrity
-        run: npm run check:assets
-
-      - name: Typecheck
-        run: npm run typecheck
-
-      - name: Test
-        run: npm run test
-
-      - name: Build
-        run: npm run build
-
-      - name: Bundle budget
-        run: npm run check:bundle
-
-      # For inspection only. It is not what `deploy` ships - that job rebuilds
-      # so the stamp names the deployed commit - and a failed build has no dist
-      # to upload, which is not a second failure.
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
-        with:
-          name: dist-${{ github.sha }}
-          path: dist
-          retention-days: 7
-          if-no-files-found: ignore
-
-  # The workflow file itself: a typo in an `if:` expression evaluates to false
-  # silently, which is exactly the failure mode the deploy gate is exposed to.
-  actionlint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: docker://rhysd/actionlint:1.7.7
-        with:
-          args: -color
-
-  # Everything above runs headless. This is the only check that opens the page,
-  # and it is the only one that can see a shader failing to link or an asset
-  # that 404s - both of which are invisible to a typecheck and to every unit
-  # test in the suite. It also serves the build through `wrangler dev`, the
-  # only local server that applies wrangler.jsonc and public/_headers.
+  # The only job that opens the page. It can see a shader failing to link or
+  # an asset that 404s, which no unit test can, and it serves the build through
+  # `wrangler dev` to check the headers and 404 semantics production will have.
   smoke:
-    needs: verify
+    needs: ci
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/checkout@v4
         with:
-          # Same reason as in `verify`: the smoke test fails on an empty stamp.
+          # The build stamps the commit date into the page and the smoke test
+          # fails on an empty stamp; two commits keeps `%cs` safe.
           fetch-depth: 2
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.11"
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: npm
-
-      - run: npm ci
-
-      # Built here rather than downloaded from `verify`'s artifact. Reusing the
-      # artifact tests the exact bytes that were verified, which is the nicer
-      # property - but it puts the artifact action's path handling between the
-      # build and the test, and that is what went wrong first: the download
-      # produced no `dist/index.html`, the page 404'd, and the failure surfaced
-      # as a click timing out. A rebuild is two seconds and cannot do that.
-      - run: npm run build
-
-      # ~150 MB per run otherwise. Keyed on the Playwright version, which is
-      # what decides the Chromium build it wants.
+      - run: bun install --frozen-lockfile
+      - run: bun run build
       - name: Playwright version
         id: playwright
         run: echo "version=$(node -p "require('playwright/package.json').version")" >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      - uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-
-      - name: Install Chromium
-        run: npx playwright install --with-deps chromium
-
-      - name: Smoke
-        run: npm run smoke
-
-      - name: Cloudflare semantics
-        run: npm run check:cf
-
-  # Only reports dependencies this pull request *adds*, so it cannot thrash on
-  # pre-existing advisories the way a full audit would.
-  #
-  # Needs the repository's dependency graph switched on (Settings → Code
-  # security), which cannot be detected from in here - the action just fails
-  # with "Dependency review is not supported on this repository". So it is
-  # opt-in on a repository variable: set DEPENDENCY_GRAPH to `on` once the
-  # graph is enabled. A variable rather than `continue-on-error`, because that
-  # would also swallow the real findings this exists to surface.
-  dependency-review:
-    if: github.event_name == 'pull_request' && vars.DEPENDENCY_GRAPH == 'on'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
-        with:
-          fail-on-severity: high
-
-  # Deploying from here is switched on by a CLOUDFLARE_API_TOKEN repository
-  # secret. The repository is also connected in the Cloudflare dashboard, so
-  # this job existing must not by itself mean every push deploys twice: the
-  # secret is the switch, and the README says to disconnect the dashboard
-  # build when you throw it.
-  #
-  # A job of its own, because the `secrets` context is not available in a
-  # job-level `if`: this one turns it into an output the deploy job can test,
-  # so `deploy` is skipped cleanly instead of running six no-op steps and
-  # recording a phantom deployment on the production environment.
-  gate:
-    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 2
-    outputs:
-      deploy: ${{ steps.check.outputs.deploy }}
-    steps:
-      - id: check
-        env:
-          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: |
-          if [ -n "$TOKEN" ]; then
-            echo "deploy=yes" >> "$GITHUB_OUTPUT"
-          else
-            echo "deploy=no" >> "$GITHUB_OUTPUT"
-            echo "No CLOUDFLARE_API_TOKEN; leaving the deploy to Workers Builds." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-  # Pushes to main go live. Gated on both checks, so a red build cannot deploy,
-  # and in particular so nothing ships that the browser smoke test has not seen -
-  # which is the thing connecting the repository in the Cloudflare dashboard
-  # cannot give you, because Workers Builds neither waits for GitHub checks nor
-  # has a browser to run them in.
-  deploy:
-    needs: [verify, smoke, gate]
-    if: needs.gate.outputs.deploy == 'yes'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    environment: production
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-          persist-credentials: false
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version-file: .nvmrc
-          cache: npm
-
-      - run: npm ci
-
-      # Rebuilt rather than taken from the artifact: the stamp in the page has
-      # to name the commit being deployed, and the artifact is only the same
-      # bytes as long as nothing in the pipeline moved.
-      - run: npm run build
-
-      # Wrangler straight from the lockfile rather than through a third-party
-      # action, so the version that deploys is the version `npm run deploy`
-      # uses locally. CLOUDFLARE_ACCOUNT_ID is only needed when the token can
-      # see more than one account; wrangler reads both from the environment.
-      - name: Deploy
-        run: npx wrangler deploy
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run smoke
+      - run: bun run check:cf
