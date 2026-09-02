@@ -12,6 +12,8 @@ export default defineConfig({
     // is plain node. Anything needing a DOM must opt in per file.
     environment: 'node',
     include: ['test/**/*.spec.ts'],
-    reporters: ['default'],
+    // No `reporters` override: Vitest adds its github-actions reporter only
+    // when the list is left at the default, and that is what puts a failing
+    // assertion on the PR diff as an annotation.
   },
 });
