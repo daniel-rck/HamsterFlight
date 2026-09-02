@@ -61,13 +61,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     target: 'es2022',
-    sourcemap: true,
+    // Maps are emitted for debugging a deployed build against its commit, but
+    // not referenced from the bundle: a visitor's devtools do not reconstruct
+    // src/ on their own. Open one by hand when a stack trace needs it.
+    sourcemap: 'hidden',
     // Never inline assets. Most sprite frames are 2-5 kB, which is under the
     // 4 kB default, so they would be base64'd into the JS bundle - hundreds of
     // them. As separate files they are content-hashed and cached immutably,
     // and the entry chunk stays small enough to parse instantly.
     assetsInlineLimit: 0,
-    // Fail loudly rather than silently shipping a bloated bundle.
+    // A warning only; the gate that fails is `npm run check:bundle`, whose
+    // budgets live in scripts/bundle-report.ts. This number is echoed there.
     chunkSizeWarningLimit: 400,
   },
   server: {

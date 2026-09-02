@@ -38,6 +38,10 @@
   },
   "overrides": [
     {
+      "includes": ["**/*.generated.ts"],
+      "formatter": { "enabled": false }
+    },
+    {
       "includes": ["src/sim/**"],
       "linter": {
         "rules": {

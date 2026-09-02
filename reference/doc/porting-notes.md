@@ -51,9 +51,10 @@ This is why input reaches the simulation as discrete `press`/`release`
 commands rather than a sampled boolean: a boolean cannot distinguish "pressed
 this tick" from "still holding", so it cannot express the behaviour at all.
 
-`Tuning.recomputeGlidePerTick` exists to switch to the `sim.js` reading, because
-it changes the optimal strategy and therefore the golden values. Default is
-`false`, the faithful behaviour.
+`Tuning.recomputeGlidePerTick` switches to the `sim.js` reading - `stepFlight`
+re-calls `setGlideGravity()` on every held tick before gravity - because it
+changes the optimal strategy and therefore the golden values. Default is
+`false`, the faithful behaviour; `ordering.spec.ts` shows the two diverge.
 
 Two smaller ones: `sim.js` line 41 builds a garbled spawn `x` that line 42
 immediately overwrites (the correct value is `800 - camX`, i.e. `bulletX + 650`),
@@ -256,3 +257,57 @@ guaranteed bit-identical across engines or architectures.** Therefore:
 
 A golden that shifts by exactly 1 ft on a different machine is a landing sitting
 on the `Math.floor` boundary, not a regression. Note the seed and re-pin.
+
+## Fixed against the bytecode, later
+
+A review against `Game.as` found four places where the port had drifted from
+the source it cites. Each has a test in `test/sim/` that fails on the old code.
+
+- **Rebound clears the skid.** `checkPowerUpsColl`'s rebound branch
+  (Game.as:757-766) drops `skidding`, `falling` and - only if the hamster was
+  skidding - `slide`. The port set `rebound` alone, so a rebound out of a skid
+  left `skidding` set and `onMouseDown`'s `!skidding` test blocked glide for
+  the rest of the shot.
+- **`sndPickup` is not for every pickup.** Only bounce, superbounce and slide
+  play it (Game.as:700, 715, 749). `PowerupSpec.sound` carries that.
+- **The slide/skid sound branch.** Game.as:556-592 is a three-way branch: the
+  slide loop starts once and then tracks `|xvel|`, the skid cue plays once and
+  ducks the flight loop to 5, otherwise the flight loop's gain follows the
+  speed every tick. The port had two identical `doRotation = false` arms and
+  never emitted `slide`; `flyGain`/`slideGain` had no callers. A `sfxGain`
+  event carries the volumes now, and `shoot()`'s `sndPrelude.stop()` is
+  emitted on launch.
+- **`falling = false` is an event.** Every arm of `checkCollision` ends with
+  it, and the arming pickups do it too. The port emitted the `glide` off-cue
+  two lines earlier and swallowed this one.
+
+Two things that were half-present are now whole:
+
+- **The camera pans home.** After a shot the outcome clip plays
+  (`Tuning.outcomeHoldTicks`), then its last frame calls `setCamReset()` and
+  `GameCamera.doQuickPanTo` converges on (300, 800); `onDone()` advances the
+  turn on arrival. `settling` has the two stages, `quickPanStep` has a caller,
+  and `camera.maxPanTicks` is the soft-lock cap it was described as.
+- **The no-rotate rule.** `Bullet.update` (Bullet.as:46) stops turning the
+  clip below y = 940 while `xvel < 7` - the signed value, as written. It is a
+  display rule, so it lives in `src/render/scene/pose.ts`, applied by both
+  renderers.
+
+And two ordering details in the port itself: commands are applied in the order
+given, so `[press, togglePause]` no longer drops the press; and the shot driver
+in `src/sim/drive.ts` is the single one behind the golden tests and the bench,
+which used to disagree on their tick budgets.
+
+## Presentation departures, recorded
+
+- **Interpolation between ticks.** The original stage ran at 19 fps with no
+  tweening. This port places the hamster and the camera between the last two
+  ticks on every frame, in both modes, for consecutive ticks of the same phase
+  only. Simulation and scores are untouched; `src/render/interpolate.ts`.
+- **Impact clips at world x.** The original pins `bounce_fx` to screen x 155
+  and the two breaks to 165 (Game.as:812, 831, 853). The port places them at
+  the hamster's world x, which is the same point while the camera follows at
+  its 150 px anchor and differs only left of x = 150.
+- **The exactly-70-degree branch.** `checkCollision`'s final `else` is reached
+  only when the impact angle is exactly 70.000 degrees. It is transcribed but
+  practically unreachable, and untested for that reason.

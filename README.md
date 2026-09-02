@@ -12,11 +12,13 @@ original SWF and remain the copyright of their respective owners - see
 ```sh
 npm install
 npm run dev          # http://localhost:5173
-npm run verify       # lint, sim purity, typecheck, tests, build
+npm run verify       # lint, sim purity, atlas, typecheck, tests, build, bundle budget
 ```
 
-Click or press <kbd>Space</kbd> to jump, click again to hit the pillow, then
-hold to glide. <kbd>P</kbd> pauses. Append `?seed=12345` to replay an exact run.
+Press <kbd>Space</kbd> or click to jump, again to hit the pillow, then hold to
+glide. <kbd>P</kbd> pauses, <kbd>H</kbd> toggles the hitbox overlay. The
+keyboard works from the first keystroke; no click on the stage is needed first.
+Append `?seed=12345` to replay an exact run.
 
 | query parameter | effect |
 | --- | --- |
@@ -56,13 +58,18 @@ src/sim/          pure, deterministic simulation - no DOM, no clock, no Math.ran
   hitboxes.generated.ts   AABB bounds extracted from the SWF shape records
   phases/           jump, launch, flight - the 12-step tick in original order
   systems/          ground collision, powerup spawn and pickup, camera
-src/app/          the fixed-timestep loop, the only place that reads a clock
+  drive.ts          plays whole shots under a button policy; the golden tests and the bench share it
+src/app/          the fixed-timestep loop (the only place that reads a clock), URL parameters, build stamp
 src/render/       Renderer interface plus two backends; read snapshots, cannot reach the simulation
+  scene/            what to draw, as pure functions of the snapshot - both backends consume it
+  pixi/             the Pixi backend's texture cache, HUD, filters and pools
+  interpolate.ts    places the hamster and camera between two ticks for the frame in between
 src/input/        DOM events to discrete commands
 src/assets/       sprite frames plus the generated placement manifest
 reference/        research artifacts - decompilate, analysis, tools. Not a build input.
 test/             physics specs; test/sim/ordering.spec.ts is the fidelity guard
-scripts/          sim purity check, strategy bench
+scripts/          the checks CI runs (purity, atlas, bundle budget, smoke, Cloudflare semantics)
+                  and the two benches; TypeScript, run directly by Node
 ```
 
 The split between `constants.ts` and `tuning.ts` is the important one: it makes
@@ -87,7 +94,7 @@ shaders and particle effects; `?mode=faithful` gives the Canvas2D renderer
 drawing exactly what the original stage drew.
 
 That was not the first answer. `reference/doc/renderer-evaluation.md` records a
-measured spike which found Pixi costs 153.8 kB gzip and only overtakes Canvas2D
+measured spike which found Pixi costs about 158 kB gzip and only overtakes Canvas2D
 somewhere between 1 500 and 5 000 drawn objects per frame - where this game
 draws about 25. On throughput alone the answer was no. It changed when effects
 entered the picture: Canvas2D has no shader path at all, so the cost now buys a
@@ -101,7 +108,26 @@ STRESS=1,4,16,64,256 npm run bench:renderers   # frame cost, both backends
 
 The benchmark drives a real browser through a scripted flight. Numbers taken
 without a GPU are software-rasterised and understate Pixi; the document says
-which columns survive that and which do not.
+which columns survive that and which do not. The exact kilobyte figures in
+the prose are from the evaluation; `npm run bundle:report` has the current
+ones, and `check:bundle` fails the build when they grow past their budget.
+
+## What is drawn, and what departs from the original
+
+Both renderers draw from `src/render/scene/`, so they show the same picture by
+construction rather than by keeping two copies in step. Three things are
+presentation choices that the original stage did not make:
+
+- **Interpolation.** The physics snaps at 20 Hz; the picture does not. Each
+  frame places the hamster and the camera between the last two ticks by how far
+  into the current tick it falls, in both modes. The original ran at 19 fps
+  with no tweening. Nothing in the simulation or the scores is touched.
+- **`prefers-reduced-motion`.** Camera shake, chromatic aberration, the
+  shockwave, motion blur and the particles switch off when the OS asks for
+  less motion. The rest of the enhanced presentation stays.
+- **No WebGL, no problem.** If the browser cannot give a WebGL context, or
+  Pixi fails to start, the Canvas2D renderer takes over and says so in the
+  console. Nobody gets a blank page for want of a GPU.
 
 ## Assets
 
@@ -112,14 +138,15 @@ count and, crucially, the `ox`/`oy` offset of the image relative to the entity
 position - the offsets Flash itself used - so the renderer contains no
 per-sprite magic numbers.
 
-The 382 frames ship as **packed atlas sheets** rather than 382 files. Boot went
-from 382 HTTP requests to one, and the WebGL backend can batch every sprite into
-a single draw call because they all live on one GPU texture. The manifest records
+The frames - 526 of them across 40 sprites, as `npm run check:assets` reports -
+ship as **packed atlas sheets** rather than one file each. Boot went from
+hundreds of HTTP requests to one, and the WebGL backend can batch every sprite
+into a single draw call because they all live on one GPU texture. The manifest records
 each frame's rectangle within the sheet; `w`/`h` are shared across a sprite's
 frames because ffdec crops them all to the same box.
 
-Two densities are built - 578 kB at 1:1 and 1.5 MB at 2x - and the loader takes
-the smallest that still covers the display. Most screens lay the stage out wider
+Two densities are built - about 760 kB at 1:1 and 1.9 MB at 2x - and the loader
+takes the smallest that still covers the display. Most screens lay the stage out wider
 than its 600 px design size, so most visitors get the 2x sheet: sharper art for
 about a megabyte more. Dropping back to one density is a `--densities 1` rebuild.
 
@@ -127,8 +154,8 @@ Placement is measured twice rather than trusted once. The offset comes from the
 root transform of ffdec's SVG sprite export, which is exact and unrounded and is
 produced by the same tool that rasterised the PNGs. `reference/tools/sprite_bounds.py`
 computes the same quantity independently by walking the display list, and
-`verified` records whether the two agree - 26 of 32 do. The six that do not are
-nested clips whose geometry the display-list walk mis-resolves; they still use
+`verified` records whether the two agree - 33 of 40 do. The seven that do not
+are nested clips whose geometry the display-list walk mis-resolves; they still use
 ffdec's value, so `verified: false` marks a disagreement worth investigating
 rather than a fallback.
 
@@ -153,6 +180,8 @@ six unresolved clips on their registration point, which misplaces them by up to
 63 px.
 
 **On rights:** this artwork is the original publisher's, not this project's.
+`LICENSE` (MIT) covers the original code and documentation; `NOTICE` lists what
+it does not.
 Section 13.4 of the analysis document notes that shipping it in a published
 project is a different matter from analysing it privately, and that remains
 true - it is a deliberate choice by the repository owner, not an oversight. The
@@ -166,14 +195,18 @@ is never committed.
 
 | Job | Checks |
 | --- | --- |
-| `verify` | `npm audit` over runtime dependencies, Biome, sim purity, atlas integrity, three tsconfigs, the tests, the build, and the bundle budget |
-| `smoke` | opens the built page in Chromium, in both modes on both backends |
+| `verify` | `npm run audit` over runtime dependencies, then `npm run verify`: Biome, sim purity, atlas integrity, three tsconfigs, the tests, the build, and the bundle budget |
+| `actionlint` | the workflow file itself |
+| `smoke` | opens the built page in Chromium, in both modes on both backends; then serves it through `wrangler dev` and checks the headers, the immutable caching and the real 404s |
 | `dependency-review` | dependencies this pull request *adds* (pull requests only, opt-in) |
-| `deploy` | `wrangler deploy`, on pushes to `main` only, gated on the two above |
+| `gate`, `deploy` | `wrangler deploy`, on pushes to `main` only, gated on `verify` and `smoke` and switched on by the secret |
 
-Everything in `verify` is what `npm run verify` runs locally, so a green local
-run means a green job. The smoke test is separate because it costs a browser:
-run it yourself with `npm run build && npm run smoke`.
+`npm run verify` locally is the `verify` job minus the audit, which is one step
+away from it as `npm run audit` because an advisory database update can turn a
+green tree red without a code change. The smoke test is separate because it
+costs a browser: run it yourself with `npm run build && npm run smoke`, and
+`npm run check:cf` for the Cloudflare half. Actions are pinned to commit SHAs
+and Dependabot moves them.
 
 Two of these exist because of bugs that got through everything else. The scene
 shader did not link on its first build - a run-time GPU failure no typecheck can
@@ -212,9 +245,13 @@ created from the "Edit Cloudflare Workers" token template. Add
 By hand:
 
 ```sh
-npm run deploy        # verify, then wrangler deploy
+npm run deploy        # verify, smoke, check:cf, then wrangler deploy - the same gates CI applies
 npm run preview:cf    # build, then serve dist/ through wrangler with real asset semantics
 ```
+
+The build emits source maps but does not reference them from the bundle
+(`sourcemap: 'hidden'`), so a deployed stack trace can be mapped by hand
+against the stamped commit without handing every visitor the source.
 
 ### Cloudflare project settings
 

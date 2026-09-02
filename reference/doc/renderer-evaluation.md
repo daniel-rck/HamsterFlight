@@ -57,7 +57,7 @@ measuring them:
 | | before | after |
 | --- | ---: | ---: |
 | HTTP requests at boot | 382 | **1** |
-| sprite payload | 2.0 MB | **577 kB** |
+| sprite payload | 2.0 MB | **577 kB** (758 kB after the later re-pack; `npm run bundle:report`) |
 | app entry chunk (gzip) | 14.9 kB | **11.6 kB** |
 
 The entry chunk shrank because `import.meta.glob` no longer inlines 382

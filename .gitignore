@@ -19,3 +19,15 @@ __pycache__/
 *.py[cod]
 .DS_Store
 *.log
+
+# test and typecheck output
+coverage/
+*.tsbuildinfo
+test-results/
+playwright-report/
+
+# local secrets and editors
+.env
+.env.*
+.dev.vars.*
+.idea/

@@ -1,7 +1,14 @@
 * text=auto eol=lf
 
+# Binary art: never normalised, never diffed as text.
+*.png binary
+*.svg text eol=lf
+
 # Research artifacts: decompiler output and one-off tooling. Keep them out of
 # language stats and out of diffs.
 reference/** linguist-vendored
 *.as linguist-language=ActionScript
-package-lock.json -diff linguist-generated
+
+# Collapsed on GitHub; still diffable locally, because a transitive bump is
+# exactly what a lockfile diff is for.
+package-lock.json linguist-generated=true
