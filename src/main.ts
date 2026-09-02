@@ -15,13 +15,6 @@ import { Simulation } from '@/sim/index.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 import { DEFAULT_TUNING } from '@/sim/tuning.ts';
 
-declare global {
-  interface Window {
-    /** Only under `?profile`: lets scripts/bench-renderers read the windows as data. */
-    __hamsterProfile?: FrameProfiler;
-  }
-}
-
 /**
  * Whether this browser can give us a WebGL context at all. Asked on a scratch
  * canvas, because asking the stage canvas would claim its context type.
