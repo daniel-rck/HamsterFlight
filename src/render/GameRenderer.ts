@@ -27,7 +27,7 @@ import {
   panelLines,
   promptFor,
 } from '@/render/scene/hud.ts';
-import { hamsterRotation, outcomeOffsetY, poseFor } from '@/render/scene/pose.ts';
+import { bottomCrop, hamsterRotation, outcomeOffsetY, poseFor } from '@/render/scene/pose.ts';
 import { C } from '@/sim/constants.ts';
 import type { SimSnapshot } from '@/sim/state.ts';
 import { DEFAULT_TUNING, type Tuning } from '@/sim/tuning.ts';
@@ -242,7 +242,14 @@ export class GameRenderer implements Renderer {
     }
     const rotation = hamsterRotation(s);
     if (rotation !== 0) ctx.rotate(rotation);
-    this.#blit(ctx, sprite, this.#effects.poses.frame(s, sprite.meta, this.#elapsed), 0, 0);
+    this.#blit(
+      ctx,
+      sprite,
+      this.#effects.poses.frame(s, sprite.meta, this.#elapsed),
+      0,
+      0,
+      bottomCrop(s),
+    );
     if (inBubble) ctx.globalAlpha = 1;
     ctx.restore();
 
@@ -262,20 +269,34 @@ export class GameRenderer implements Renderer {
    * offsets. `w`/`h` are art pixels and `ox`/`oy` stage pixels, so the frame is
    * drawn at its stage size - which is how art packed above 1:1 stays put.
    */
-  #blit(ctx: CanvasRenderingContext2D, sprite: Sprite, frame: number, x: number, y: number): void {
+  /**
+   * `cropBottom` is in stage px and leaves that much off the bottom of the
+   * frame - `bottomCrop`, for the shadow painted into the jump clip. `ox`/`oy`
+   * place the top-left, so a shorter frame lands in exactly the same place.
+   */
+  #blit(
+    ctx: CanvasRenderingContext2D,
+    sprite: Sprite,
+    frame: number,
+    x: number,
+    y: number,
+    cropBottom = 0,
+  ): void {
     const rect = sprite.frames[frame] ?? sprite.frames[0];
     if (rect === undefined) return;
     const density = sprite.density;
+    const height = rect.h - cropBottom * density;
+    if (height <= 0) return;
     ctx.drawImage(
       sprite.sheet,
       rect.x,
       rect.y,
       rect.w,
-      rect.h,
+      height,
       x + sprite.meta.ox,
       y + sprite.meta.oy,
       rect.w / density,
-      rect.h / density,
+      height / density,
     );
   }
 

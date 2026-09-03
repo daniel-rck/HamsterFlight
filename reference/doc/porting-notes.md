@@ -268,10 +268,11 @@ the original does not loop:
 - The hamster's own clip is held on frame 1 until the click (`reset()`,
   Game.as:365-366), started with `gotoAndPlay("jump")` on the first
   `onMouseDown`, and each outcome clip is attached fresh when the shot ends.
-  `src/render/PoseClock.ts` reproduces that with one anchor per pose. Whether
-  the 36-frame jump clip carries a `stop()` on its last frame is not
-  recoverable from the exported art, so it loops; a jump lasts 1.7-2.5 s
-  against the clip's 1.9 s.
+  `src/render/PoseClock.ts` reproduces that with one anchor per *run* - the
+  pose together with the phase it is shown in. Per pose was not enough:
+  `ready` and `jumping` are the same clip, so the anchor was never dropped at
+  the click and the jump started wherever a clock anchored at boot had got to.
+  See the next entry for where the run ends.
 - The powerup clips are attached and left standing, and `_loc3_.play()` at the
   moment of pickup runs the rest (Game.as:701, 716, 727, 750, 768). Only the
   first two frames are the collectible: `powerup/bounce`, `powerup/slide` and
@@ -291,6 +292,42 @@ the original does not loop:
 What is left looping is genuinely looping and event-gated: the launcher wheels
 turn only while the hamster is jumping (`PreLaunchScene`), and the `fx/*`
 impacts run once from their cue and are pruned (`Effects`).
+
+**The jump clip was authored for a clip nobody moves.** Char 52 is one timeline
+of four runs: five identical frames of the hamster standing (frame 1, what
+`gotoAndStop(1)` holds), seven of it pulling the goggles down, seven holding
+that pose - then a crouch, a five-frame takeoff, a tumbling ball and one blank
+frame. Two things in it only make sense for a clip that stays put:
+
+- the takeoff lifts the art ~100 px out of its own box while the shadow stays
+  at the bottom, and
+- the shadow is *in the art* - the ellipse under the feet, the bottom 6 px of
+  every standing frame. There is no `shadow` sprite in the manifest at all;
+  `Bullet`'s `shadClip` was never exported, so the flight casts none.
+
+`jumpFrame()` does move the clip (`hamster._y += yvel`, Game.as:1082). Playing
+the takeoff on top of that drew the hamster a hundred px above the `core` that
+tests against the pillow and then snapped it back, and the blank frame blinked
+it out mid-jump; the standing frames carried their painted-on shadow up into
+the sky with it. So the port bounds the run at the held goggles pose
+(`JUMP_RUN_LAST`, the frame the original itself repeats seven times) and drops
+the shadow strip for the length of the jump (`bottomCrop`, `JUMP_SHADOW_STRIP`
+- both renderers leave that much off the bottom of the frame). Two display
+rules, next to the faceplant's `+ 3` and the no-rotate one. Where the `"jump"`
+label and the clip's `stop()` actually sit is not recoverable from the exported
+art - only the frame scripts would say - but which frames may be drawn while
+the code owns the position is, and that is what these bound.
+
+**Every outcome clip is turned a quarter, whatever the shot did.**
+`createHitClip(x, y, rot, type)` takes a rotation and ignores it:
+`hitClip._rotation = 90` unconditionally (Game.as:1006-1013). That is not a
+flourish, it is how the `hit_*` symbols are drawn - on their side, ground line
+down the right edge of the art, which the export shows plainly: `hit/cheer`
+ends on a distance post lying flat and `hit/hole` is a crater with its sign
+hanging sideways. The port had read the flight convention (art facing right,
+`_rotation = atan2 + 90` from `Bullet.update`) as applying to these too and
+drew them unrotated, which stood the hamster on its nose against a vertical
+ground line. `hamsterRotation` returns the quarter turn for `settling` now.
 
 **Rendering snaps rather than interpolating.** The original stage ran at 19 fps
 with no tweening, so snapping to the 20 Hz simulation is the faithful look, and
