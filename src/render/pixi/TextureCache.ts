@@ -14,21 +14,34 @@ import type { Sprite as SpriteAsset } from "@/assets/AssetLoader.ts";
  * Keyed by asset object and frame index, not by a string of the rect: the old
  * key was built and hashed for every sprite on every frame, about a thousand
  * small allocations a second for a lookup the identity already determines.
+ *
+ * `cropBottom` - stage px left off the bottom of the frame, which is how the
+ * jump clip's painted-on shadow is dropped - is a second dimension of the same
+ * cache rather than a second texture built per frame. It is nearly always 0,
+ * and the whole game asks for exactly one other value, so the inner map holds
+ * one or two entries.
  */
 export class TextureCache {
   readonly #sources = new Map<ImageBitmap, TextureSource>();
-  readonly #byAsset = new WeakMap<SpriteAsset, (Texture | undefined)[]>();
+  readonly #byAsset = new WeakMap<SpriteAsset, Map<number, (Texture | undefined)[]>>();
   readonly #all: Texture[] = [];
 
-  get(asset: SpriteAsset, frame: number): Texture | undefined {
+  get(asset: SpriteAsset, frame: number, cropBottom = 0): Texture | undefined {
     const index = asset.frames[frame] === undefined ? 0 : frame;
     const rect = asset.frames[index];
     if (rect === undefined) return undefined;
+    const height = rect.h - cropBottom * asset.density;
+    if (height <= 0) return undefined;
 
-    let frames = this.#byAsset.get(asset);
+    let byCrop = this.#byAsset.get(asset);
+    if (byCrop === undefined) {
+      byCrop = new Map();
+      this.#byAsset.set(asset, byCrop);
+    }
+    let frames = byCrop.get(cropBottom);
     if (frames === undefined) {
       frames = [];
-      this.#byAsset.set(asset, frames);
+      byCrop.set(cropBottom, frames);
     }
     const cached = frames[index];
     if (cached !== undefined) return cached;
@@ -38,7 +51,7 @@ export class TextureCache {
       source = new ImageSource({ resource: asset.sheet });
       this.#sources.set(asset.sheet, source);
     }
-    const texture = new Texture({ source, frame: new Rectangle(rect.x, rect.y, rect.w, rect.h) });
+    const texture = new Texture({ source, frame: new Rectangle(rect.x, rect.y, rect.w, height) });
     frames[index] = texture;
     this.#all.push(texture);
     return texture;

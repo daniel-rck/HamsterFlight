@@ -68,7 +68,10 @@ describe("the hamster clip", () => {
 
   it("starts the jump on frame 0 at the click, not wherever the clock was", () => {
     const clock = new PoseClock();
-    // Twelve seconds of waiting - a free-running clock would be mid-clip here.
+    // The clip is anchored on the first frame after boot and then waited on -
+    // `ready` and `jumping` are the same pose, so an anchor kept per pose was
+    // never dropped and the click landed twelve seconds into a 1.9 s clip.
+    clock.frame(snap(), JUMP, 0);
     clock.frame(snap(), JUMP, 12_000);
     const jumping = snap({ phase: "jumping" });
     expect(clock.frame(jumping, JUMP, 12_000)).toBe(0);
@@ -76,12 +79,15 @@ describe("the hamster clip", () => {
     expect(clock.frame(jumping, JUMP, 12_000 + mid(5))).toBe(5);
   });
 
-  it("loops the jump clip, because a long jump outlasts its 36 frames", () => {
+  it("holds the jump run on its last frame instead of looping into the takeoff", () => {
     const clock = new PoseClock();
     const jumping = snap({ phase: "jumping" });
     clock.frame(jumping, JUMP, 0);
-    expect(clock.frame(jumping, JUMP, mid(JUMP.frames))).toBe(0);
-    expect(clock.frame(jumping, JUMP, mid(JUMP.frames + 3))).toBe(3);
+    expect(clock.frame(jumping, JUMP, mid(18))).toBe(18);
+    // Frame 19 onwards is the crouch, the takeoff that leaves the clip's own
+    // position behind, and a blank frame; a 2.5 s jump must not reach them.
+    expect(clock.frame(jumping, JUMP, mid(19))).toBe(18);
+    expect(clock.frame(jumping, JUMP, mid(JUMP.frames + 3))).toBe(18);
   });
 
   it("plays an outcome clip once and holds its last frame", () => {

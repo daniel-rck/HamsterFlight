@@ -15,7 +15,13 @@ import {
   starField,
 } from "@/render/scene/decor.ts";
 import { debugLines, glideFill, panelLines, promptFor, totalFeet } from "@/render/scene/hud.ts";
-import { hamsterRotation, outcomeOffsetY, poseFor } from "@/render/scene/pose.ts";
+import {
+  bottomCrop,
+  hamsterRotation,
+  JUMP_SHADOW_STRIP,
+  outcomeOffsetY,
+  poseFor,
+} from "@/render/scene/pose.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { noEffects, type ShotOutcome } from "@/sim/types.ts";
@@ -90,6 +96,30 @@ describe("pose", () => {
       0,
     );
     expect(hamsterRotation(flying({ phaseKind: "jumping" }))).toBe(0);
+    expect(hamsterRotation(flying({ phaseKind: "ready" }))).toBe(0);
+  });
+
+  it("stands every outcome clip up, as createHitClip does whatever the shot did", () => {
+    // Game.as:1006-1013 - `hitClip._rotation = 90`, the `rot` argument dropped.
+    // The `hit_*` art is drawn on its side, so this is what puts the ground
+    // under the hamster instead of beside it.
+    const quarter = Math.PI / 2;
+    for (const outcome of ["faceplant", "cheer", "hole", "zero"] as const) {
+      expect(hamsterRotation(flying({ phaseKind: "settling", outcome }))).toBe(quarter);
+    }
+    // Not the velocity's doing: a shot that came down flat is turned too.
+    const flat = { ...flying().hamster, xvel: 0, yvel: 0 };
+    expect(
+      hamsterRotation(flying({ phaseKind: "settling", outcome: "cheer", hamster: flat })),
+    ).toBe(quarter);
+  });
+
+  it("leaves the painted-on pad shadow off the jump clip while it is airborne", () => {
+    expect(bottomCrop(flying({ phaseKind: "jumping" }))).toBe(JUMP_SHADOW_STRIP);
+    // On the pad the shadow belongs on the pad, and no other clip carries one.
+    expect(bottomCrop(flying({ phaseKind: "ready" }))).toBe(0);
+    expect(bottomCrop(flying())).toBe(0);
+    expect(bottomCrop(flying({ phaseKind: "settling", outcome: "cheer" }))).toBe(0);
   });
 });
 

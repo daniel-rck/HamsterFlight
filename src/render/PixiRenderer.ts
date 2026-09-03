@@ -41,7 +41,7 @@ import {
   starField,
 } from "@/render/scene/decor.ts";
 import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
-import { hamsterRotation, outcomeOffsetY, poseFor } from "@/render/scene/pose.ts";
+import { bottomCrop, hamsterRotation, outcomeOffsetY, poseFor } from "@/render/scene/pose.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -408,7 +408,11 @@ export class PixiRenderer implements Renderer {
     const texture =
       asset === undefined
         ? undefined
-        : this.#textures.get(asset, this.#effects.poses.frame(s, asset.meta, this.#elapsed));
+        : this.#textures.get(
+            asset,
+            this.#effects.poses.frame(s, asset.meta, this.#elapsed),
+            bottomCrop(s),
+          );
     if (asset === undefined || texture === undefined) {
       this.#hamsterPivot.visible = false;
       return;
