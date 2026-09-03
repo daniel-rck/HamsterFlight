@@ -1,5 +1,5 @@
-import type { Projectile } from './entities/Projectile.ts';
-import type { EffectFlags, PowerupKind, ShotOutcome } from './types.ts';
+import type { Projectile } from "./entities/Projectile.ts";
+import type { EffectFlags, PowerupKind, ShotOutcome } from "./types.ts";
 
 /**
  * Mutability convention: phase payloads (`JumpState`, `FlightState`,
@@ -59,11 +59,11 @@ export interface FlightState {
  * `GameCamera.doQuickPanTo`); `onDone()` advances the turn on arrival.
  */
 export type Phase =
-  | { readonly kind: 'ready' }
-  | { readonly kind: 'jumping'; readonly jump: JumpState; readonly camera: CameraState }
-  | { readonly kind: 'flying'; readonly flight: FlightState }
+  | { readonly kind: "ready" }
+  | { readonly kind: "jumping"; readonly jump: JumpState; readonly camera: CameraState }
+  | { readonly kind: "flying"; readonly flight: FlightState }
   | {
-      readonly kind: 'settling';
+      readonly kind: "settling";
       readonly outcome: ShotOutcome;
       readonly feet: number;
       /**
@@ -74,17 +74,17 @@ export type Phase =
        */
       readonly x: number;
       readonly y: number;
-      stage: 'hold' | 'pan';
+      stage: "hold" | "pan";
       /** Ticks left in the current stage; in `pan` it is the safety cap. */
       ticksLeft: number;
       readonly camera: CameraState;
     }
-  | { readonly kind: 'gameOver'; readonly total: number };
+  | { readonly kind: "gameOver"; readonly total: number };
 
 /** The read-only view the renderer gets. It may not hold the Simulation itself. */
 export interface SimSnapshot {
   readonly tick: number;
-  readonly phaseKind: Phase['kind'];
+  readonly phaseKind: Phase["kind"];
   readonly turn: number;
   readonly paused: boolean;
   readonly hamster: {

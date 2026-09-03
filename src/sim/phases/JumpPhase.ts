@@ -1,7 +1,7 @@
-import { C } from '../constants.ts';
-import type { SimEvent } from '../events.ts';
-import type { Rng } from '../rng/Rng.ts';
-import type { JumpState } from '../state.ts';
+import { C } from "../constants.ts";
+import type { SimEvent } from "../events.ts";
+import type { Rng } from "../rng/Rng.ts";
+import type { JumpState } from "../state.ts";
 
 /** `Game.jump()` - Game.as:1063-1071. */
 export function beginJump(rng: Rng): JumpState {
@@ -34,7 +34,7 @@ export function stepJump(s: JumpState, rng: Rng, out: SimEvent[]): boolean {
 
   if (s.y >= C.HAMSTER_START_Y) {
     s.y = C.HAMSTER_START_Y;
-    out.push({ t: 'sfx', id: 'hit', gain: C.SFX_VOLUME });
+    out.push({ t: "sfx", id: "hit", gain: C.SFX_VOLUME });
     return true;
   }
   return false;

@@ -11,24 +11,24 @@
 //
 // Four combinations, because the two axes are independent: `enhanced` and
 // `faithful` differ in what they draw, `pixi` and `canvas2d` in how.
-import { setTimeout as sleep } from 'node:timers/promises';
-import type { Browser, Page } from 'playwright';
-import { intEnv, run } from './lib/cli.ts';
+import { setTimeout as sleep } from "node:timers/promises";
+import type { Browser, Page } from "playwright";
+import { intEnv, run } from "./lib/cli.ts";
 import {
   launchChromium,
   playOneShot,
   startServer,
   waitForBoot,
   watchRequests,
-} from './lib/preview.ts';
+} from "./lib/preview.ts";
 
-const PORT = intEnv('PORT', 4174);
-const SEED = intEnv('SEED', 12345);
+const PORT = intEnv("PORT", 4174);
+const SEED = intEnv("SEED", 12345);
 const COMBINATIONS = [
-  { mode: 'enhanced', renderer: 'pixi' },
-  { mode: 'enhanced', renderer: 'canvas2d' },
-  { mode: 'faithful', renderer: 'canvas2d' },
-  { mode: 'faithful', renderer: 'pixi' },
+  { mode: "enhanced", renderer: "pixi" },
+  { mode: "enhanced", renderer: "canvas2d" },
+  { mode: "faithful", renderer: "canvas2d" },
+  { mode: "faithful", renderer: "pixi" },
 ] as const;
 
 /**
@@ -49,16 +49,16 @@ const COMBINATIONS = [
  * compositor, so it sees what a person sees, on either backend.
  */
 async function distinctColours(page: Page): Promise<number> {
-  const shot = await page.locator('#stage').screenshot({ type: 'png' });
+  const shot = await page.locator("#stage").screenshot({ type: "png" });
   return page.evaluate(
     async (source: string) => {
       const image = new Image();
       image.src = source;
       await image.decode();
-      const scaled = document.createElement('canvas');
+      const scaled = document.createElement("canvas");
       scaled.width = 40;
       scaled.height = 30;
-      const ctx = scaled.getContext('2d');
+      const ctx = scaled.getContext("2d");
       if (ctx === null) return 0;
       ctx.drawImage(image, 0, 0, scaled.width, scaled.height);
       const { data } = ctx.getImageData(0, 0, scaled.width, scaled.height);
@@ -68,7 +68,7 @@ async function distinctColours(page: Page): Promise<number> {
       }
       return seen.size;
     },
-    `data:image/png;base64,${shot.toString('base64')}`,
+    `data:image/png;base64,${shot.toString("base64")}`,
   );
 }
 
@@ -83,16 +83,16 @@ const MIN_COLOURS = 8;
 async function describe(page: Page): Promise<string> {
   try {
     return await page.evaluate(() => {
-      const stage = document.querySelector('#stage');
+      const stage = document.querySelector("#stage");
       const box = stage?.getBoundingClientRect();
       return (
-        `url=${location.href} title=${document.title || '(none)'} ` +
-        `stage=${stage === null ? 'missing' : `${box?.width}x${box?.height}`} ` +
-        `body=${document.body.innerHTML.replace(/\s+/g, ' ').slice(0, 200)}`
+        `url=${location.href} title=${document.title || "(none)"} ` +
+        `stage=${stage === null ? "missing" : `${box?.width}x${box?.height}`} ` +
+        `body=${document.body.innerHTML.replace(/\s+/g, " ").slice(0, 200)}`
       );
     });
   } catch (error) {
-    return `could not describe the page: ${String(error).split('\n')[0]}`;
+    return `could not describe the page: ${String(error).split("\n")[0]}`;
   }
 }
 
@@ -115,13 +115,13 @@ async function check(
 
   // Both channels: an unhandled throw and a logged error are different events,
   // and a failed shader link surfaces as the second one.
-  page.on('pageerror', error => failures.push(`uncaught: ${error.message}`));
-  page.on('console', message => {
-    if (message.type() === 'error') failures.push(`console.error: ${message.text()}`);
+  page.on("pageerror", (error) => failures.push(`uncaught: ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") failures.push(`console.error: ${message.text()}`);
   });
   // A crashed renderer process takes the DOM with it, so everything after it
   // fails as "element not found" and blames the wrong thing.
-  page.on('crash', () => failures.push('the tab crashed'));
+  page.on("crash", () => failures.push("the tab crashed"));
   // A chunk or the atlas answering 404 is exactly the failure this exists for.
   watchRequests(page, failures);
 
@@ -129,7 +129,7 @@ async function check(
     // `?profile` is what publishes the frame counter on window.
     const response = await page.goto(
       `${origin}/?seed=${SEED}&profile&mode=${mode}&renderer=${renderer}`,
-      { waitUntil: 'load' },
+      { waitUntil: "load" },
     );
     // Checked explicitly, because a 404 page is a perfectly valid page: it
     // loads, it has no `#boot` to wait for, and everything after this would
@@ -149,7 +149,7 @@ async function check(
   // a reported failure, not an exception that abandons the other three.
   let frames = 0;
   let colours = 0;
-  let version = '';
+  let version = "";
   try {
     await playOneShot(page);
     // The page renders on demand rather than every animation frame, so give the
@@ -157,7 +157,7 @@ async function check(
     await sleep(200);
 
     frames = await page.evaluate(() => window.__hamsterProfile?.framesSeen ?? 0);
-    if (frames === 0) failures.push('booted and played a shot but drew no frames');
+    if (frames === 0) failures.push("booted and played a shot but drew no frames");
 
     colours = await distinctColours(page);
     if (colours < MIN_COLOURS) {
@@ -166,10 +166,10 @@ async function check(
 
     // The build stamp is substituted at build time, so an empty slot means the
     // define never fired - and the deployed page could not be identified.
-    version = await page.evaluate(() => document.querySelector('#version')?.textContent ?? '');
-    if (version.trim() === '') failures.push('the build stamp is empty');
+    version = await page.evaluate(() => document.querySelector("#version")?.textContent ?? "");
+    if (version.trim() === "") failures.push("the build stamp is empty");
   } catch (error) {
-    failures.push(String(error).split('\n')[0] ?? String(error));
+    failures.push(String(error).split("\n")[0] ?? String(error));
     failures.push(await describe(page));
   }
 
@@ -191,17 +191,17 @@ async function main(): Promise<void> {
     await server.stop();
   }
 
-  console.log(`\nbuild ${results.find(result => result.version)?.version ?? '(none)'}`);
+  console.log(`\nbuild ${results.find((result) => result.version)?.version ?? "(none)"}`);
   for (const result of results) {
     const ok = result.failures.length === 0;
     console.log(
-      `${ok ? 'ok  ' : 'FAIL'}  ${result.label.padEnd(20)}` +
-        (ok ? `${result.frames} frames, ${result.colours} colours` : ''),
+      `${ok ? "ok  " : "FAIL"}  ${result.label.padEnd(20)}` +
+        (ok ? `${result.frames} frames, ${result.colours} colours` : ""),
     );
     for (const failure of result.failures) console.error(`        ${failure}`);
   }
 
-  const failed = results.filter(result => result.failures.length > 0);
+  const failed = results.filter((result) => result.failures.length > 0);
   if (failed.length > 0) {
     console.error(`\n${failed.length} of ${results.length} combinations failed.`);
     process.exitCode = 1;

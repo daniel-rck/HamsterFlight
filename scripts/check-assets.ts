@@ -13,13 +13,13 @@
 // past the end of the texture, and until now nothing would have said so.
 //
 //   node scripts/check-assets.ts
-import { readdir, readFile } from 'node:fs/promises';
-import { join } from 'node:path';
-import { ROOT, run } from './lib/cli.ts';
+import { readdir, readFile } from "node:fs/promises";
+import { join } from "node:path";
+import { ROOT, run } from "./lib/cli.ts";
 
-const MANIFEST = join(ROOT, 'src/assets/sprites.generated.ts');
-const SHEETS = join(ROOT, 'src/assets/sprites');
-const SOURCES = join(ROOT, 'src');
+const MANIFEST = join(ROOT, "src/assets/sprites.generated.ts");
+const SHEETS = join(ROOT, "src/assets/sprites");
+const SOURCES = join(ROOT, "src");
 
 interface Size {
   readonly w: number;
@@ -52,12 +52,12 @@ function pngSize(bytes: Buffer): Size | null {
  * zero and the check below says so instead of silently passing.
  */
 function parseManifest(text: string): { entries: Entry[]; densities: number[] } {
-  const body = text.slice(text.indexOf('export const SPRITES = {'));
+  const body = text.slice(text.indexOf("export const SPRITES = {"));
   const entries: Entry[] = [];
   const pattern = /\n {2}'?([\w/]+)'?: \{\n([\s\S]*?)\n {2}\},/g;
   for (const match of body.matchAll(pattern)) {
-    const name = match[1] ?? '';
-    const fields = match[2] ?? '';
+    const name = match[1] ?? "";
+    const fields = match[2] ?? "";
     const number = (key: string): number => {
       const found = fields.match(new RegExp(`\\b${key}: (-?[\\d.]+)`));
       return found?.[1] === undefined ? Number.NaN : Number(found[1]);
@@ -68,10 +68,10 @@ function parseManifest(text: string): { entries: Entry[]; densities: number[] } 
     }));
     entries.push({
       name,
-      w: number('w'),
-      h: number('h'),
-      frames: number('frames'),
-      sheet: number('sheet'),
+      w: number("w"),
+      h: number("h"),
+      frames: number("frames"),
+      sheet: number("sheet"),
       rects,
     });
   }
@@ -79,7 +79,9 @@ function parseManifest(text: string): { entries: Entry[]; densities: number[] } 
   return {
     entries,
     densities:
-      densities?.[1] === undefined ? [1] : densities[1].split(',').map(part => Number(part.trim())),
+      densities?.[1] === undefined
+        ? [1]
+        : densities[1].split(",").map((part) => Number(part.trim())),
   };
 }
 
@@ -98,25 +100,25 @@ async function sourceFiles(dir: string): Promise<string[]> {
   for (const item of await readdir(dir, { withFileTypes: true })) {
     const path = join(dir, item.name);
     if (item.isDirectory()) out.push(...(await sourceFiles(path)));
-    else if (item.name.endsWith('.ts')) out.push(path);
+    else if (item.name.endsWith(".ts")) out.push(path);
   }
   return out;
 }
 
 const sheetFile = (index: number, density: number): string =>
-  `sheet-${index}${density === 1 ? '' : `@${density}x`}.png`;
+  `sheet-${index}${density === 1 ? "" : `@${density}x`}.png`;
 
 async function main(): Promise<void> {
   const problems: string[] = [];
   const note = (message: string): number => problems.push(message);
 
-  const { entries, densities } = parseManifest(await readFile(MANIFEST, 'utf8'));
+  const { entries, densities } = parseManifest(await readFile(MANIFEST, "utf8"));
   if (entries.length === 0) {
     note(`${MANIFEST}: parsed no sprites - has the generator's output shape changed?`);
     reportProblems(problems);
     return;
   }
-  const sheetIndices = [...new Set(entries.map(entry => entry.sheet))];
+  const sheetIndices = [...new Set(entries.map((entry) => entry.sheet))];
 
   // Sheet dimensions, per density.
   const sizes = new Map<string, Size>();
@@ -136,7 +138,7 @@ async function main(): Promise<void> {
   }
 
   // The other direction: a sheet nobody references still ships, at ~800 kB.
-  const expected = new Set(densities.flatMap(d => sheetIndices.map(i => sheetFile(i, d))));
+  const expected = new Set(densities.flatMap((d) => sheetIndices.map((i) => sheetFile(i, d))));
   for (const file of await readdir(SHEETS)) {
     if (/^sheet-.*\.png$/.test(file) && !expected.has(file)) {
       note(`${file}: in src/assets/sprites/ but no manifest entry points at it - stale pack?`);
@@ -149,7 +151,7 @@ async function main(): Promise<void> {
   for (const index of sheetIndices) {
     const base = sizes.get(`${index}@1`);
     if (base === undefined) continue;
-    for (const density of densities.filter(d => d !== 1)) {
+    for (const density of densities.filter((d) => d !== 1)) {
       const scaled = sizes.get(`${index}@${density}`);
       if (scaled === undefined) continue;
       if (scaled.w !== base.w * density || scaled.h !== base.h * density) {
@@ -181,12 +183,12 @@ async function main(): Promise<void> {
   }
 
   // Ids built at runtime and cast past the union.
-  const names = entries.map(entry => entry.name);
+  const names = entries.map((entry) => entry.name);
   for (const file of await sourceFiles(SOURCES)) {
-    const text = await readFile(file, 'utf8');
+    const text = await readFile(file, "utf8");
     for (const [, prefix] of text.matchAll(DYNAMIC_ID)) {
-      if (prefix === undefined || prefix === '') continue;
-      if (!names.some(name => name.startsWith(prefix))) {
+      if (prefix === undefined || prefix === "") continue;
+      if (!names.some((name) => name.startsWith(prefix))) {
         note(`${file}: builds \`${prefix}\${...}\` as SpriteId, and no sprite starts with that`);
       }
     }
@@ -197,10 +199,11 @@ async function main(): Promise<void> {
     return;
   }
   const frames = entries.reduce((total, entry) => total + entry.frames, 0);
-  const rects = new Set(entries.flatMap(e => e.rects.map(r => `${e.sheet}:${r.x},${r.y}`))).size;
+  const rects = new Set(entries.flatMap((e) => e.rects.map((r) => `${e.sheet}:${r.x},${r.y}`)))
+    .size;
   console.log(
     `Checked ${entries.length} sprites / ${frames} frames (${rects} distinct rects) on ` +
-      `${sheetIndices.length} sheet(s) at ${densities.join('x, ')}x.`,
+      `${sheetIndices.length} sheet(s) at ${densities.join("x, ")}x.`,
   );
 }
 

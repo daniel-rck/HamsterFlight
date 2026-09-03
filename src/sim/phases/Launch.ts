@@ -1,8 +1,8 @@
-import { C } from '../constants.ts';
-import { overlaps } from '../math/aabb.ts';
-import { PI_AS2, radToDeg } from '../math/angles.ts';
-import type { JumpState } from '../state.ts';
-import type { Tuning } from '../tuning.ts';
+import { C } from "../constants.ts";
+import { overlaps } from "../math/aabb.ts";
+import { PI_AS2, radToDeg } from "../math/angles.ts";
+import type { JumpState } from "../state.ts";
+import type { Tuning } from "../tuning.ts";
 
 export interface LaunchResult {
   readonly hit: boolean;

@@ -1,4 +1,4 @@
-import type { SimSnapshot } from '@/sim/state.ts';
+import type { SimSnapshot } from "@/sim/state.ts";
 
 /**
  * Where to draw between two ticks.

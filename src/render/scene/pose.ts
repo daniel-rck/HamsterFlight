@@ -1,6 +1,6 @@
-import type { SpriteId } from '@/assets/sprites.generated.ts';
-import { C } from '@/sim/constants.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
+import type { SpriteId } from "@/assets/sprites.generated.ts";
+import { C } from "@/sim/constants.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
 
 /**
  * Which hamster clip the original would have made visible, and how it is
@@ -10,28 +10,28 @@ import type { SimSnapshot } from '@/sim/state.ts';
 
 /** The pose for this snapshot, in the original's visibility precedence. */
 export function poseFor(s: SimSnapshot): SpriteId {
-  if (s.phaseKind === 'jumping' || s.phaseKind === 'ready') return 'hamster/jump';
-  if (s.phaseKind === 'settling') {
+  if (s.phaseKind === "jumping" || s.phaseKind === "ready") return "hamster/jump";
+  if (s.phaseKind === "settling") {
     switch (s.outcome) {
-      case 'hole':
-        return 'hit/hole';
-      case 'cheer':
-        return 'hit/cheer';
-      case 'zero':
-        return 'hit/zero';
+      case "hole":
+        return "hit/hole";
+      case "cheer":
+        return "hit/cheer";
+      case "zero":
+        return "hit/zero";
       default:
-        return 'hit/faceplant';
+        return "hit/faceplant";
     }
   }
   const f = s.flags;
-  if (f.slide && f.skidding) return 'hamster/slide';
-  if (f.skidding) return 'hamster/skid';
-  if (f.bounce || f.superbounce) return 'hamster/ball';
-  if (f.falling) return 'hamster/drop';
-  if (f.glide) return 'hamster/glide';
-  if (f.speed) return 'hamster/blur';
-  if (f.wind) return 'hamster/wind';
-  return 'hamster/fly';
+  if (f.slide && f.skidding) return "hamster/slide";
+  if (f.skidding) return "hamster/skid";
+  if (f.bounce || f.superbounce) return "hamster/ball";
+  if (f.falling) return "hamster/drop";
+  if (f.glide) return "hamster/glide";
+  if (f.speed) return "hamster/blur";
+  if (f.wind) return "hamster/wind";
+  return "hamster/fly";
 }
 
 /**
@@ -40,7 +40,7 @@ export function poseFor(s: SimSnapshot): SpriteId {
  * the no-rotate one below, so it lives here rather than in the simulation.
  */
 export function outcomeOffsetY(s: SimSnapshot): number {
-  return s.phaseKind === 'settling' && s.outcome === 'faceplant' ? 3 : 0;
+  return s.phaseKind === "settling" && s.outcome === "faceplant" ? 3 : 0;
 }
 
 /**
@@ -78,7 +78,7 @@ const OUTCOME_ROTATION = Math.PI / 2;
 export const JUMP_SHADOW_STRIP = 6;
 
 export function bottomCrop(s: SimSnapshot): number {
-  return s.phaseKind === 'jumping' ? JUMP_SHADOW_STRIP : 0;
+  return s.phaseKind === "jumping" ? JUMP_SHADOW_STRIP : 0;
 }
 
 /**
@@ -91,8 +91,8 @@ export function bottomCrop(s: SimSnapshot): number {
  * `OUTCOME_ROTATION`.
  */
 export function hamsterRotation(s: SimSnapshot): number {
-  if (s.phaseKind === 'settling') return OUTCOME_ROTATION;
-  if (s.phaseKind !== 'flying') return 0;
+  if (s.phaseKind === "settling") return OUTCOME_ROTATION;
+  if (s.phaseKind !== "flying") return 0;
   const h = s.hamster;
   if (!h.doRotation) return 0;
   if (h.xvel < C.NO_ROTATE_XVEL && h.y > C.NO_ROTATE_Y) return 0;

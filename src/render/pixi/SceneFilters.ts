@@ -1,9 +1,9 @@
-import { BlurFilter, type Container, type Filter } from 'pixi.js';
-import type { Effects } from '@/render/effects/Effects.ts';
-import { SceneFilter } from '@/render/effects/SceneFilter.ts';
-import { altitudeOf, clamp } from '@/render/scene/decor.ts';
-import { C } from '@/sim/constants.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
+import { BlurFilter, type Container, type Filter } from "pixi.js";
+import type { Effects } from "@/render/effects/Effects.ts";
+import { SceneFilter } from "@/render/effects/SceneFilter.ts";
+import { altitudeOf, clamp } from "@/render/scene/decor.ts";
+import { C } from "@/sim/constants.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
 
 /** Below this the hamster is not moving fast enough for the smear to read. */
 const MOTION_BLUR_FROM = 32;
@@ -54,7 +54,7 @@ export class SceneFilters {
     const aberration = effects.aberration(now);
     const wave = effects.shockwave(now);
 
-    const blurring = effects.motion && s.phaseKind === 'flying' && speed > MOTION_BLUR_VISIBLE;
+    const blurring = effects.motion && s.phaseKind === "flying" && speed > MOTION_BLUR_VISIBLE;
     const shading = altitude > SHADING_VISIBLE_ALTITUDE || aberration > 0 || wave !== null;
 
     if (blurring) {

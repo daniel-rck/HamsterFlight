@@ -1,8 +1,8 @@
-import { SPRITES, type SpriteId } from '@/assets/sprites.generated.ts';
-import { C } from '@/sim/constants.ts';
-import type { SimEvent } from '@/sim/events.ts';
-import { launchMeterValue } from '@/sim/phases/JumpPhase.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
+import { SPRITES, type SpriteId } from "@/assets/sprites.generated.ts";
+import { C } from "@/sim/constants.ts";
+import type { SimEvent } from "@/sim/events.ts";
+import { launchMeterValue } from "@/sim/phases/JumpPhase.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
 
 /**
  * Everything at the launcher end of the world: the tower, the operator
@@ -115,7 +115,7 @@ function loopFrame(sprite: SpriteId, nowMs: number): number {
 export class PreLaunchScene {
   /** When the current swing run began; which one it is lives in `#swing`. */
   #swingStartedMs = 0;
-  #swing: 'idle' | 'hit' | 'miss' = 'idle';
+  #swing: "idle" | "hit" | "miss" = "idle";
   /** When the queue last shuffled, and which turn it shuffled into. */
   #shuffleStartedMs = Number.NEGATIVE_INFINITY;
   /** Null until the first snapshot, so nothing animates on the way in. */
@@ -128,8 +128,8 @@ export class PreLaunchScene {
    */
   consume(events: readonly SimEvent[], nowMs: number): void {
     for (const event of events) {
-      if (event.t === 'launched' || event.t === 'missed') {
-        this.#swing = event.t === 'launched' ? 'hit' : 'miss';
+      if (event.t === "launched" || event.t === "missed") {
+        this.#swing = event.t === "launched" ? "hit" : "miss";
         this.#swingStartedMs = nowMs;
       }
     }
@@ -137,7 +137,7 @@ export class PreLaunchScene {
 
   /** Drop everything in flight - on a restart, or when the tab comes back. */
   clear(): void {
-    this.#swing = 'idle';
+    this.#swing = "idle";
     this.#shuffleStartedMs = Number.NEGATIVE_INFINITY;
     this.#turn = null;
   }
@@ -166,19 +166,19 @@ export class PreLaunchScene {
   // -- world ---------------------------------------------------------------
 
   #launcher(s: SimSnapshot, nowMs: number): Placement[] {
-    const spinning = s.phaseKind === 'jumping';
+    const spinning = s.phaseKind === "jumping";
     return [
-      { sprite: 'launcher/swing', frame: this.#swingFrame(s, nowMs), x: 0, y: BACKDROP_Y },
-      { sprite: 'launcher/frame', frame: 0, x: 0, y: BACKDROP_Y },
+      { sprite: "launcher/swing", frame: this.#swingFrame(s, nowMs), x: 0, y: BACKDROP_Y },
+      { sprite: "launcher/frame", frame: 0, x: 0, y: BACKDROP_Y },
       {
-        sprite: 'launcher/wheel1',
-        frame: spinning ? loopFrame('launcher/wheel1', nowMs) : 0,
+        sprite: "launcher/wheel1",
+        frame: spinning ? loopFrame("launcher/wheel1", nowMs) : 0,
         x: 0,
         y: BACKDROP_Y,
       },
       {
-        sprite: 'launcher/wheel2',
-        frame: spinning ? loopFrame('launcher/wheel2', nowMs) : 0,
+        sprite: "launcher/wheel2",
+        frame: spinning ? loopFrame("launcher/wheel2", nowMs) : 0,
         x: 0,
         y: BACKDROP_Y,
       },
@@ -186,15 +186,15 @@ export class PreLaunchScene {
   }
 
   #swingFrame(s: SimSnapshot, nowMs: number): number {
-    if (this.#swing !== 'idle') {
-      const run = this.#swing === 'hit' ? SWING_HIT : SWING_MISS;
+    if (this.#swing !== "idle") {
+      const run = this.#swing === "hit" ? SWING_HIT : SWING_MISS;
       const frame = frameAt(this.#swingStartedMs, nowMs, run);
       if (frame >= 0) return frame;
-      this.#swing = 'idle';
+      this.#swing = "idle";
     }
     // A miss leaves the hamster still bobbing, so the wind-up pose comes back
     // as soon as the whiff has played out.
-    return s.phaseKind === 'jumping' ? SWING_WIND : SWING_IDLE;
+    return s.phaseKind === "jumping" ? SWING_WIND : SWING_IDLE;
   }
 
   #queue(s: SimSnapshot, nowMs: number): Placement[] {
@@ -214,7 +214,7 @@ export class PreLaunchScene {
         // and does not come back until the next game.
         if (walkingOut >= 0) {
           out.push({
-            sprite: 'queue/hamster',
+            sprite: "queue/hamster",
             frame: walkingOut,
             x: base + QUEUE_STEP * (shuffles - 1),
             y: QUEUE_Y,
@@ -229,14 +229,14 @@ export class PreLaunchScene {
         // frame 26 is what moves it, so the step and the move are not
         // simultaneous. That mismatch is the original's, not a rounding error.
         out.push({
-          sprite: 'queue/hamster',
+          sprite: "queue/hamster",
           frame: frameAt(this.#shuffleStartedMs, nowMs, WALK_UP),
           x: base + QUEUE_STEP * (shuffles - 1),
           y: QUEUE_Y,
         });
       } else {
         out.push({
-          sprite: 'queue/hamster',
+          sprite: "queue/hamster",
           frame: 0,
           x: base + QUEUE_STEP * shuffles,
           y: QUEUE_Y,
@@ -254,17 +254,17 @@ export class PreLaunchScene {
    * two phases before the hamster is in the air.
    */
   #meterUp(s: SimSnapshot): boolean {
-    return s.phaseKind === 'ready' || s.phaseKind === 'jumping';
+    return s.phaseKind === "ready" || s.phaseKind === "jumping";
   }
 
   #hud(s: SimSnapshot): Placement[] {
     const out: Placement[] = [];
     if (this.#meterUp(s)) {
-      out.push({ sprite: 'hud/launchMeter', frame: 0, x: METER_X, y: METER_Y });
+      out.push({ sprite: "hud/launchMeter", frame: 0, x: METER_X, y: METER_Y });
     }
     for (const [at, y] of PIP_Y.entries()) {
       out.push({
-        sprite: 'hud/shotPip',
+        sprite: "hud/shotPip",
         // `setScore()` lights the pip for the turn that just finished, so the
         // lit count is exactly the number of shots on the board.
         frame: at < s.shots.length ? PIP_ON : PIP_OFF,
@@ -278,7 +278,7 @@ export class PreLaunchScene {
   #needle(s: SimSnapshot): Needle | null {
     if (!this.#meterUp(s)) return null;
     return {
-      sprite: 'hud/launchArrow',
+      sprite: "hud/launchArrow",
       frame: 0,
       x: METER_X + NEEDLE_X,
       y: METER_Y + launchMeterValue(s.hamster.y),

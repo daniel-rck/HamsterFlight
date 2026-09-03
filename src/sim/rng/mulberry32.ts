@@ -1,4 +1,4 @@
-import type { Rng } from './Rng.ts';
+import type { Rng } from "./Rng.ts";
 
 function fnv1a(text: string): number {
   let h = 0x811c9dc5;

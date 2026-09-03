@@ -9,19 +9,19 @@
 // the CPU and Pixi is heavily penalised for reasons that have nothing to do
 // with its design. Only a run on real hardware settles the question; this
 // harness exists so that run is one command.
-import { setTimeout as sleep } from 'node:timers/promises';
-import type { Browser, Page } from 'playwright';
-import { intEnv, intListEnv, run } from './lib/cli.ts';
-import { launchChromium, playOneShot, startServer, waitForBoot } from './lib/preview.ts';
+import { setTimeout as sleep } from "node:timers/promises";
+import type { Browser, Page } from "playwright";
+import { intEnv, intListEnv, run } from "./lib/cli.ts";
+import { launchChromium, playOneShot, startServer, waitForBoot } from "./lib/preview.ts";
 
-const PORT = intEnv('PORT', 4173);
-const SEED = intEnv('SEED', 12345);
+const PORT = intEnv("PORT", 4173);
+const SEED = intEnv("SEED", 12345);
 // Small enough that even the heaviest stress level closes several windows
 // inside RUN_MS, large enough for a stable p50.
-const WINDOW = intEnv('WINDOW', 40);
-const RUN_MS = intEnv('RUN_MS', 16000);
-const BACKENDS = ['canvas2d', 'pixi'] as const;
-const STRESS = intListEnv('STRESS', [1, 4, 16, 64]);
+const WINDOW = intEnv("WINDOW", 40);
+const RUN_MS = intEnv("RUN_MS", 16000);
+const BACKENDS = ["canvas2d", "pixi"] as const;
+const STRESS = intListEnv("STRESS", [1, 4, 16, 64]);
 
 interface Window {
   readonly p50: number;
@@ -63,19 +63,19 @@ async function measure(
   stress: number,
 ): Promise<Measurement> {
   const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
-  page.on('pageerror', error => process.stderr.write(`  page error: ${error.message}\n`));
+  page.on("pageerror", (error) => process.stderr.write(`  page error: ${error.message}\n`));
 
   const query = `?seed=${SEED}&profile&profileWindow=${WINDOW}&stress=${stress}${
-    backend === 'pixi' ? '&renderer=pixi' : ''
+    backend === "pixi" ? "&renderer=pixi" : ""
   }`;
-  await page.goto(origin + query, { waitUntil: 'load' });
+  await page.goto(origin + query, { waitUntil: "load" });
   await waitForBoot(page);
 
   const gpu = await page.evaluate(() => {
-    const probe = document.createElement('canvas').getContext('webgl2');
-    if (probe === null) return 'no webgl2';
-    const info = probe.getExtension('WEBGL_debug_renderer_info');
-    return info === null ? 'unknown' : String(probe.getParameter(info.UNMASKED_RENDERER_WEBGL));
+    const probe = document.createElement("canvas").getContext("webgl2");
+    if (probe === null) return "no webgl2";
+    const info = probe.getExtension("WEBGL_debug_renderer_info");
+    return info === null ? "unknown" : String(probe.getParameter(info.UNMASKED_RENDERER_WEBGL));
   });
 
   const signal = { done: false };
@@ -91,7 +91,7 @@ async function measure(
     return profiler === undefined
       ? { windows: [] as Window[], frames: 0 }
       : {
-          windows: profiler.reports.map(r => ({ p50: r.p50, p95: r.p95, max: r.max })),
+          windows: profiler.reports.map((r) => ({ p50: r.p50, p95: r.p95, max: r.max })),
           frames: profiler.framesSeen,
         };
   });
@@ -125,25 +125,25 @@ async function main(): Promise<void> {
     await server.stop();
   }
 
-  const gpu = results.find(row => row.gpu !== 'unknown')?.gpu ?? 'unknown';
+  const gpu = results.find((row) => row.gpu !== "unknown")?.gpu ?? "unknown";
   console.log(`\nGPU: ${gpu}`);
   console.log(`seed=${SEED}  window=${WINDOW} frames  ${RUN_MS / 1000}s per configuration\n`);
-  console.log('backend    stress   frames   p50 ms   p95 ms   max ms   fps');
-  console.log('-'.repeat(62));
+  console.log("backend    stress   frames   p50 ms   p95 ms   max ms   fps");
+  console.log("-".repeat(62));
   for (const row of results) {
     const cell = (value: number): string =>
-      Number.isNaN(value) ? '      -' : value.toFixed(3).padStart(7);
+      Number.isNaN(value) ? "      -" : value.toFixed(3).padStart(7);
     const fps = row.frames / (RUN_MS / 1000);
     console.log(
       `${row.backend.padEnd(10)} ${String(row.stress).padStart(6)}  ${String(row.frames).padStart(7)}  ` +
-        `${cell(median(row.windows.map(w => w.p50)))}  ${cell(median(row.windows.map(w => w.p95)))}  ` +
-        `${cell(median(row.windows.map(w => w.max)))}  ${fps.toFixed(1).padStart(5)}` +
-        (row.error === null ? '' : `  <- flight loop stopped: ${row.error.split('\n')[0]}`),
+        `${cell(median(row.windows.map((w) => w.p50)))}  ${cell(median(row.windows.map((w) => w.p95)))}  ` +
+        `${cell(median(row.windows.map((w) => w.max)))}  ${fps.toFixed(1).padStart(5)}` +
+        (row.error === null ? "" : `  <- flight loop stopped: ${row.error.split("\n")[0]}`),
     );
   }
   console.log(
-    '\nValues are the median across measurement windows; the first window of each\n' +
-      'run is discarded as warmup.',
+    "\nValues are the median across measurement windows; the first window of each\n" +
+      "run is discarded as warmup.",
   );
 }
 

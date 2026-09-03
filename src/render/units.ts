@@ -31,6 +31,6 @@ export interface MarkerScale {
 
 export function markerScale(pixelsPerFoot: number, metric: boolean): MarkerScale {
   return metric
-    ? { step: 5, labelEvery: 5, pixels: pixelsPerFoot / METRES_PER_FOOT, suffix: 'm' }
-    : { step: 10, labelEvery: 5, pixels: pixelsPerFoot, suffix: 'ft' };
+    ? { step: 5, labelEvery: 5, pixels: pixelsPerFoot / METRES_PER_FOOT, suffix: "m" }
+    : { step: 10, labelEvery: 5, pixels: pixelsPerFoot, suffix: "ft" };
 }

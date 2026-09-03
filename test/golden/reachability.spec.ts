@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { beginJump, stepJump } from '@/sim/phases/JumpPhase.ts';
-import { attemptLaunch } from '@/sim/phases/Launch.ts';
-import { mulberry32 } from '@/sim/rng/mulberry32.ts';
-import { DEFAULT_TUNING } from '@/sim/tuning.ts';
+import { describe, expect, it } from "vitest";
+import { beginJump, stepJump } from "@/sim/phases/JumpPhase.ts";
+import { attemptLaunch } from "@/sim/phases/Launch.ts";
+import { mulberry32 } from "@/sim/rng/mulberry32.ts";
+import { DEFAULT_TUNING } from "@/sim/tuning.ts";
 
 /**
  * The pillow window follows from the hitboxes extracted out of the SWF, and it
@@ -16,8 +16,8 @@ import { DEFAULT_TUNING } from '@/sim/tuning.ts';
  * reads the placement from the frame the extractor encounters first. If the box
  * is ever recalibrated, this test says exactly what that did to playability.
  */
-describe('pillow reachability', () => {
-  it('pins the share of jumps that can reach the pillow', () => {
+describe("pillow reachability", () => {
+  it("pins the share of jumps that can reach the pillow", () => {
     let reachable = 0;
     const total = 1000;
 
@@ -39,6 +39,6 @@ describe('pillow reachability', () => {
     // `core` - the one open measurement - shows up here first.
     expect(share).toBeGreaterThan(0.6);
     expect(share).toBeLessThan(0.76);
-    console.info('[reachability] %d%% of jumps can reach the pillow', Math.round(share * 100));
+    console.info("[reachability] %d%% of jumps can reach the pillow", Math.round(share * 100));
   });
 });

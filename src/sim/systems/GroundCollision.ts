@@ -1,8 +1,8 @@
-import { C } from '../constants.ts';
-import type { SimEvent } from '../events.ts';
-import { radToDeg } from '../math/angles.ts';
-import type { FlightState } from '../state.ts';
-import { clearFalling } from './PowerupPickups.ts';
+import { C } from "../constants.ts";
+import type { SimEvent } from "../events.ts";
+import { radToDeg } from "../math/angles.ts";
+import type { FlightState } from "../state.ts";
+import { clearFalling } from "./PowerupPickups.ts";
 
 /**
  * `Game.checkCollision()` - Game.as:775-904.
@@ -40,7 +40,7 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
 
   if (s.flags.glide) {
     s.flags.glide = false;
-    out.push({ t: 'glide', on: false });
+    out.push({ t: "glide", on: false });
   }
 
   const dxSpan = p.x - p.ox;
@@ -58,8 +58,8 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
     p.xvel *= C.BOUNCE_F;
     p.yvel /= C.PLAIN_BOUNCE_Y_DIV;
     if (!s.flags.skidding) {
-      out.push({ t: 'fx', id: 'bounceFx', x: p.x, y: 955 });
-      out.push({ t: 'sfx', id: 'bump', gain: C.SFX_VOLUME });
+      out.push({ t: "fx", id: "bounceFx", x: p.x, y: 955 });
+      out.push({ t: "sfx", id: "bump", gain: C.SFX_VOLUME });
     }
   } else if (s.flags.bounce) {
     p.y = C.BOUNCE_RESET_Y;
@@ -68,8 +68,8 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
     if (p.yvel > C.BOUNCE_Y_MIN) p.yvel = C.BOUNCE_Y_MIN;
     s.flags.bounce = false;
     p.hit = false;
-    out.push({ t: 'sfx', id: 'bounce', gain: C.SFX_VOLUME });
-    out.push({ t: 'fx', id: 'break', x: p.x, y: 955 });
+    out.push({ t: "sfx", id: "bounce", gain: C.SFX_VOLUME });
+    out.push({ t: "fx", id: "break", x: p.x, y: 955 });
   } else if (s.flags.superbounce) {
     p.y = C.BOUNCE_RESET_Y;
     // The original writes `1 + this.f`, not a literal 1.6.
@@ -78,8 +78,8 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
     if (p.yvel > C.SUPERBOUNCE_Y_MIN) p.yvel = C.SUPERBOUNCE_Y_MIN;
     s.flags.superbounce = false;
     p.hit = false;
-    out.push({ t: 'sfx', id: 'superbounce', gain: C.SFX_VOLUME });
-    out.push({ t: 'fx', id: 'superBreak', x: p.x, y: 955 });
+    out.push({ t: "sfx", id: "superbounce", gain: C.SFX_VOLUME });
+    out.push({ t: "fx", id: "superBreak", x: p.x, y: 955 });
   } else if (angleDeg > C.FACEPLANT_ANGLE_DEG) {
     // Faceplant: the shot ends here.
     p.y = C.GROUND_Y;
@@ -88,22 +88,22 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
     // Usually step 11 stops `sndFly` again on this same tick, as the original
     // does via `resetSounds()`. Not always: a speed or wind pulse landing on
     // this tick adds xvel back at step 4, so the stop here is load-bearing.
-    out.push({ t: 'sfxStop', id: 'fly' });
+    out.push({ t: "sfxStop", id: "fly" });
     // A steep impact is punished twice: faceplant instead of bounce, and the
     // crater animation instead of the ordinary one.
-    s.outcome = s.flags.falling ? 'hole' : 'faceplant';
-    if (!s.flags.falling) out.push({ t: 'sfx', id: 'hit', gain: C.SFX_VOLUME });
+    s.outcome = s.flags.falling ? "hole" : "faceplant";
+    if (!s.flags.falling) out.push({ t: "sfx", id: "hit", gain: C.SFX_VOLUME });
   } else if (s.flags.slide) {
     p.y = C.GROUND_Y;
     p.xvel *= C.SLIDE_F;
     p.yvel /= C.PLAIN_BOUNCE_Y_DIV;
-    if (!s.flags.skidding) out.push({ t: 'sfx', id: 'bump', gain: C.SFX_VOLUME });
+    if (!s.flags.skidding) out.push({ t: "sfx", id: "bump", gain: C.SFX_VOLUME });
   } else {
     // Reached when the angle is exactly 70: neither `< 70` nor `> 70`.
     p.y = C.GROUND_Y;
     p.xvel *= C.BOUNCE_F;
     p.yvel /= C.PLAIN_BOUNCE_Y_DIV;
-    if (!s.flags.skidding) out.push({ t: 'sfx', id: 'bump', gain: C.SFX_VOLUME });
+    if (!s.flags.skidding) out.push({ t: "sfx", id: "bump", gain: C.SFX_VOLUME });
   }
 
   // Every branch ends with `this.falling = false` (Game.as:826, 860, ...). The

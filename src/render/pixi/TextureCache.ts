@@ -1,5 +1,5 @@
-import { ImageSource, Rectangle, Texture, type TextureSource } from 'pixi.js';
-import type { Sprite as SpriteAsset } from '@/assets/AssetLoader.ts';
+import { ImageSource, Rectangle, Texture, type TextureSource } from "pixi.js";
+import type { Sprite as SpriteAsset } from "@/assets/AssetLoader.ts";
 
 /**
  * One GPU texture per atlas sheet, and one lightweight `Texture` view per frame

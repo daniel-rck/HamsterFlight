@@ -1,11 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import type { AssetBundle } from '@/assets/AssetLoader.ts';
-import { SPRITES } from '@/assets/sprites.generated.ts';
-import { Effects } from '@/render/effects/Effects.ts';
-import { GameRenderer } from '@/render/GameRenderer.ts';
-import { C } from '@/sim/constants.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
-import { noEffects } from '@/sim/types.ts';
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { AssetBundle } from "@/assets/AssetLoader.ts";
+import { SPRITES } from "@/assets/sprites.generated.ts";
+import { Effects } from "@/render/effects/Effects.ts";
+import { GameRenderer } from "@/render/GameRenderer.ts";
+import { C } from "@/sim/constants.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
+import { noEffects } from "@/sim/types.ts";
 
 /**
  * The shake maths is covered in effects.spec.ts. What this pins down is the
@@ -75,12 +75,12 @@ const EMPTY_ASSETS: AssetBundle = { get: () => undefined, sheets: [], density: 1
 /** Every sprite resolves, each frame at a distinct atlas position. */
 function stubAssets(): AssetBundle {
   let at = 0;
-  const made = new Map<string, ReturnType<AssetBundle['get']>>();
+  const made = new Map<string, ReturnType<AssetBundle["get"]>>();
   return {
     sheets: [],
     missing: [],
     density: 1,
-    get: id => {
+    get: (id) => {
       let sprite = made.get(id);
       if (sprite === undefined) {
         at += 100;
@@ -100,7 +100,7 @@ function stubAssets(): AssetBundle {
 function snapshot(): SimSnapshot {
   return {
     tick: 1,
-    phaseKind: 'flying',
+    phaseKind: "flying",
     turn: 1,
     paused: false,
     hamster: { x: 500, y: 700, xvel: 20, yvel: -10, visible: true, doRotation: true },
@@ -123,7 +123,7 @@ function snapshot(): SimSnapshot {
 function worldTranslation(transforms: readonly Transform[]): readonly [number, number] {
   expect(transforms).toHaveLength(3);
   const world = transforms[1];
-  if (world === undefined) throw new Error('no world transform recorded');
+  if (world === undefined) throw new Error("no world transform recorded");
   return [world[4], world[5]];
 }
 
@@ -137,15 +137,15 @@ function withFakeWindow(): void {
   });
 }
 
-describe('impact shake wiring', () => {
+describe("impact shake wiring", () => {
   withFakeWindow();
 
-  it('displaces the world by the shake offset and leaves the HUD alone', () => {
+  it("displaces the world by the shake offset and leaves the HUD alone", () => {
     const effects = new Effects({ enhanced: true });
     const transforms: Transform[] = [];
     const renderer = new GameRenderer(recordingCanvas(transforms), EMPTY_ASSETS, effects);
 
-    effects.consume([{ t: 'fx', id: 'superBreak', x: 500, y: 955 }], 0);
+    effects.consume([{ t: "fx", id: "superBreak", x: 500, y: 955 }], 0);
     const offset = effects.shakeOffset(40);
     expect(offset).not.toEqual({ x: 0, y: 0 });
 
@@ -154,15 +154,15 @@ describe('impact shake wiring', () => {
     expect(worldTranslation(transforms)).toEqual([s.camera.x + offset.x, s.camera.y + offset.y]);
 
     // The HUD is drawn under an untranslated transform, every frame.
-    expect(transforms.filter(t => t[4] === 0 && t[5] === 0).length).toBeGreaterThan(0);
+    expect(transforms.filter((t) => t[4] === 0 && t[5] === 0).length).toBeGreaterThan(0);
   });
 
-  it('leaves the world exactly on the camera when shake is off', () => {
+  it("leaves the world exactly on the camera when shake is off", () => {
     const effects = new Effects();
     const transforms: Transform[] = [];
     const renderer = new GameRenderer(recordingCanvas(transforms), EMPTY_ASSETS, effects);
 
-    effects.consume([{ t: 'fx', id: 'superBreak', x: 500, y: 955 }], 0);
+    effects.consume([{ t: "fx", id: "superBreak", x: 500, y: 955 }], 0);
     renderer.draw(snapshot(), 40);
 
     const s = snapshot();
@@ -170,7 +170,7 @@ describe('impact shake wiring', () => {
   });
 });
 
-describe('the hamster inside the bounce bubble', () => {
+describe("the hamster inside the bounce bubble", () => {
   withFakeWindow();
 
   function bouncing(): SimSnapshot {
@@ -178,7 +178,7 @@ describe('the hamster inside the bounce bubble', () => {
     return { ...s, flags: { ...s.flags, bounce: true } };
   }
 
-  it('draws the flier under a translucent bubble in enhanced mode', () => {
+  it("draws the flier under a translucent bubble in enhanced mode", () => {
     const drawn: Drawn[] = [];
     const renderer = new GameRenderer(
       recordingCanvas([], drawn),
@@ -187,30 +187,30 @@ describe('the hamster inside the bounce bubble', () => {
     );
     renderer.draw(bouncing(), 0);
 
-    const ball = SPRITES['hamster/ball'];
-    const fly = SPRITES['hamster/fly'];
+    const ball = SPRITES["hamster/ball"];
+    const fly = SPRITES["hamster/fly"];
     expect(ball).toBeDefined();
     expect(fly).toBeDefined();
     // Two hamster draws: the flier at full strength, the bubble over it.
-    const opaque = drawn.filter(d => d.alpha === 1);
-    const faded = drawn.filter(d => d.alpha > 0 && d.alpha < 1);
+    const opaque = drawn.filter((d) => d.alpha === 1);
+    const faded = drawn.filter((d) => d.alpha > 0 && d.alpha < 1);
     expect(faded).toHaveLength(1);
     expect(opaque.length).toBeGreaterThan(0);
   });
 
-  it('draws the bubble alone, fully opaque, in faithful mode', () => {
+  it("draws the bubble alone, fully opaque, in faithful mode", () => {
     const drawn: Drawn[] = [];
     const renderer = new GameRenderer(recordingCanvas([], drawn), stubAssets(), new Effects());
     renderer.draw(bouncing(), 0);
 
-    expect(drawn.filter(d => d.alpha > 0 && d.alpha < 1)).toHaveLength(0);
+    expect(drawn.filter((d) => d.alpha > 0 && d.alpha < 1)).toHaveLength(0);
   });
 });
 
-describe('particle wiring', () => {
+describe("particle wiring", () => {
   withFakeWindow();
 
-  it('draws one fading quad per live particle', () => {
+  it("draws one fading quad per live particle", () => {
     const effects = new Effects({ enhanced: true });
     const rects: Drawn[] = [];
     const renderer = new GameRenderer(recordingCanvas([], [], rects), stubAssets(), effects);
@@ -218,38 +218,38 @@ describe('particle wiring', () => {
     // Nothing emitted yet: the only fills are the sky, ground and HUD chrome.
     renderer.draw(snapshot(), 0);
     const baseline = rects.length;
-    expect(rects.filter(r => r.alpha > 0 && r.alpha < 1)).toHaveLength(0);
+    expect(rects.filter((r) => r.alpha > 0 && r.alpha < 1)).toHaveLength(0);
 
     rects.length = 0;
-    effects.consume([{ t: 'pickup', kind: 'speed' }], 0, { x: 500, y: 700 });
+    effects.consume([{ t: "pickup", kind: "speed" }], 0, { x: 500, y: 700 });
     const live = effects.particles(80).length;
     expect(live).toBeGreaterThan(4);
 
     renderer.draw(snapshot(), 80);
     // Each particle is a fill at a partial alpha, on top of the same chrome.
-    const faded = rects.filter(r => r.alpha > 0 && r.alpha < 1);
+    const faded = rects.filter((r) => r.alpha > 0 && r.alpha < 1);
     expect(faded).toHaveLength(live);
     expect(rects.length).toBe(baseline + live);
   });
 
-  it('draws none of them in faithful mode', () => {
+  it("draws none of them in faithful mode", () => {
     const effects = new Effects();
     const rects: Drawn[] = [];
     const renderer = new GameRenderer(recordingCanvas([], [], rects), stubAssets(), effects);
 
-    effects.consume([{ t: 'pickup', kind: 'speed' }], 0, { x: 500, y: 700 });
+    effects.consume([{ t: "pickup", kind: "speed" }], 0, { x: 500, y: 700 });
     effects.emitSkidDust(500, 950, 0);
     renderer.draw(snapshot(), 80);
-    expect(rects.filter(r => r.alpha > 0 && r.alpha < 1)).toHaveLength(0);
+    expect(rects.filter((r) => r.alpha > 0 && r.alpha < 1)).toHaveLength(0);
   });
 });
 
-describe('manifest scale', () => {
+describe("manifest scale", () => {
   withFakeWindow();
 
   /** One sprite, cut from a sheet at `density` sheet pixels per stage pixel. */
   function scaledAssets(density: number): AssetBundle {
-    const meta = SPRITES['hamster/fly'];
+    const meta = SPRITES["hamster/fly"];
     const sprite = {
       meta,
       sheet: {} as ImageBitmap,
@@ -259,7 +259,7 @@ describe('manifest scale', () => {
     return { sheets: [], missing: [], density, get: () => sprite };
   }
 
-  it('draws a denser sheet back down to the same stage box', () => {
+  it("draws a denser sheet back down to the same stage box", () => {
     for (const density of [1, 2, 4]) {
       const drawn: Drawn[] = [];
       const renderer = new GameRenderer(
@@ -271,7 +271,7 @@ describe('manifest scale', () => {
 
       // Whatever the art scale, the destination is the same stage-sized box.
       expect(drawn.length).toBeGreaterThan(0);
-      expect(drawn.every(d => d.dw === 59 && d.dh === 38)).toBe(true);
+      expect(drawn.every((d) => d.dw === 59 && d.dh === 38)).toBe(true);
     }
   });
 });

@@ -1,8 +1,8 @@
-import type { InputCommand } from './commands.ts';
-import { Simulation } from './Simulation.ts';
-import type { SimSnapshot } from './state.ts';
-import { DEFAULT_TUNING, type Tuning } from './tuning.ts';
-import type { ShotOutcome } from './types.ts';
+import type { InputCommand } from "./commands.ts";
+import { Simulation } from "./Simulation.ts";
+import type { SimSnapshot } from "./state.ts";
+import { DEFAULT_TUNING, type Tuning } from "./tuning.ts";
+import type { ShotOutcome } from "./types.ts";
 
 /**
  * Plays whole shots against the real engine under a scripted button policy.
@@ -20,16 +20,16 @@ export type HoldPolicy = (s: SimSnapshot) => boolean;
 /** Never touch the button. */
 export const never: HoldPolicy = () => false;
 /** Hold whenever there is any glide left - what the analysis called "mash". */
-export const hold: HoldPolicy = s => s.glidePoints > 0;
+export const hold: HoldPolicy = (s) => s.glidePoints > 0;
 /** Actually mash: press on alternate ticks while there is glide left. */
-export const mash: HoldPolicy = s => s.glidePoints > 0 && s.tick % 2 === 0;
+export const mash: HoldPolicy = (s) => s.glidePoints > 0 && s.tick % 2 === 0;
 /** Hold only while not already climbing hard - the analysis's "smart" strategy. */
-export const smart: HoldPolicy = s => s.glidePoints > 0 && s.hamster.yvel > -5;
+export const smart: HoldPolicy = (s) => s.glidePoints > 0 && s.hamster.yvel > -5;
 
 export interface ShotResult {
   readonly feet: number;
   /** `miss` when the second click never connected; the shot then never flew. */
-  readonly outcome: ShotOutcome | 'miss';
+  readonly outcome: ShotOutcome | "miss";
   readonly ticks: number;
   /** Highest point reached, in px above the launch height. */
   readonly peakUp: number;
@@ -58,19 +58,19 @@ export function runShot(options: ShotOptions): ShotResult {
   const policy = options.hold ?? never;
   const maxTicks = options.maxTicks ?? DEFAULT_MAX_TICKS;
 
-  sim.step([{ kind: 'press' }, { kind: 'release' }]);
-  for (let t = 0; t < options.clickTick && sim.phaseKind === 'jumping'; t++) sim.step();
+  sim.step([{ kind: "press" }, { kind: "release" }]);
+  for (let t = 0; t < options.clickTick && sim.phaseKind === "jumping"; t++) sim.step();
 
-  if (sim.phaseKind !== 'jumping') {
+  if (sim.phaseKind !== "jumping") {
     // The hamster came back down before `clickTick`. The simulation hands the
     // turn back rather than scoring it, so this is the driver saying "no shot",
     // not an outcome the game produced.
-    return { feet: 0, outcome: 'zero', ticks: sim.tick, peakUp: 0, truncated: false };
+    return { feet: 0, outcome: "zero", ticks: sim.tick, peakUp: 0, truncated: false };
   }
 
-  const launchEvents = sim.step([{ kind: 'press' }, { kind: 'release' }]);
-  if (launchEvents.some(e => e.t === 'missed')) {
-    return { feet: 0, outcome: 'miss', ticks: sim.tick, peakUp: 0, truncated: false };
+  const launchEvents = sim.step([{ kind: "press" }, { kind: "release" }]);
+  if (launchEvents.some((e) => e.t === "missed")) {
+    return { feet: 0, outcome: "miss", ticks: sim.tick, peakUp: 0, truncated: false };
   }
 
   const launchY = sim.snapshot().hamster.y;
@@ -85,12 +85,12 @@ export function runShot(options: ShotOptions): ShotResult {
 
     const want = policy(snap);
     const commands: InputCommand[] = [];
-    if (want && !down) commands.push({ kind: 'press' });
-    else if (!want && down) commands.push({ kind: 'release' });
+    if (want && !down) commands.push({ kind: "press" });
+    else if (!want && down) commands.push({ kind: "release" });
     down = want;
 
     for (const ev of sim.step(commands)) {
-      if (ev.t === 'shotDone') {
+      if (ev.t === "shotDone") {
         feet = ev.feet;
         outcome = ev.outcome;
       }
@@ -99,7 +99,7 @@ export function runShot(options: ShotOptions): ShotResult {
 
   return {
     feet,
-    outcome: outcome ?? 'cheer',
+    outcome: outcome ?? "cheer",
     ticks: sim.tick,
     peakUp: Math.round(launchY - minY),
     truncated: outcome === null,
@@ -115,7 +115,7 @@ export function bestShot(
   let best: ShotResult | null = null;
   for (let clickTick = 3; clickTick <= 26; clickTick++) {
     const r = runShot({ seed, clickTick, hold: policy, tuning });
-    if (r.outcome === 'miss') continue;
+    if (r.outcome === "miss") continue;
     if (best === null || r.feet > best.feet) best = r;
   }
   return best;

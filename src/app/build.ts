@@ -15,12 +15,12 @@ declare const __BUILD__: { readonly commit: string; readonly date: string } | un
  * read" case the label already handles.
  */
 export const BUILD =
-  typeof __BUILD__ === 'undefined'
-    ? { commit: 'unknown', date: new Date().toISOString().slice(0, 10) }
+  typeof __BUILD__ === "undefined"
+    ? { commit: "unknown", date: new Date().toISOString().slice(0, 10) }
     : __BUILD__;
 
 /** e.g. `2c1e3d4c · 2026-09-01`, or `dev` when nothing could be determined. */
 export function versionLabel(build: typeof BUILD = BUILD): string {
-  if (build.commit === 'unknown') return `dev · ${build.date}`;
+  if (build.commit === "unknown") return `dev · ${build.date}`;
   return `${build.commit} · ${build.date}`;
 }

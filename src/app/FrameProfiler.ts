@@ -95,7 +95,7 @@ function percentile(sorted: Float64Array, q: number): number {
 function logStats(stats: FrameStats): void {
   const ms = (value: number): string => value.toFixed(3).padStart(7);
   console.info(
-    '[profile] %s  n=%d  p50=%sms  p95=%sms  p99=%sms  max=%sms  mean=%sms',
+    "[profile] %s  n=%d  p50=%sms  p95=%sms  p99=%sms  max=%sms  mean=%sms",
     stats.label,
     stats.samples,
     ms(stats.p50),

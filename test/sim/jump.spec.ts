@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
-import { C } from '@/sim/constants.ts';
-import { beginJump, launchMeterValue, stepJump } from '@/sim/phases/JumpPhase.ts';
-import { mulberry32 } from '@/sim/rng/mulberry32.ts';
+import { describe, expect, it } from "vitest";
+import { C } from "@/sim/constants.ts";
+import { beginJump, launchMeterValue, stepJump } from "@/sim/phases/JumpPhase.ts";
+import { mulberry32 } from "@/sim/rng/mulberry32.ts";
 
-describe('jump phase', () => {
-  it('starts with yvel in -14..-10', () => {
+describe("jump phase", () => {
+  it("starts with yvel in -14..-10", () => {
     for (let seed = 1; seed <= 200; seed++) {
       const { yvel } = beginJump(mulberry32(seed));
       expect(yvel).toBeGreaterThanOrEqual(-14);
@@ -13,7 +13,7 @@ describe('jump phase', () => {
     }
   });
 
-  it('fires the boost exactly once, on the first tick below y = 930', () => {
+  it("fires the boost exactly once, on the first tick below y = 930", () => {
     const rng = mulberry32(42);
     const s = beginJump(rng);
     let boostTicks = 0;
@@ -37,7 +37,7 @@ describe('jump phase', () => {
     expect(boostedFrom ?? 0).toBeLessThan(C.JUMP_BOOST_Y);
   });
 
-  it('uses asymmetric gravity: 1.5 rising, 0.75 falling', () => {
+  it("uses asymmetric gravity: 1.5 rising, 0.75 falling", () => {
     // Past the boost window and already falling, so only the 0.75 term applies.
     const s = { y: 800, yvel: 4, boost: true, swung: false };
     stepJump(s, mulberry32(1), []);
@@ -48,7 +48,7 @@ describe('jump phase', () => {
     expect(rising.yvel).toBeCloseTo(-4 + C.JUMP_GRAV_RISING, 10);
   });
 
-  it('has a seed-dependent apex spanning roughly 170 px', () => {
+  it("has a seed-dependent apex spanning roughly 170 px", () => {
     // The document quotes "apex at y ~= 726". That is a mid-range figure, not a
     // bound: yvel starts in -14..-10 and the boost adds -19..-15, so the reachable
     // apex spans about 660 (best rolls) to 840 (worst). Asserted as a range so a
@@ -74,7 +74,7 @@ describe('jump phase', () => {
     expect(max).toBeGreaterThan(726);
   });
 
-  it('lands back on the pad if the window is missed', () => {
+  it("lands back on the pad if the window is missed", () => {
     const rng = mulberry32(3);
     const s = beginJump(rng);
     let landed = false;
@@ -88,7 +88,7 @@ describe('jump phase', () => {
     expect(s.y).toBe(C.HAMSTER_START_Y);
   });
 
-  it('clamps the launch meter to 10..100', () => {
+  it("clamps the launch meter to 10..100", () => {
     expect(launchMeterValue(600)).toBe(10);
     expect(launchMeterValue(956)).toBe(100);
     expect(launchMeterValue(715)).toBeCloseTo(48, 10);

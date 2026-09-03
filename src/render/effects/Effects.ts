@@ -1,15 +1,15 @@
-import { SPRITES, type SpriteId } from '@/assets/sprites.generated.ts';
-import { PoseClock } from '@/render/PoseClock.ts';
-import { PreLaunchScene } from '@/render/PreLaunchScene.ts';
-import { POWERUP_SPRITE } from '@/render/scene/decor.ts';
-import type { FxId, SimEvent } from '@/sim/events.ts';
-import type { PowerupKind } from '@/sim/types.ts';
+import { SPRITES, type SpriteId } from "@/assets/sprites.generated.ts";
+import { PoseClock } from "@/render/PoseClock.ts";
+import { PreLaunchScene } from "@/render/PreLaunchScene.ts";
+import { POWERUP_SPRITE } from "@/render/scene/decor.ts";
+import type { FxId, SimEvent } from "@/sim/events.ts";
+import type { PowerupKind } from "@/sim/types.ts";
 
 /** The three impact clips the original played and this port never drew. */
 const FX_SPRITE: Record<FxId, SpriteId> = {
-  bounceFx: 'fx/bounce',
-  break: 'fx/break',
-  superBreak: 'fx/superBreak',
+  bounceFx: "fx/bounce",
+  break: "fx/break",
+  superBreak: "fx/superBreak",
 };
 
 /** Impact clips animate on the original stage rate, like every other sprite. */
@@ -50,7 +50,7 @@ const PICKUP_BURST: Partial<
  * A faceplant carries no fx cue of its own but is the most violent thing that
  * happens to the hamster, so it gets one here.
  */
-const SHAKE_AMPLITUDE: Record<FxId | 'faceplant', number> = {
+const SHAKE_AMPLITUDE: Record<FxId | "faceplant", number> = {
   bounceFx: 1.5,
   break: 3,
   superBreak: 5,
@@ -337,7 +337,7 @@ export class Effects {
   consume(events: readonly SimEvent[], nowMs: number, at?: { x: number; y: number }): void {
     this.scene.consume(events, nowMs);
     for (const event of events) {
-      if (event.t === 'fx') {
+      if (event.t === "fx") {
         const sprite = FX_SPRITE[event.id];
         this.#live.push({
           sprite,
@@ -360,9 +360,9 @@ export class Effects {
           this.#waveX = event.x;
           this.#waveY = event.y;
         }
-      } else if (event.t === 'shotDone' && event.outcome === 'faceplant') {
+      } else if (event.t === "shotDone" && event.outcome === "faceplant") {
         this.#shake(SHAKE_AMPLITUDE.faceplant, nowMs);
-      } else if (event.t === 'pickup' && at !== undefined) {
+      } else if (event.t === "pickup" && at !== undefined) {
         // The cue carries only the kind, so both of these go where the hamster
         // was - which is where the overlap happened, within the width of the
         // two hitboxes that had to touch for it to fire at all.

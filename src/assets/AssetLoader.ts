@@ -1,14 +1,14 @@
-import { DENSITIES, SPRITES, type SpriteId, type SpriteMeta } from './sprites.generated.ts';
+import { DENSITIES, SPRITES, type SpriteId, type SpriteMeta } from "./sprites.generated.ts";
 
 /**
  * Vite resolves this glob at build time, so each sheet gets a content-hashed
  * URL and can be cached immutably - and no filename is ever written by hand.
  * The keys come back as './sprites/sheet-0.png'.
  */
-const SHEET_URLS = import.meta.glob<string>('./sprites/sheet-*.png', {
+const SHEET_URLS = import.meta.glob<string>("./sprites/sheet-*.png", {
   eager: true,
-  query: '?url',
-  import: 'default',
+  query: "?url",
+  import: "default",
 });
 
 /**
@@ -20,7 +20,7 @@ const SHEET_URLS = import.meta.glob<string>('./sprites/sheet-*.png', {
  * which folds the layout width in with the device pixel ratio.
  */
 export function densityFor(scale: number): number {
-  const covering = DENSITIES.find(density => density >= scale);
+  const covering = DENSITIES.find((density) => density >= scale);
   return covering ?? DENSITIES[DENSITIES.length - 1] ?? 1;
 }
 
@@ -58,7 +58,7 @@ export interface AssetBundle {
 }
 
 function sheetUrl(index: number, density: number): string | undefined {
-  const suffix = density === 1 ? '' : `@${density}x`;
+  const suffix = density === 1 ? "" : `@${density}x`;
   return SHEET_URLS[`./sprites/sheet-${index}${suffix}.png`];
 }
 
@@ -70,7 +70,7 @@ async function loadSheet(url: string): Promise<ImageBitmap> {
   // older browsers lack; a missing static would throw before the fetch and
   // before the 1x retry ever got a chance.
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(new Error('timed out')), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(new Error("timed out")), FETCH_TIMEOUT_MS);
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
@@ -96,12 +96,12 @@ export async function loadSprites(
   density = 1,
 ): Promise<AssetBundle> {
   const ids = Object.keys(SPRITES) as SpriteId[];
-  const wanted = [...new Set(ids.map(id => SPRITES[id].sheet))].sort((a, b) => a - b);
+  const wanted = [...new Set(ids.map((id) => SPRITES[id].sheet))].sort((a, b) => a - b);
   const missing: string[] = [];
   let loaded = 0;
 
   const sheets = await Promise.all(
-    wanted.map(async index => {
+    wanted.map(async (index) => {
       const url = sheetUrl(index, density);
       let bitmap: ImageBitmap | undefined;
       if (url === undefined) {
@@ -144,7 +144,7 @@ export async function loadSprites(
   }
 
   return {
-    get: id => sprites.get(id),
+    get: (id) => sprites.get(id),
     sheets: [...byIndex.values()],
     density,
     missing,

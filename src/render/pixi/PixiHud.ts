@@ -1,6 +1,6 @@
-import { CanvasTextMetrics, Container, Sprite, Text, TextStyle } from 'pixi.js';
-import type { AssetBundle } from '@/assets/AssetLoader.ts';
-import type { PreLaunchLayout } from '@/render/PreLaunchScene.ts';
+import { CanvasTextMetrics, Container, Sprite, Text, TextStyle } from "pixi.js";
+import type { AssetBundle } from "@/assets/AssetLoader.ts";
+import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import {
   chrome,
   hideFrom,
@@ -9,8 +9,8 @@ import {
   poolAt,
   setText,
   solidRect,
-} from '@/render/pixi/helpers.ts';
-import type { TextureCache } from '@/render/pixi/TextureCache.ts';
+} from "@/render/pixi/helpers.ts";
+import type { TextureCache } from "@/render/pixi/TextureCache.ts";
 import {
   debugLines,
   FONTS,
@@ -19,9 +19,9 @@ import {
   HUD_COLOURS,
   panelLines,
   promptFor,
-} from '@/render/scene/hud.ts';
-import { C } from '@/sim/constants.ts';
-import type { SimSnapshot } from '@/sim/state.ts';
+} from "@/render/scene/hud.ts";
+import { C } from "@/sim/constants.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
 
 /**
  * The stage-space layer: the original's own HUD art (launch meter, needle,
@@ -67,7 +67,7 @@ export class PixiHud {
     );
 
     this.#glideLabel = monoText();
-    this.#glideLabel.text = 'glide';
+    this.#glideLabel.text = "glide";
     this.#glideLabel.position.set(
       glide.x - this.#glideLabel.width - glide.labelGap,
       glide.labelBaseline - this.#ascentMono12,
@@ -87,11 +87,11 @@ export class PixiHud {
 
     this.#promptBg = chrome(0, prompt.y, 0, prompt.h, HUD_COLOURS.promptAlpha);
     this.#promptText = new Text({
-      text: '',
+      text: "",
       style: new TextStyle({
         fontFamily: FONTS.sans,
         fontSize: 17,
-        fontWeight: 'bold',
+        fontWeight: "bold",
         fill: HUD_COLOURS.promptInk,
       }),
     });

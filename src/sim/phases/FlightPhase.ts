@@ -1,12 +1,12 @@
-import { C } from '../constants.ts';
-import type { SimEvent } from '../events.ts';
-import type { Rng } from '../rng/Rng.ts';
-import type { FlightState } from '../state.ts';
-import { follow } from '../systems/CameraModel.ts';
-import { resolveGround } from '../systems/GroundCollision.ts';
-import { testPickups } from '../systems/PowerupPickups.ts';
-import { cullPowerups, spawnPowerups } from '../systems/PowerupSpawner.ts';
-import type { Tuning } from '../tuning.ts';
+import { C } from "../constants.ts";
+import type { SimEvent } from "../events.ts";
+import type { Rng } from "../rng/Rng.ts";
+import type { FlightState } from "../state.ts";
+import { follow } from "../systems/CameraModel.ts";
+import { resolveGround } from "../systems/GroundCollision.ts";
+import { testPickups } from "../systems/PowerupPickups.ts";
+import { cullPowerups, spawnPowerups } from "../systems/PowerupSpawner.ts";
+import type { Tuning } from "../tuning.ts";
 
 /**
  * `Game.onUpdate()` - Game.as:474-654. One 50 ms tick.
@@ -44,7 +44,7 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
     p.yvel += C.WIND_YVEL;
     p.xvel += C.WIND_XVEL;
     s.flags.wind = false;
-    out.push({ t: 'sfx', id: 'wind', gain: C.SFX_VOLUME });
+    out.push({ t: "sfx", id: "wind", gain: C.SFX_VOLUME });
   }
   if (s.flags.speed) {
     p.xvel += C.SPEED_XVEL;
@@ -59,7 +59,7 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
     // `sndSlide.stop(); slideSound = false` - Game.as:550-551.
     if (s.slideSound) {
       s.slideSound = false;
-      out.push({ t: 'sfxStop', id: 'slide' });
+      out.push({ t: "sfxStop", id: "slide" });
     }
   }
 
@@ -70,25 +70,25 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
     p.doRotation = false;
     if (!s.slideSound) {
       s.slideSound = true;
-      out.push({ t: 'sfx', id: 'slide', gain: C.SFX_VOLUME, loop: true });
-      out.push({ t: 'sfxGain', id: 'fly', gain: 5 });
+      out.push({ t: "sfx", id: "slide", gain: C.SFX_VOLUME, loop: true });
+      out.push({ t: "sfxGain", id: "fly", gain: 5 });
     } else {
-      out.push({ t: 'sfxGain', id: 'slide', gain: slideGain(p.xvel) });
+      out.push({ t: "sfxGain", id: "slide", gain: slideGain(p.xvel) });
     }
   } else if (s.flags.skidding) {
     p.doRotation = false;
     if (!s.skidSound) {
       s.skidSound = true;
-      out.push({ t: 'sfx', id: 'skid', gain: C.SFX_VOLUME });
-      out.push({ t: 'sfxGain', id: 'fly', gain: 5 });
+      out.push({ t: "sfx", id: "skid", gain: C.SFX_VOLUME });
+      out.push({ t: "sfxGain", id: "fly", gain: 5 });
     }
   } else {
-    out.push({ t: 'sfxGain', id: 'fly', gain: flyGain(p.xvel, p.yvel) });
+    out.push({ t: "sfxGain", id: "fly", gain: flyGain(p.xvel, p.yvel) });
   }
 
   if (s.flags.glide && (s.flags.falling || s.glidePoints === 0)) {
     s.flags.glide = false;
-    out.push({ t: 'glide', on: false });
+    out.push({ t: "glide", on: false });
   }
 
   // 5. air resistance - applies always
@@ -107,11 +107,11 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
   if (p.yvel > C.FALLING_YVEL && !s.flags.bounce && !s.flags.superbounce) {
     if (!s.flags.falling) {
       s.flags.falling = true;
-      out.push({ t: 'falling', on: true });
+      out.push({ t: "falling", on: true });
     }
   } else if (s.flags.falling) {
     s.flags.falling = false;
-    out.push({ t: 'falling', on: false });
+    out.push({ t: "falling", on: false });
   }
 
   // 8. skid detection - two ticks at or past the threshold, plus the prediction.
@@ -131,9 +131,9 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
 
   // 11. shot end
   if (p.xvel < 1 && p.hit) {
-    if (s.outcome === null) s.outcome = 'cheer';
-    out.push({ t: 'sfxStop', id: 'fly' });
-    if (s.slideSound) out.push({ t: 'sfxStop', id: 'slide' });
+    if (s.outcome === null) s.outcome = "cheer";
+    out.push({ t: "sfxStop", id: "fly" });
+    if (s.slideSound) out.push({ t: "sfxStop", id: "slide" });
     return true;
   }
 
@@ -153,7 +153,7 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
   // A faceplant normally ends the shot at step 11, since it zeroes xvel. The
   // exception is a speed or wind pulse landing on the same tick: step 4 then
   // adds xvel back, and only the outcome says the shot is over.
-  return s.outcome === 'faceplant' || s.outcome === 'hole';
+  return s.outcome === "faceplant" || s.outcome === "hole";
 }
 
 /** `sndFly` gain: `floor(floor(|xvel| + |yvel|) / 70 * 100)`. Game.as:589-592. */
