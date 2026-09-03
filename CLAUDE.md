@@ -40,10 +40,18 @@ bun run smoke    # öffnet die gebaute Seite in Chromium (Shader, Asset-404s)
   `constants.ts` braucht eine Bytecode-Referenz im PR.
 - **`reference/` ist vendored.** Dekompilierter Bytecode und
   Extraktions-Tools — nicht von Hand editieren, in `biome.json` ausgeschlossen.
-- **Der `gate`-Job in der CI muss wortgleich bleiben.** `secrets` ist in einem
-  Job-`if` nicht referenzierbar, deshalb wandelt `gate` den
-  `CLOUDFLARE_API_TOKEN` in einen Job-Output um, den `deploy` prüft. Das ist der
-  Schalter gegen einen Doppel-Deploy neben der Cloudflare-Dashboard-Integration.
+- **Die CI deployt nicht.** Der alte `gate`/`deploy`-Mechanismus (der den
+  `CLOUDFLARE_API_TOKEN` in einen Job-Output umwandelte, weil `secrets` in einem
+  Job-`if` nicht referenzierbar ist) ist mit #8 entfallen: Cloudflare Workers
+  Builds deployt jeden Push auf `main` über die Git-Integration. Kein
+  Doppel-Deploy mehr, den man abwehren müsste.
+- **Ein falscher Input an einem reusable Workflow bricht die *ganze* CI
+  lautlos.** `web-base-check.yml` nimmt `template`, `ref` und `strict` — sonst
+  nichts. Wer ihm z. B. `bun-version` übergibt (das nur `web-app-ci.yml`
+  kennt), bekommt `startup_failure` für den kompletten Workflow: keine Jobs,
+  keine Check-Runs, und ein PR, der ohne rote Markierung aussieht, als sei
+  alles in Ordnung. Nach jeder Änderung an `ci.yml` prüfen, dass die Läufe
+  tatsächlich *starten*, nicht nur, dass nichts rot ist.
 - **`check --strict` hier nie ausführen.** `layout`, `storage`, `router` und
   `pwa` sind bewusst nicht adoptiert; `web-base check` meldet sie korrekt als
   „not adopted" und ist grün.

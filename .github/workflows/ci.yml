@@ -19,8 +19,6 @@ jobs:
   # Never run it with --strict here for the same reason.
   web-base-check:
     uses: daniel-rck/web-base/.github/workflows/web-base-check.yml@main
-    with:
-      bun-version: "1.3.11"
 
   # What only this app checks: the simulation stays pure, the atlas and its
   # manifest agree, and the bundle stays inside its budget. Cheap, so it runs
