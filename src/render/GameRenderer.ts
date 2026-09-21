@@ -14,6 +14,7 @@ import {
   rgbCss,
   SHADOW_ALPHA,
   SHADOW_MIN_SCALE,
+  type Star,
   shadowScale,
   skyColours,
   starField,
@@ -56,6 +57,9 @@ export class GameRenderer implements Renderer {
   readonly #effects: Effects;
   readonly #tuning: Tuning;
   readonly #stress: number;
+  /** A fixed hash, so it is built once; rebuilding it every frame allocated
+   *  `70 * stress` objects per draw for a picture that never changes. */
+  readonly #stars: readonly Star[];
   #dpr = 1;
   #showHitboxes: boolean;
   /** Wall-clock milliseconds, for animations that are not physics. */
@@ -77,6 +81,7 @@ export class GameRenderer implements Renderer {
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
+    this.#stars = starField(this.#stress);
     this.resize();
   }
 
@@ -137,7 +142,7 @@ export class GameRenderer implements Renderer {
     if (sky.starAlpha > 0) {
       ctx.globalAlpha = sky.starAlpha;
       ctx.fillStyle = "#fff";
-      for (const star of starField(this.#stress)) {
+      for (const star of this.#stars) {
         ctx.beginPath();
         ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
         ctx.fill();

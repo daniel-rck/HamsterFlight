@@ -34,8 +34,8 @@ function key(target: EventTarget, type: "keydown" | "keyup", key: string, extra 
   return ev;
 }
 
-function pointer(target: EventTarget, type: string, pointerId: number): void {
-  target.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { pointerId }));
+function pointer(target: EventTarget, type: string, pointerId: number, button = 0): void {
+  target.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { pointerId, button }));
 }
 
 function setup() {
@@ -61,6 +61,28 @@ describe("InputController", () => {
     expect(kinds(input)).toEqual(["press", "confirm", "release"]);
     expect(canvas.focused).toBe(1);
     expect(kinds(input)).toEqual([]);
+  });
+
+  it("captures the pointer for the length of the hold", () => {
+    const { canvas, input } = setup();
+    const captured: number[] = [];
+    (canvas as unknown as { setPointerCapture: (id: number) => void }).setPointerCapture = (id) =>
+      captured.push(id);
+    pointer(canvas, "pointerdown", 9);
+    expect(captured).toEqual([9]);
+    // The release still arrives on the canvas, wherever the pointer went.
+    pointer(canvas, "pointerup", 9);
+    expect(kinds(input)).toEqual(["press", "confirm", "release"]);
+  });
+
+  it("leaves the secondary buttons and the context menu alone", () => {
+    const { canvas, input } = setup();
+    pointer(canvas, "pointerdown", 1, 2);
+    expect(kinds(input)).toEqual([]);
+    expect(input.held).toBe(false);
+    const menu = new Event("contextmenu", { cancelable: true });
+    canvas.dispatchEvent(menu);
+    expect(menu.defaultPrevented).toBe(true);
   });
 
   it("ignores a second finger, including its lift", () => {
@@ -95,7 +117,8 @@ describe("InputController", () => {
     expect(toggles).toHaveLength(0);
     key(keys, "keydown", "p");
     key(keys, "keydown", "H");
-    expect(kinds(input)).toEqual(["togglePause"]);
+    key(keys, "keydown", "Escape");
+    expect(kinds(input)).toEqual(["togglePause", "togglePause"]);
     expect(toggles).toHaveLength(1);
   });
 

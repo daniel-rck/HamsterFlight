@@ -21,7 +21,8 @@ Bun is the package manager, like the other apps in this family
 Press <kbd>Space</kbd> or click to jump, again to hit the pillow, then hold to
 glide. One swing per jump: miss it and the hamster lands back on the pad and
 you jump again, which costs nothing - only the pillow ends a turn.
-<kbd>P</kbd> pauses, <kbd>H</kbd> toggles the hitbox overlay. The keyboard works
+<kbd>P</kbd> or <kbd>Esc</kbd> pauses and a click or tap resumes; <kbd>H</kbd>
+toggles the hitbox overlay. The keyboard works
 from the first keystroke; no click on the stage is needed first. Append
 `?seed=12345` to replay an exact run.
 
@@ -45,7 +46,7 @@ only ever affected MovieClip animation.
 **The simulation is pure.** Everything under `src/sim/` is headless and
 deterministic: no DOM, no clock, no `Math.random`. That is enforced rather than
 merely intended - `tsconfig.sim.json` compiles it with no DOM lib and no ambient
-types at all, and `scripts/check-sim-purity.mjs` catches the non-determinism a
+types at all, and `scripts/check-sim-purity.ts` catches the non-determinism a
 typechecker cannot see. Given a seed and a command stream the trajectory is
 reproducible, which is what makes the regression tests possible.
 

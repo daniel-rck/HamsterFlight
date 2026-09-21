@@ -19,16 +19,20 @@ That is a decision, not drift. `web-base check` reports `layout`, `storage`,
 ```
 src/
 ├── sim/          # pure, deterministic simulation — no DOM, no time, no I/O
-├── render/       # pixi renderers + HUD; reads sim state, never writes it
-├── app/          # boot, loop, input, frame profiler
-└── persistence/  # localStorage highscores
+├── render/       # the two backends plus scene/ and the HUD; read snapshots, never write
+├── input/        # DOM events to discrete press/release/confirm/pause commands
+├── assets/       # the atlas sheets and the generated placement manifest
+├── app/          # boot (main.ts), the fixed-timestep loop, URL params, frame profiler
 reference/        # vendored: decompiled bytecode, extraction tools, notes
 ```
 
+There is no persistence layer: the game keeps no scores between visits, and
+the simulation may not touch storage even if one is added later.
+
 ### The sim is pure, and that is enforced
 
-`src/sim/**` must stay headless and deterministic. Two independent guards keep
-it that way, and both are part of `bun run verify`:
+`src/sim/**` must stay headless and deterministic. Three independent guards
+keep it that way, and all of them are part of `bun run verify`:
 
 - **`scripts/check-sim-purity.ts`** — a static check over the module graph.
 - **A lint rule** — `biome.json` scopes a `noRestrictedGlobals` deny-list to
@@ -55,14 +59,22 @@ PR. See `reference/doc/porting-notes.md`.
 | `wrangler.jsonc`, not `wrangler.toml` | Functionally equivalent; the repo predates the convention. |
 | `not_found_handling: "404-page"` | Correct for a single-page game — the SPA fallback would mask real 404s. |
 | English README | It is a technical port write-up whose audience is the emulation community, not an end-user app README. |
-| CI keeps `guards`, `actionlint`, `smoke`, `dependency-review`, `gate`/`deploy` | Real gates this repo needs: a runtime-only audit, the purity and atlas checks, a bundle budget, and the only check that actually opens the page. |
+| CI adds `checks` and `smoke` next to the shared `ci` job | Real gates this repo needs: the purity and atlas checks, a bundle budget, and the only check that actually opens the page (and serves it through `wrangler dev` for the header and 404 semantics). |
 | `noUnusedVariables` / `noUnusedImports` / `noExplicitAny` at `error` | The shared base keeps them at `warn`; this repo has earned the stricter setting. |
 
-### The `gate` job must survive verbatim
+### CI does not deploy
 
-`secrets` cannot be referenced from a job-level `if`, so `gate` converts
-`CLOUDFLARE_API_TOKEN` into a job output that `deploy` tests. It is the switch
-that prevents double-deploying alongside the Cloudflare dashboard integration.
+The old `gate`/`deploy` pair - which turned `CLOUDFLARE_API_TOKEN` into a job
+output because `secrets` cannot be read from a job-level `if` - went with #8.
+Cloudflare Workers Builds deploys every push to `main` through the Git
+integration, so there is no second deploy path to guard against; see
+`SETUP.md`. The workflow gates pull requests and nothing else.
+
+One more thing the workflow file has to get right: `web-base-check.yml` takes
+`template`, `ref` and `strict` and no other input. Passing it anything else
+(`bun-version`, say) is a `startup_failure` for the whole run - no jobs, no
+check runs, a PR that looks clean. After any change to `ci.yml`, confirm the
+runs actually start.
 
 ## Quality gates
 

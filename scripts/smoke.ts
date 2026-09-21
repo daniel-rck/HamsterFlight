@@ -14,13 +14,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import type { Browser, Page } from "playwright";
 import { intEnv, run } from "./lib/cli.ts";
-import {
-  launchChromium,
-  playOneShot,
-  startServer,
-  waitForBoot,
-  watchRequests,
-} from "./lib/preview.ts";
+import { playOneShot, waitForBoot, watchRequests, withPreview } from "./lib/preview.ts";
 
 const PORT = intEnv("PORT", 4174);
 const SEED = intEnv("SEED", 12345);
@@ -178,18 +172,14 @@ async function check(
 }
 
 async function main(): Promise<void> {
-  const server = await startServer(PORT);
-  const browser = await launchChromium();
-  const results: Result[] = [];
-  try {
+  const results = await withPreview(PORT, async (browser, origin) => {
+    const out: Result[] = [];
     for (const combination of COMBINATIONS) {
       process.stderr.write(`checking ${combination.mode}/${combination.renderer}...\n`);
-      results.push(await check(browser, server.origin, combination));
+      out.push(await check(browser, origin, combination));
     }
-  } finally {
-    await browser.close();
-    await server.stop();
-  }
+    return out;
+  });
 
   console.log(`\nbuild ${results.find((result) => result.version)?.version ?? "(none)"}`);
   for (const result of results) {

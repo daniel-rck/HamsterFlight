@@ -103,6 +103,7 @@ function snapshot(): SimSnapshot {
     phaseKind: "flying",
     turn: 1,
     paused: false,
+    swung: false,
     hamster: { x: 500, y: 700, xvel: 20, yvel: -10, visible: true, doRotation: true },
     camera: { x: -300, y: 40 },
     powerups: [],

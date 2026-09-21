@@ -94,12 +94,14 @@ export function debugLines(s: SimSnapshot): readonly [string, string, string] {
 
 /** What to tell the player, or null when the picture says it all. */
 export function promptFor(s: SimSnapshot, metric: boolean): string | null {
-  if (s.paused) return "paused - P to resume";
+  if (s.paused) return "paused - click or P to resume";
   switch (s.phaseKind) {
     case "ready":
       return "click to jump";
     case "jumping":
-      return "click again to hit the pillow";
+      // One swing per jump: after a whiff there is nothing left to click for,
+      // and saying "click again" was an invitation to mash at a dead button.
+      return s.swung ? "missed - wait for the landing" : "click again to hit the pillow";
     case "flying":
       return s.flags.skidding ? null : "hold to glide";
     case "gameOver":
