@@ -32,7 +32,8 @@ const CHUNK_WARN_KB = 400;
 const BUDGET_KB: { eager: number; lazy: number; atlas: Record<number, number> } = {
   // Every visitor pays this.
   eager: 19,
-  // Only under ?renderer=pixi - but that is the default for enhanced mode.
+  // The WebGL backend. Lazy in the bundle, but enhanced mode is the default,
+  // so every visitor who is not on ?mode=faithful pays this too.
   lazy: 182,
   // Per atlas sheet, per density.
   atlas: { 1: 850, 2: 2250 },
@@ -102,7 +103,11 @@ async function main(): Promise<void> {
   for (const group of [false, true]) {
     const groupRows = rows.filter((row) => row.lazy === group);
     if (groupRows.length === 0) continue;
-    console.log(group ? "\nlazy - only downloaded with ?renderer=pixi" : "eager - every visitor");
+    console.log(
+      group
+        ? "\nlazy - the WebGL backend; the default, skipped only under ?mode=faithful"
+        : "eager - every visitor",
+    );
     console.log(head);
     console.log(line);
     const bucket = group ? totals.lazy : totals.eager;

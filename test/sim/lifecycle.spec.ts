@@ -87,15 +87,49 @@ describe("command ordering", () => {
     expect(sim.tick).toBe(0);
   });
 
-  it("drops commands that arrive after the pause in the same tick", () => {
+  it("resumes on a press while paused, without jumping", () => {
+    // A click is the only control a touch screen has, so on a paused stage it
+    // means "go on". It does not double as the jump it would otherwise start.
     const sim = new Simulation({ seed: 7 });
     const cmds: InputCommand[] = [{ kind: "togglePause" }, { kind: "press" }];
     sim.step(cmds);
     expect(sim.phaseKind).toBe("ready");
-    expect(sim.tick).toBe(0);
-    sim.step([{ kind: "togglePause" }]);
     expect(sim.snapshot().paused).toBe(false);
+    // Resumed within the same step, so this tick already ran.
     expect(sim.tick).toBe(1);
+  });
+
+  it("lets a release through while paused, so the glide does not stick", () => {
+    // Play to the flight, hold the button, pause, let go, resume - the lift
+    // must be gone. Compared against the same run with the release after the
+    // resume, which is the trajectory a player who let go expects.
+    const play = (releaseWhilePaused: boolean): Simulation => {
+      const sim = new Simulation({ seed: 12345 });
+      sim.step([{ kind: "press" }]);
+      sim.step([{ kind: "release" }]);
+      for (let i = 0; i < 13; i++) sim.step();
+      sim.step([{ kind: "press" }]);
+      sim.step([{ kind: "release" }]);
+      expect(sim.phaseKind).toBe("flying");
+      sim.step([{ kind: "press" }]);
+      sim.step();
+      sim.step([{ kind: "togglePause" }]);
+      // Either the release lands during the pause, or on the resume itself;
+      // both run the same number of live ticks with the button up.
+      if (releaseWhilePaused) {
+        sim.step([{ kind: "release" }]);
+        sim.step([{ kind: "togglePause" }]);
+      } else {
+        sim.step([{ kind: "togglePause" }, { kind: "release" }]);
+      }
+      for (let i = 0; i < 5; i++) sim.step();
+      return sim;
+    };
+    const paused = play(true).snapshot();
+    const resumed = play(false).snapshot();
+    expect(paused.flags.glide).toBe(false);
+    expect(paused.glidePoints).toBe(resumed.glidePoints);
+    expect(paused.hamster.yvel).toBeCloseTo(resumed.hamster.yvel);
   });
 
   it("freezes the tick counter while paused", () => {

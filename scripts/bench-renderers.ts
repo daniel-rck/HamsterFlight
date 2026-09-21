@@ -12,7 +12,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import type { Browser, Page } from "playwright";
 import { intEnv, intListEnv, run } from "./lib/cli.ts";
-import { launchChromium, playOneShot, startServer, waitForBoot } from "./lib/preview.ts";
+import { playOneShot, waitForBoot, withPreview } from "./lib/preview.ts";
 
 const PORT = intEnv("PORT", 4173);
 const SEED = intEnv("SEED", 12345);
@@ -110,20 +110,16 @@ function median(values: readonly number[]): number {
 }
 
 async function main(): Promise<void> {
-  const server = await startServer(PORT);
-  const browser = await launchChromium();
-  const results: Measurement[] = [];
-  try {
+  const results = await withPreview(PORT, async (browser, origin) => {
+    const out: Measurement[] = [];
     for (const stress of STRESS) {
       for (const backend of BACKENDS) {
         process.stderr.write(`measuring ${backend} stress=${stress}...\n`);
-        results.push(await measure(browser, server.origin, backend, stress));
+        out.push(await measure(browser, origin, backend, stress));
       }
     }
-  } finally {
-    await browser.close();
-    await server.stop();
-  }
+    return out;
+  });
 
   const gpu = results.find((row) => row.gpu !== "unknown")?.gpu ?? "unknown";
   console.log(`\nGPU: ${gpu}`);

@@ -160,7 +160,8 @@ export function markers(cameraX: number, metric: boolean): Markers {
   for (let at = first; at * scale.pixels < until; at += scale.step) {
     const x = at * scale.pixels;
     ticks.push(x);
-    if (at % every === 0) labels.push({ x, text: `${at}${scale.suffix}` });
+    // No label at the origin: it says nothing, and it sat on the tower's leg.
+    if (at !== 0 && at % every === 0) labels.push({ x, text: `${at}${scale.suffix}` });
   }
   return { ticks, labels };
 }

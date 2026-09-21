@@ -36,6 +36,7 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     phaseKind: "flying",
     turn: 2,
     paused: false,
+    swung: false,
     hamster: { x: 800, y: 700, xvel: 20, yvel: -10, visible: true, doRotation: true },
     camera: { x: -650, y: -600 },
     powerups: [],
@@ -184,9 +185,11 @@ describe("ground decoration", () => {
     const metres = markers(-8200, true);
     expect(metres.labels.map((l) => l.text)).toEqual(["25m"]);
     expect(metres.ticks.length).toBeGreaterThanOrEqual(1);
-    // Ticks start at the origin, never behind it.
+    // Ticks start at the origin, never behind it - but the origin gets no
+    // label: "0ft" said nothing and sat on the launch tower's leg.
     expect(markers(0, false).ticks[0]).toBe(0);
-    expect(markers(0, false).labels[0]).toEqual({ x: 0, text: "0ft" });
+    expect(markers(0, false).labels).toEqual([]);
+    expect(markers(-5000, false).labels.map((l) => l.x)).not.toContain(0);
   });
 
   it("leaves a collectible standing on its first frame", () => {
@@ -227,13 +230,17 @@ describe("hud strings", () => {
     expect(promptFor(flying({ phaseKind: "jumping" }), false)).toBe(
       "click again to hit the pillow",
     );
+    // The swing is spent: a second click does nothing, so do not ask for one.
+    expect(promptFor(flying({ phaseKind: "jumping", swung: true }), false)).toBe(
+      "missed - wait for the landing",
+    );
     expect(promptFor(flying(), false)).toBe("hold to glide");
     expect(promptFor(flying({ flags: { ...noEffects(), skidding: true } }), false)).toBeNull();
     expect(promptFor(flying({ phaseKind: "settling" }), false)).toBeNull();
     expect(promptFor(flying({ phaseKind: "gameOver" }), false)).toBe(
       "165 ft total - click to play again",
     );
-    expect(promptFor(flying({ paused: true }), false)).toBe("paused - P to resume");
+    expect(promptFor(flying({ paused: true }), false)).toBe("paused - click or P to resume");
   });
 
   it("lists only the flags that are on in the debug readout", () => {

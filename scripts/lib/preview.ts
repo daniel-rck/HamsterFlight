@@ -169,6 +169,35 @@ export function startWrangler(port = intEnv("PORT", 8788)): Promise<Server> {
   );
 }
 
+/**
+ * A preview server and a browser, both torn down when `fn` is done - or when
+ * the browser never came up. The two used to be started back to back with the
+ * `finally` only around the work, so a Chromium that failed to launch (a
+ * Playwright build missing, as happens on a machine that ships its own) left
+ * `vite preview` running, and the next attempt failed on "something is already
+ * serving" instead of on the real cause.
+ */
+export async function withPreview<T>(
+  port: number,
+  fn: (browser: Browser, origin: string) => Promise<T>,
+  start: (port: number) => Promise<Server> = startServer,
+): Promise<T> {
+  const server = await start(port);
+  let browser: Browser;
+  try {
+    browser = await launchChromium();
+  } catch (error) {
+    await server.stop();
+    throw error;
+  }
+  try {
+    return await fn(browser, server.origin);
+  } finally {
+    await browser.close();
+    await server.stop();
+  }
+}
+
 export function launchChromium(): Promise<Browser> {
   return chromium.launch({
     // Set CHROMIUM_EXECUTABLE when the environment ships a Chromium that does

@@ -46,7 +46,7 @@
                   "document": "src/sim must stay headless and deterministic.",
                   "navigator": "src/sim must stay headless and deterministic.",
                   "performance": "Time must not enter the sim; it steps in fixed 50 ms ticks.",
-                  "localStorage": "Persistence belongs in src/persistence.",
+                  "localStorage": "The sim keeps no persistence; anything stateful lives outside src/sim.",
                   "requestAnimationFrame": "The loop drives the sim, not the other way round.",
                   "fetch": "src/sim must stay headless and deterministic."
                 }

@@ -24,35 +24,47 @@ function webglAvailable(): boolean {
   return probe.getContext("webgl2") !== null || probe.getContext("webgl") !== null;
 }
 
+type PixiModule = typeof import("@/render/PixiRenderer.ts");
+
 /**
  * The Pixi module is imported dynamically so it lands in its own Vite chunk.
  * `?mode=faithful` then costs nothing beyond the entry chunk, and one build
  * still yields both bundle numbers for the comparison.
  *
- * Pixi is the default for everyone, so a machine without WebGL - blocklisted
- * GPU, disabled in settings, a remote desktop - must not be a blank page. The
- * Canvas2D backend draws the same scene; it just cannot run the shaders.
+ * Started here, before the atlas is awaited, so the two downloads overlap:
+ * the chunk is 160 kB gzip and used to be requested only after the 2 MB sheet
+ * had fully arrived. Resolves to null when Pixi is not wanted or the machine
+ * cannot give it a context - a blocklisted GPU, WebGL disabled, a remote
+ * desktop - and `pickRenderer` falls back to Canvas2D, which draws the same
+ * scene without the shaders. Never rejects: the failure is reported there.
  */
+function startPixiImport(name: RendererName): Promise<PixiModule | null> {
+  if (name !== "pixi") return Promise.resolve(null);
+  if (!webglAvailable()) {
+    console.warn("[hamsterflight] no WebGL context available; using the canvas2d renderer");
+    return Promise.resolve(null);
+  }
+  return import("@/render/PixiRenderer.ts").catch((error: unknown) => {
+    console.warn("[hamsterflight] WebGL renderer failed to load; using canvas2d", error);
+    return null;
+  });
+}
+
 async function pickRenderer(
-  name: RendererName,
+  pixi: PixiModule | null,
   canvas: HTMLCanvasElement,
   assets: AssetBundle,
   effects: Effects,
   options: RendererOptions,
 ): Promise<{ renderer: Renderer; backend: RendererName }> {
-  if (name === "pixi") {
-    if (!webglAvailable()) {
-      console.warn("[hamsterflight] no WebGL context available; using the canvas2d renderer");
-    } else {
-      try {
-        const { createPixiRenderer } = await import("@/render/PixiRenderer.ts");
-        return {
-          renderer: await createPixiRenderer(canvas, assets, effects, options),
-          backend: "pixi",
-        };
-      } catch (error) {
-        console.warn("[hamsterflight] WebGL renderer failed to start; using canvas2d", error);
-      }
+  if (pixi !== null) {
+    try {
+      return {
+        renderer: await pixi.createPixiRenderer(canvas, assets, effects, options),
+        backend: "pixi",
+      };
+    } catch (error) {
+      console.warn("[hamsterflight] WebGL renderer failed to start; using canvas2d", error);
     }
   }
   return {
@@ -132,6 +144,7 @@ async function boot(): Promise<void> {
   // How big the stage actually is decides which atlas is worth downloading -
   // a 1x screen showing a wide layout is already past 1:1.
   const scale = stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
+  const pixiImport = startPixiImport(rendererName);
   const progress = ({ loaded, total }: { loaded: number; total: number }): void => {
     setBootMessage(total > 1 ? `loading ${Math.round((loaded / total) * 100)}%` : "loading…");
   };
@@ -156,7 +169,7 @@ async function boot(): Promise<void> {
     enhanced: mode === "enhanced",
     motion: mode === "enhanced" && !reducedMotion,
   });
-  const { renderer, backend } = await pickRenderer(rendererName, canvas, assets, effects, {
+  const { renderer, backend } = await pickRenderer(await pixiImport, canvas, assets, effects, {
     showHitboxes: params.has("debug"),
     stress,
     tuning: DEFAULT_TUNING,

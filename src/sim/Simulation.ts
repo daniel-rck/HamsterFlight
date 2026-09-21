@@ -59,8 +59,16 @@ export class Simulation {
    * Advance exactly one 50 ms tick.
    *
    * Commands are applied in the order given: `[press, togglePause]` handles the
-   * press and then pauses, `[togglePause, press]` pauses and drops the press.
-   * While paused nothing else moves and the tick counter does not advance.
+   * press and then pauses. While paused nothing moves and the tick counter
+   * does not advance, but two commands still get through:
+   *
+   *  - `release` is always applied. The button is a physical thing; if it went
+   *    up while the game was paused, the glide has to end on resume. Dropping
+   *    it left `gravButton` stuck on, and the lift kept draining the meter
+   *    long after the player had let go.
+   *  - `press` resumes. It is the only control a touch screen has, and a
+   *    click on a paused stage means "go on", not "jump". It does nothing
+   *    else - the jump or the glide it would otherwise start is not queued.
    */
   step(commands: readonly InputCommand[] = []): readonly SimEvent[] {
     const out: SimEvent[] = [];
@@ -68,7 +76,10 @@ export class Simulation {
     for (const cmd of commands) {
       if (cmd.kind === "togglePause") {
         this.#paused = !this.#paused;
-      } else if (!this.#paused) {
+      } else if (this.#paused) {
+        if (cmd.kind === "press") this.#paused = false;
+        else if (cmd.kind === "release") this.#handle(cmd, out);
+      } else {
         this.#handle(cmd, out);
       }
     }
@@ -276,6 +287,9 @@ export class Simulation {
       phaseKind: phase.kind,
       turn: this.#turn,
       paused: this.#paused,
+      // The one swing per jump is spent or it is not; the prompt needs to know
+      // which, because a second click after a whiff does nothing.
+      swung: phase.kind === "jumping" && phase.jump.swung,
       // Copied, like camera/powerups/flags below. A cast would have handed
       // out the live array: the type says readonly, the object was not.
       shots: [...this.#shots],

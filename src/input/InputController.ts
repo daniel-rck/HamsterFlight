@@ -44,11 +44,22 @@ export class InputController {
     };
 
     on<PointerEvent>(canvas, "pointerdown", (ev) => {
+      // Only the primary button is the button. A right click used to start a
+      // jump and then hand the release to the context menu.
+      if (ev.button !== undefined && ev.button !== 0) return;
       ev.preventDefault();
       canvas.focus({ preventScroll: true });
       // A second finger neither presses again nor, when lifted, releases the first.
       if (this.#pointerId !== null || this.#keyDown) return;
       this.#pointerId = ev.pointerId;
+      // Capture, so the hold survives the pointer drifting off the stage: the
+      // release arrives here wherever it happens. Guarded, because a test
+      // EventTarget and some older browsers have no such method.
+      try {
+        (canvas as Partial<HTMLElement>).setPointerCapture?.(ev.pointerId);
+      } catch {
+        // Not capturable; `pointerleave` below still releases on the way out.
+      }
       this.#press();
     });
     const pointerUp = (ev: PointerEvent): void => {
@@ -59,6 +70,9 @@ export class InputController {
     on<PointerEvent>(canvas, "pointerup", pointerUp);
     on<PointerEvent>(canvas, "pointercancel", pointerUp);
     on<PointerEvent>(canvas, "pointerleave", pointerUp);
+    // A long press is how you glide on a touch screen; on Android it is also
+    // how you open the context menu, which cancels the pointer mid-hold.
+    on<Event>(canvas, "contextmenu", (ev) => ev.preventDefault());
 
     on<KeyboardEvent>(targets.keys, "keydown", (ev) => {
       if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey) return;
@@ -68,7 +82,7 @@ export class InputController {
         if (this.#keyDown || this.#pointerId !== null) return;
         this.#keyDown = true;
         this.#press();
-      } else if (ev.key === "p" || ev.key === "P") {
+      } else if (ev.key === "p" || ev.key === "P" || ev.key === "Escape") {
         this.#queue.push({ kind: "togglePause" });
       } else if (ev.key === "h" || ev.key === "H") {
         options.onToggleHitboxes?.();

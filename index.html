@@ -13,6 +13,13 @@
       :root {
         color-scheme: dark;
         --ink: #e8eef5;
+        /* Everything on the page that is not the stage: body padding, the grid
+           gap and a footer of up to five 18 px lines. The stage's width is
+           derived from what this leaves of the viewport height, so the page
+           never grows past the fold - the old fixed max-height budgeted 8rem
+           and came out 11 px short on every desktop viewport, which put a
+           scrollbar on a page whose only control is a canvas. */
+        --chrome: 10rem;
       }
       * {
         box-sizing: border-box;
@@ -22,6 +29,10 @@
         min-height: 100svh;
         display: grid;
         place-items: center;
+        /* Pack the stage and the footer together in the middle. Stretched rows
+           left a portrait phone with the stage in the top third and the footer
+           adrift near the bottom. */
+        align-content: center;
         gap: 1rem;
         padding: 1rem;
         background: #141c26;
@@ -29,9 +40,9 @@
         font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
       }
       .stage {
-        width: min(100%, 1600px);
-        /* Letterbox on short screens instead of pushing the HUD below the fold. */
-        max-height: calc(100svh - 8rem);
+        /* Letterbox on short screens instead of pushing the HUD below the fold:
+           the third term is the widest 3:2 stage the remaining height allows. */
+        width: min(100%, 1600px, calc((100svh - var(--chrome)) * 1.5));
         aspect-ratio: 3 / 2;
         border-radius: 10px;
         overflow: hidden;
@@ -44,6 +55,11 @@
         height: 100%;
         touch-action: none;
         cursor: pointer;
+        /* Holding to glide is a long press; without these iOS offers to select
+           or copy the canvas halfway through it. */
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-touch-callout: none;
       }
       canvas:focus {
         outline: none;
@@ -108,8 +124,8 @@
     </div>
     <footer>
       <span id="how-to">Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide.
-      One swing per jump; a miss costs no turn. <kbd>P</kbd> pauses.</span> Physics runs at a fixed
-      20&nbsp;Hz, as the original did.
+      One swing per jump; a miss costs no turn. <kbd>P</kbd> or <kbd>Esc</kbd> pauses; a click resumes.</span>
+      Physics runs at a fixed 20&nbsp;Hz, as the original did.
       <br />
       A fan reimplementation built from bytecode analysis of the original Flash game. Not
       affiliated with the original publisher. Sprites are extracted from the original SWF and

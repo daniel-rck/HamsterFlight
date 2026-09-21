@@ -87,6 +87,8 @@ export interface SimSnapshot {
   readonly phaseKind: Phase["kind"];
   readonly turn: number;
   readonly paused: boolean;
+  /** The jump's one pillow swing has been used, hit or miss. False outside `jumping`. */
+  readonly swung: boolean;
   readonly hamster: {
     readonly x: number;
     readonly y: number;
