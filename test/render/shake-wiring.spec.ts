@@ -122,6 +122,7 @@ function snapshot(): SimSnapshot {
     shots: [],
     feet: 0,
     outcome: null,
+    outcomeClip: null,
   };
 }
 

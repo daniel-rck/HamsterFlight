@@ -64,9 +64,10 @@ export interface FlightState {
  * combinations were unreachable only by convention.
  *
  * `settling` has two stages, matching the original's sequence after a shot:
- * the outcome clip plays (`hold`, `Tuning.outcomeHoldTicks`), then its last
- * frame calls `setCamReset()` and the camera quick-pans home (`pan`,
- * `GameCamera.doQuickPanTo`); `onDone()` advances the turn on arrival.
+ * the outcome clip plays (`hold`) - a faceplant or a zero hands over to a
+ * cheer part-way, as their frame scripts do - then the cheer's (or the
+ * hole's) frame 50 calls `setCamReset()` and the camera quick-pans home
+ * (`pan`, `GameCamera.doQuickPanTo`); `onDone()` advances the turn on arrival.
  */
 export type Phase =
   | { readonly kind: "ready" }
@@ -82,8 +83,15 @@ export type Phase =
        * is drawn there, which is why the projectile had to survive
        * `deleteBlt()` in the original.
        */
-      readonly x: number;
+      x: number;
       readonly y: number;
+      /**
+       * The clip showing: the outcome's own, until a faceplant or a zero
+       * attaches the cheer that follows it.
+       */
+      clip: ShotOutcome;
+      /** Ticks since `clip` was attached. */
+      clipTicks: number;
       stage: "hold" | "pan";
       /** Ticks left in the current stage; in `pan` it is the safety cap. */
       ticksLeft: number;
@@ -123,4 +131,6 @@ export interface SimSnapshot {
   readonly shots: readonly number[];
   readonly feet: number;
   readonly outcome: ShotOutcome | null;
+  /** The outcome clip showing - `outcome`, or the cheer that follows it. Null outside `settling`. */
+  readonly outcomeClip: ShotOutcome | null;
 }

@@ -46,6 +46,7 @@ function snap(setup: Setup = {}): SimSnapshot {
     shots: [],
     feet: 0,
     outcome: setup.outcome ?? null,
+    outcomeClip: null,
   };
 }
 

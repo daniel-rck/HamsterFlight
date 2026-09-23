@@ -54,6 +54,7 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     shots: [120, 45],
     feet: 8,
     outcome: null,
+    outcomeClip: null,
     ...over,
   };
 }

@@ -117,6 +117,28 @@ export const C = Object.freeze({
   JUMP_GRAV_RISING: 1.5,
   JUMP_GRAV_FALLING: 0.75,
 
+  // -- outcome clips ------------------------------------------------------
+  /**
+   * `hit_cheer` and `hit_hole` call `_root.hamsterShoot.setCamReset()` from
+   * their frame 50 script (as2/timeline/DefineSprite_351_hit_cheer/frame_50,
+   * DefineSprite_365_hit_hole/frame_50) - the quick pan home starts there.
+   */
+  OUTCOME_CAM_RESET_FRAME: 50,
+  /**
+   * `hit_faceplant` does not reset the camera: its frame 20 script calls
+   * `createHitClip(this._x, this._y, this._rotation, "cheer")`, which attaches
+   * a cheer at the same depth, replacing it - so a faceplant is followed by
+   * the whole cheer clip. DefineSprite_372_hit_faceplant/frame_20.
+   */
+  FACEPLANT_CHEER_FRAME: 20,
+  /**
+   * `hit_zero` does the same on frame 36, after `this._x = 220`, at its own
+   * depth (the `dpth` argument), so the zero stays under the cheer.
+   * DefineSprite_378_hit_zero/frame_36.
+   */
+  ZERO_CHEER_FRAME: 36,
+  ZERO_CHEER_X: 220,
+
   // -- powerup effects ---------------------------------------------------
   SPEED_XVEL: 20,
   WIND_YVEL: -8,

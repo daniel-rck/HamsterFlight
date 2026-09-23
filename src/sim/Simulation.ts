@@ -3,7 +3,7 @@ import { C } from "./constants.ts";
 import { Projectile } from "./entities/Projectile.ts";
 import type { SimEvent } from "./events.ts";
 import { stepFlight } from "./phases/FlightPhase.ts";
-import { beginJump, stepJump } from "./phases/JumpPhase.ts";
+import { beginJump, framesToTicks, stepJump } from "./phases/JumpPhase.ts";
 import { attemptLaunch } from "./phases/Launch.ts";
 import { mulberry32 } from "./rng/mulberry32.ts";
 import type { Rng } from "./rng/Rng.ts";
@@ -25,6 +25,22 @@ export interface SimulationOptions {
  * This is the only mutator in `src/sim`. The renderer reads `snapshot()` and
  * may not hold a reference to this object.
  */
+/**
+ * Ticks an outcome clip plays before its frame script moves things on: the
+ * cheer and the hole call `setCamReset()` on frame 50, the faceplant and the
+ * zero attach their cheer on frames 20 and 36. Frame N runs N - 1 stage frames
+ * after the clip is attached.
+ */
+export function clipHoldTicks(clip: ShotOutcome): number {
+  const frame =
+    clip === "faceplant"
+      ? C.FACEPLANT_CHEER_FRAME
+      : clip === "zero"
+        ? C.ZERO_CHEER_FRAME
+        : C.OUTCOME_CAM_RESET_FRAME;
+  return framesToTicks(frame - 1);
+}
+
 export class Simulation {
   #tick = 0;
   #turn = 1;
@@ -137,10 +153,19 @@ export class Simulation {
     const st = this.#phase;
     st.ticksLeft--;
     if (st.stage === "hold") {
-      if (st.ticksLeft <= 0) {
-        st.stage = "pan";
-        st.ticksLeft = this.#tuning.camera.maxPanTicks;
+      st.clipTicks++;
+      if (st.ticksLeft > 0) return;
+      if (st.clip !== "cheer" && st.clip !== "hole") {
+        // `createHitClip(..., "cheer")` from the faceplant's or the zero's
+        // own frame script; the zero moves itself to x = 220 first.
+        if (st.clip === "zero") st.x = C.ZERO_CHEER_X;
+        st.clip = "cheer";
+        st.clipTicks = 0;
+        st.ticksLeft = clipHoldTicks("cheer");
+        return;
       }
+      st.stage = "pan";
+      st.ticksLeft = this.#tuning.camera.maxPanTicks;
       return;
     }
     const arrived = quickPanStep(
@@ -271,8 +296,10 @@ export class Simulation {
       feet,
       x: at.x,
       y: at.y,
+      clip: outcome,
+      clipTicks: 0,
       stage: "hold",
-      ticksLeft: this.#tuning.outcomeHoldTicks[outcome],
+      ticksLeft: clipHoldTicks(outcome),
       camera,
       // The camera does not move during `hold`, so seeding the pan here is
       // the same as `quickPanTo()` seeding it when the hold ends.
@@ -312,6 +339,7 @@ export class Simulation {
       // which, because a second click after a whiff does nothing.
       swung: phase.kind === "jumping" && phase.jump.swung,
       windup: phase.kind === "jumping" ? phase.jump.windup : null,
+      outcomeClip: phase.kind === "settling" ? phase.clip : null,
       // Copied, like camera/powerups/flags below. A cast would have handed
       // out the live array: the type says readonly, the object was not.
       shots: [...this.#shots],

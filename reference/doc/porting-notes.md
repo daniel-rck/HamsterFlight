@@ -440,11 +440,20 @@ the source it cites. Each has a test in `test/sim/` that fails on the old code.
 
 Two things that were half-present are now whole:
 
-- **The camera pans home.** After a shot the outcome clip plays
-  (`Tuning.outcomeHoldTicks`), then its last frame calls `setCamReset()` and
-  `GameCamera.doQuickPanTo` converges on (300, 800); `onDone()` advances the
-  turn on arrival. `settling` has the two stages, `quickPanStep` has a caller,
-  and `camera.maxPanTicks` is the soft-lock cap it was described as.
+- **The camera pans home.** After a shot the outcome clip plays, then a
+  frame script calls `setCamReset()` and `GameCamera.doQuickPanTo` converges
+  on (300, 800); `onDone()` advances the turn on arrival. `settling` has the
+  two stages, `quickPanStep` has a caller, and `camera.maxPanTicks` is the
+  soft-lock cap it was described as. How long the clip plays was a guess in
+  `Tuning.outcomeHoldTicks` (24 ticks for a cheer, 20 for a faceplant) until
+  the frame scripts turned up: `hit_cheer` and `hit_hole` call `setCamReset()`
+  on frame 50, 52 ticks; `hit_faceplant` never does - its frame 20 attaches a
+  `hit_cheer` in its place, so a faceplant is 20 ticks of faceplant and then
+  the whole cheer; `hit_zero` does the same on frame 36 after moving itself to
+  x = 220. Those are constants now (`OUTCOME_CAM_RESET_FRAME`,
+  `FACEPLANT_CHEER_FRAME`, `ZERO_CHEER_FRAME`) and `settling.clip` says which
+  clip is showing. Still not reproduced: the cheer's frame 9 `setScore()` and
+  frame 27 distance caption - the port's HUD records the shot when it lands.
 - **The no-rotate rule.** `Bullet.update` (Bullet.as:46) stops turning the
   clip below y = 940 while `xvel < 7` - the signed value, as written, and
   tested on the pre-move y. It first lived in `src/render/scene/pose.ts` as a

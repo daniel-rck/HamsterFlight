@@ -13,7 +13,7 @@ import type { Tuning } from "@/sim/tuning.ts";
 export function poseFor(s: SimSnapshot): SpriteId {
   if (s.phaseKind === "jumping" || s.phaseKind === "ready") return "hamster/jump";
   if (s.phaseKind === "settling") {
-    switch (s.outcome) {
+    switch (s.outcomeClip ?? s.outcome) {
       case "hole":
         return "hit/hole";
       case "cheer":
@@ -37,8 +37,9 @@ export function poseFor(s: SimSnapshot): SpriteId {
 
 /**
  * `createHitClip(bc._x, bc._y + 3, ...)` for a faceplant, and the unmodified
- * position for every other outcome. Game.as:869, 874, 967. A display rule, like
- * the no-rotate one below, so it lives here rather than in the simulation.
+ * position for every other outcome. Game.as:869, 874, 967. The cheer the
+ * faceplant attaches takes its `this._y`, so it keeps the offset. A display
+ * rule, so it lives here rather than in the simulation.
  */
 export function outcomeOffsetY(s: SimSnapshot): number {
   return s.phaseKind === "settling" && s.outcome === "faceplant" ? 3 : 0;

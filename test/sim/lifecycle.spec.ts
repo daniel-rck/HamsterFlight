@@ -4,9 +4,16 @@ import { C } from "@/sim/constants.ts";
 import { CLICK_WINDOW } from "@/sim/drive.ts";
 import type { SimEvent } from "@/sim/events.ts";
 import { JUMP_WINDUP_TICKS } from "@/sim/phases/JumpPhase.ts";
-import { Simulation } from "@/sim/Simulation.ts";
+import { clipHoldTicks, Simulation } from "@/sim/Simulation.ts";
 import { beginQuickPan, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
+import type { ShotOutcome } from "@/sim/types.ts";
+
+/** The whole `hold` stage: the outcome's clip, and the cheer a faceplant or zero hands over to. */
+function totalHold(outcome: ShotOutcome): number {
+  const followed = outcome === "faceplant" || outcome === "zero";
+  return clipHoldTicks(outcome) + (followed ? clipHoldTicks("cheer") : 0);
+}
 
 /** Steps until the phase changes away from `from`, returning every event. */
 function stepOut(sim: Simulation, from: string, limit = 10_000): SimEvent[] {
@@ -257,7 +264,7 @@ describe("settling", () => {
       const shotDone = launchEvents.find((e) => e.t === "shotDone");
       expect(shotDone).toBeDefined();
       if (shotDone === undefined || shotDone.t !== "shotDone") return;
-      const hold = DEFAULT_TUNING.outcomeHoldTicks[shotDone.outcome];
+      const hold = totalHold(shotDone.outcome);
 
       const start = s.snapshot().camera;
       expect(start.x).toBeLessThan(0); // the camera followed the flight
@@ -289,6 +296,37 @@ describe("settling", () => {
     }
   });
 
+  it("follows a faceplant with the cheer its frame 20 script attaches", () => {
+    // `createHitClip(this._x, this._y, this._rotation, "cheer")` -
+    // DefineSprite_372_hit_faceplant/frame_20; the cheer then runs to its own
+    // frame 50 before the camera moves.
+    const sim = new Simulation({ seed: 1 });
+    const events = flownShot(sim, 32);
+    const done = events.find((e) => e.t === "shotDone");
+    expect(done?.t === "shotDone" && done.outcome).toBe("faceplant");
+    const first = sim.snapshot();
+    expect(first.outcomeClip).toBe("faceplant");
+    expect(clipHoldTicks("faceplant")).toBe(20);
+    expect(clipHoldTicks("cheer")).toBe(52);
+    // A zero only ever comes from a jump that lands, which hands the turn back
+    // instead (see "a jump that never meets the pillow"), so its hand-over at
+    // x = 220 is kept for completeness and pinned only by its length.
+    expect(clipHoldTicks("zero")).toBe(37);
+    for (let i = 0; i < clipHoldTicks("faceplant"); i++) sim.step();
+    const cheer = sim.snapshot();
+    expect(cheer.outcomeClip).toBe("cheer");
+    // The shot is still a faceplant, and the cheer stays where it came down.
+    expect(cheer.outcome).toBe("faceplant");
+    expect(cheer.hamster.x).toBe(first.hamster.x);
+    for (let i = 0; i < clipHoldTicks("cheer"); i++) {
+      expect(sim.snapshot().camera).toEqual(first.camera);
+      sim.step();
+    }
+    // setCamReset(): the pan starts with the next tick.
+    sim.step();
+    expect(sim.snapshot().camera).not.toEqual(first.camera);
+  });
+
   it("arrives in a single pan step when the camera is already home", () => {
     // This used to be reached through a zero shot. Only a launched shot enters
     // `settling` now, and a launch always moves the camera, so the property is
@@ -308,7 +346,7 @@ describe("settling", () => {
     const outcome = sim.snapshot().outcome;
     expect(outcome).not.toBeNull();
     if (outcome === null) return;
-    for (let i = 0; i < DEFAULT_TUNING.outcomeHoldTicks[outcome]; i++) sim.step();
+    for (let i = 0; i < totalHold(outcome); i++) sim.step();
     expect(sim.phaseKind).toBe("settling");
     for (let i = 0; i < cap; i++) sim.step();
     // Released by the cap, not by arrival: the camera is still on its way.

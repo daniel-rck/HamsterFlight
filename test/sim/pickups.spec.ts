@@ -108,7 +108,6 @@ describe("shared tables", () => {
   it("are frozen all the way down", () => {
     expect(Object.isFrozen(DEFAULT_TUNING.powerupActiveTicks)).toBe(true);
     expect(Object.isFrozen(DEFAULT_TUNING.boxes.powerups.wind)).toBe(true);
-    expect(Object.isFrozen(DEFAULT_TUNING.outcomeHoldTicks)).toBe(true);
     expect(Object.isFrozen(POWERUPS.speed)).toBe(true);
   });
 });

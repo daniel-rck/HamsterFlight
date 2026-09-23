@@ -1,7 +1,7 @@
 import { deepFreeze } from "./freeze.ts";
 import { HITBOXES } from "./hitboxes.generated.ts";
 import type { Box } from "./math/aabb.ts";
-import type { PowerupKind, ShotOutcome } from "./types.ts";
+import type { PowerupKind } from "./types.ts";
 
 /**
  * Everything the bytecode does NOT tell us. Kept separate from `constants.ts`
@@ -31,11 +31,6 @@ export interface Tuning {
   readonly camera: {
     readonly maxPanTicks: number;
   };
-  /**
-   * How long each outcome clip plays before its last frame calls
-   * `setCamReset()`. The clip timelines are not in the constant table.
-   */
-  readonly outcomeHoldTicks: Readonly<Record<ShotOutcome, number>>;
   /**
    * `Bullet.increaseGravity` is called only from `onMouseDown` (Game.as:1040),
    * so the lift is frozen at `-0.17 * xvel` as measured at the press and does
@@ -73,6 +68,5 @@ export const DEFAULT_TUNING: Tuning = deepFreeze({
     superbounce: 1,
   },
   camera: { maxPanTicks: 120 },
-  outcomeHoldTicks: { cheer: 24, faceplant: 20, hole: 24, zero: 20 },
   recomputeGlidePerTick: false,
 });
