@@ -8,7 +8,7 @@ reconstructed from bytecode analysis of the original SWF.
 It is a **pixi.js canvas game**. It has one runtime dependency (`pixi.js`), no
 React, no Tailwind, no router, no IndexedDB layer, no service worker, and its
 Worker serves static assets only. It shares the web-base *tooling* baseline —
-Bun, Biome, the reusable CI job, the hygiene files — and nothing else.
+Bun, oxlint + oxfmt, the reusable CI job, the hygiene files — and nothing else.
 
 That is a decision, not drift. `web-base check` reports `layout`, `storage`,
 `router` and `pwa` as *not adopted* for this repo, which is the intended answer;
@@ -35,7 +35,7 @@ the simulation may not touch storage even if one is added later.
 keep it that way, and all of them are part of `bun run verify`:
 
 - **`scripts/check-sim-purity.ts`** — a static check over the module graph.
-- **A lint rule** — `biome.json` scopes a `noRestrictedGlobals` deny-list to
+- **A lint rule** — `.oxlintrc.json` scopes a `no-restricted-globals` deny-list to
   `src/sim/**` covering `window`, `document`, `navigator`, `performance`,
   `localStorage`, `requestAnimationFrame` and `fetch`. Each entry carries the
   reason. `performance` is denied because **time must not enter the sim**: it

@@ -1,4 +1,4 @@
 {
-  "recommendations": ["biomejs.biome", "vitest.explorer", "EditorConfig.EditorConfig"],
-  "unwantedRecommendations": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint"]
+  "recommendations": ["oxc.oxc-vscode", "vitest.explorer", "EditorConfig.EditorConfig"],
+  "unwantedRecommendations": ["esbenp.prettier-vscode", "dbaeumer.vscode-eslint", "biomejs.biome"]
 }

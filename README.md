@@ -203,7 +203,7 @@ It does not deploy; see [Deploying](#deploying).
 
 | Job | Checks |
 | --- | --- |
-| `ci` | the shared workflow from `daniel-rck/web-base`: Biome, three tsconfigs, the tests, the build |
+| `ci` | the shared workflow from `daniel-rck/web-base`: oxlint + oxfmt, three tsconfigs, the tests, the build |
 | `checks` | what only this app has: sim purity, atlas integrity, the bundle budget |
 | `smoke` | opens the built page in Chromium, in both modes on both backends; then serves it through `wrangler dev` and checks the headers, the immutable caching and the real 404s |
 

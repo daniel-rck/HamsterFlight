@@ -1,6 +1,5 @@
 import { CanvasTextMetrics, Container, Sprite, Text, TextStyle } from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
-import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import {
   chrome,
   hideFrom,
@@ -11,6 +10,7 @@ import {
   solidRect,
 } from "@/render/pixi/helpers.ts";
 import type { TextureCache } from "@/render/pixi/TextureCache.ts";
+import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import {
   debugLines,
   FONTS,

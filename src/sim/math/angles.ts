@@ -6,7 +6,7 @@
  */
 // Math.PI here would be a fidelity bug: it changes the angle maths and every
 // golden trajectory with it.
-// biome-ignore lint/suspicious/noApproximativeNumericConstant: reproducing the original's truncated constant is the point
+// oxlint-disable-next-line approx-constant -- reproducing the original's truncated constant is the point
 export const PI_AS2 = 3.141593;
 
 /** `Game.radainsToDegrees` / `Bullet.radainsToDegrees` (typo is the original's). */

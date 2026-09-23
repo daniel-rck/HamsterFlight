@@ -1,0 +1,65 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "extends": ["./oxlint.base.json"],
+  "ignorePatterns": ["reference/**", "**/*.as"],
+  "rules": {
+    "no-unused-vars": "error",
+    "typescript/no-explicit-any": "error"
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["**/__tests__/**", "**/*.test.ts", "**/*.test.tsx", "test/**"],
+      "rules": {
+        "typescript/no-non-null-assertion": "off",
+        "vitest/valid-expect": [
+          "error",
+          {
+            "maxArgs": 2
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/sim/**"],
+      "rules": {
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "src/sim must stay headless and deterministic."
+          },
+          {
+            "name": "document",
+            "message": "src/sim must stay headless and deterministic."
+          },
+          {
+            "name": "navigator",
+            "message": "src/sim must stay headless and deterministic."
+          },
+          {
+            "name": "performance",
+            "message": "Time must not enter the sim; it steps in fixed 50 ms ticks."
+          },
+          {
+            "name": "localStorage",
+            "message": "The sim keeps no persistence; anything stateful lives outside src/sim."
+          },
+          {
+            "name": "requestAnimationFrame",
+            "message": "The loop drives the sim, not the other way round."
+          },
+          {
+            "name": "fetch",
+            "message": "src/sim must stay headless and deterministic."
+          }
+        ]
+      }
+    }
+  ]
+}

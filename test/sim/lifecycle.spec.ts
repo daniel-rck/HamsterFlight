@@ -191,12 +191,11 @@ describe("where the outcome clip goes", () => {
     expect(landed.hamster.x).toBeLessThan((landed.feet + 1) * C.PX_PER_FOOT);
     // A faceplant or a hole is parked on the ground line; a `cheer` keeps
     // whatever y the last integration left, exactly as `onShotDone` reads it.
-    if (landed.outcome === "faceplant" || landed.outcome === "hole") {
-      expect(landed.hamster.y).toBe(C.GROUND_Y);
-    } else {
-      expect(landed.hamster.y).toBeGreaterThan(C.SKID_Y);
-      expect(landed.hamster.y).toBeLessThanOrEqual(C.GROUND_Y);
-    }
+    // Either way it is inside the skid band, which contains the ground line.
+    const parked = landed.outcome === "faceplant" || landed.outcome === "hole";
+    expect(landed.hamster.y).toBeGreaterThan(C.SKID_Y);
+    expect(landed.hamster.y).toBeLessThanOrEqual(C.GROUND_Y);
+    expect(parked && landed.hamster.y !== C.GROUND_Y, "parked off the ground line").toBe(false);
   });
 
   it("holds that position for the whole settle, including the pan home", () => {
@@ -262,7 +261,9 @@ describe("settling", () => {
         s.step();
         panTicks++;
         const cam = s.snapshot().camera;
-        if (s.phaseKind === "settling") expect(cam.x).toBeGreaterThan(previous);
+        // The last step lands on `zero()`, which is not necessarily past `previous`.
+        const stillPanning = s.phaseKind === "settling";
+        expect(!stillPanning || cam.x > previous, `x rises: ${previous} -> ${cam.x}`).toBe(true);
         previous = cam.x;
         expect(panTicks).toBeLessThanOrEqual(DEFAULT_TUNING.camera.maxPanTicks);
       }
