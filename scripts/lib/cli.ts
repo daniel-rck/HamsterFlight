@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 /** The repository root, so every script works from any working directory. */
@@ -31,7 +32,18 @@ export function intListEnv(name: string, fallback: readonly number[]): readonly 
 /** True when this module is the one Node was asked to run, as opposed to imported. */
 export function isMain(moduleUrl: string): boolean {
   const entry = process.argv[1];
-  return entry !== undefined && fileURLToPath(moduleUrl) === entry;
+  if (entry === undefined) return false;
+  // Node resolves symlinks in the module URL but not in argv[1], so under a
+  // symlinked checkout the two never matched - and a check script silently
+  // did nothing and exited 0.
+  const real = (path: string): string => {
+    try {
+      return realpathSync(path);
+    } catch {
+      return path;
+    }
+  };
+  return real(fileURLToPath(moduleUrl)) === real(entry);
 }
 
 /** Run a script's main, turning a rejection into an exit code rather than a stack dump. */
