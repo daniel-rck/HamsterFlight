@@ -1,0 +1,10 @@
+glide._visible = false;
+wind._visible = false;
+ball._visible = false;
+superball._visible = false;
+slide._visible = false;
+blur._visible = false;
+skid._visible = false;
+drop._visible = false;
+core._visible = false;
+stop();
