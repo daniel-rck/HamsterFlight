@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { C } from "@/sim/constants.ts";
 import { flyGain, slideGain } from "@/sim/phases/FlightPhase.ts";
 import type { CameraState } from "@/sim/state.ts";
-import { follow, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
+import { beginQuickPan, follow, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
 import { centredOn, makeFlight, tick, withActiveTicks } from "../support/harness.ts";
 
@@ -312,8 +312,9 @@ describe("camera", () => {
 
   it("halves the remaining pan distance each tick and arrives", () => {
     const cam: CameraState = { x: -4000, y: -600 };
+    const pan = beginQuickPan(cam);
     let ticks = 0;
-    while (!quickPanStep(cam, C.CAM_RESET_TARGET_X, C.CAM_RESET_TARGET_Y, C.CAM_QPAN_TIME)) {
+    while (!quickPanStep(cam, pan, C.CAM_RESET_TARGET_X, C.CAM_RESET_TARGET_Y, C.CAM_QPAN_TIME)) {
       ticks++;
       expect(ticks).toBeLessThan(C.CAM_PAN_ARRIVE + 200);
     }

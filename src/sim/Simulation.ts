@@ -8,7 +8,7 @@ import { attemptLaunch } from "./phases/Launch.ts";
 import { mulberry32 } from "./rng/mulberry32.ts";
 import type { Rng } from "./rng/Rng.ts";
 import type { FlightState, Phase, SimSnapshot } from "./state.ts";
-import { follow, newCamera, quickPanStep } from "./systems/CameraModel.ts";
+import { beginQuickPan, follow, newCamera, quickPanStep } from "./systems/CameraModel.ts";
 import { DEFAULT_TUNING, type Tuning } from "./tuning.ts";
 import { noEffects, type ShotOutcome } from "./types.ts";
 
@@ -142,6 +142,7 @@ export class Simulation {
     }
     const arrived = quickPanStep(
       st.camera,
+      st.pan,
       C.CAM_RESET_TARGET_X,
       C.CAM_RESET_TARGET_Y,
       C.CAM_QPAN_TIME,
@@ -271,6 +272,9 @@ export class Simulation {
       stage: "hold",
       ticksLeft: this.#tuning.outcomeHoldTicks[outcome],
       camera,
+      // The camera does not move during `hold`, so seeding the pan here is
+      // the same as `quickPanTo()` seeding it when the hold ends.
+      pan: beginQuickPan(camera),
     };
   }
 

@@ -83,6 +83,8 @@ export type Phase =
       /** Ticks left in the current stage; in `pan` it is the safety cap. */
       ticksLeft: number;
       readonly camera: CameraState;
+      /** `cameraTargetX/Y` - the pan's unquantised accumulator. See `quickPanStep`. */
+      readonly pan: CameraState;
     }
   | { readonly kind: "gameOver"; readonly total: number };
 

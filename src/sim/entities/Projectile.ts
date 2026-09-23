@@ -1,5 +1,6 @@
 import { C } from "../constants.ts";
 import { radToDeg } from "../math/angles.ts";
+import { toTwips } from "../math/twips.ts";
 
 /**
  * The hamster in flight - a direct port of `reference/as2/Bullet.as` with the
@@ -60,8 +61,10 @@ export class Projectile {
     // The art is authored pointing up, hence the quarter turn - also when
     // rotation is off, so the clip is never at 0.
     this.rotationDeg = deg + 90;
-    this.x += this.xvel;
-    this.y += this.yvel;
+    // `bltClip._x += xvel` writes a clip property, so the position lands on
+    // the twip grid - and `ox`/`oy`, read back from the clip, with it.
+    this.x = toTwips(this.x + this.xvel);
+    this.y = toTwips(this.y + this.yvel);
   }
 
   /**

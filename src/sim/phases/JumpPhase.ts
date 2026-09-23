@@ -1,5 +1,6 @@
 import { C } from "../constants.ts";
 import type { SimEvent } from "../events.ts";
+import { toTwips } from "../math/twips.ts";
 import type { Rng } from "../rng/Rng.ts";
 import type { JumpState } from "../state.ts";
 
@@ -30,7 +31,9 @@ export function stepJump(s: JumpState, rng: Rng, out: SimEvent[]): boolean {
   // Asymmetric gravity: the fall is slower than the climb, which widens the
   // hit window at the top of the arc.
   s.yvel += s.yvel < 0 ? C.JUMP_GRAV_RISING : C.JUMP_GRAV_FALLING;
-  s.y += s.yvel;
+  // `hamster._y` is a clip property. The jump moves in quarter pixels, so
+  // this never actually changes a value; it keeps the rule in one shape.
+  s.y = toTwips(s.y + s.yvel);
 
   if (s.y >= C.HAMSTER_START_Y) {
     s.y = C.HAMSTER_START_Y;

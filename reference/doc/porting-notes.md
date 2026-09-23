@@ -369,6 +369,35 @@ guaranteed bit-identical across engines or architectures.** Therefore:
 A golden that shifts by exactly 1 ft on a different machine is a landing sitting
 on the `Math.floor` boundary, not a regression. Note the seed and re-pin.
 
+### Clip positions live on the twip grid
+
+AVM1 stores `_x`/`_y` as whole twips (1/20 px), so every write to a clip
+property is quantised. The original keeps four things as clip properties: the
+hamster's position (`bc._x`/`_y`, Bullet.as:51-52), `ox`/`oy` (read back from
+the clip, Bullet.as:42-43), the camera container (`_$mc._x`/`_y`,
+GameCamera.as:68-79, 184-187) and the powerup positions (Game.as:1325-1332).
+Velocities are plain `Number`s and are not affected. The port quantises at
+exactly those writes with `toTwips` (`src/sim/math/twips.ts`): in
+`Projectile.integrate()`, `follow`, `quickPanStep`, `spawnPowerups` and the
+jump. The quick pan keeps the original's split - `cameraTargetX/Y` are
+unquantised accumulators and only the container copy is rounded - so
+`settling` carries a `pan` accumulator next to `camera`. The ground writes
+(`950`, `949`) are whole pixels already.
+
+The error adds up tick by tick, so it matters near the boundaries: the
+`Math.floor(x / 100)` feet boundary, the exactly-70 degree angle test, the
+`>= 946` skid test and the `600 - camX` spawn gate.
+
+**The rounding mode is an assumption.** Nearest twip (`Math.round`) is used;
+nothing has been checked against a Flash player. Truncation toward zero -
+what Ruffle's `Twips::from_pixels` may do - was tried: it biases every
+position toward zero by up to a twip per write, and that flips two relations
+in `test/golden/strategies.spec.ts` that were already on a knife edge (the
+`hold` and `mash` peak medians sit on the same ~226k px plateau, 0.3% apart,
+and the long-tail check cleared `2 x median` by 4 ft). Nearest rounding leaves
+every golden where it was. A player trace would settle it; the rounding is one
+line in `toTwips`.
+
 ## Fixed against the bytecode, later
 
 A review against `Game.as` found four places where the port had drifted from

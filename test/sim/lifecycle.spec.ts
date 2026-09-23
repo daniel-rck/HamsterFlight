@@ -3,7 +3,7 @@ import type { InputCommand } from "@/sim/commands.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimEvent } from "@/sim/events.ts";
 import { Simulation } from "@/sim/Simulation.ts";
-import { newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
+import { beginQuickPan, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
 
 /** Steps until the phase changes away from `from`, returning every event. */
@@ -288,9 +288,10 @@ describe("settling", () => {
     // `settling` now, and a launch always moves the camera, so the property is
     // pinned on the pan itself.
     const camera = newCamera();
-    expect(quickPanStep(camera, C.CAM_RESET_TARGET_X, C.CAM_RESET_TARGET_Y, C.CAM_QPAN_TIME)).toBe(
-      true,
-    );
+    const pan = beginQuickPan(camera);
+    expect(
+      quickPanStep(camera, pan, C.CAM_RESET_TARGET_X, C.CAM_RESET_TARGET_Y, C.CAM_QPAN_TIME),
+    ).toBe(true);
     expect(camera).toEqual(newCamera());
   });
 

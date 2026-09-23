@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { C } from "@/sim/constants.ts";
+import { toTwips } from "@/sim/math/twips.ts";
 import { makeFlight, tick } from "../support/harness.ts";
 
 /**
@@ -19,8 +20,9 @@ describe("ground contact", () => {
     const s = makeFlight({ y: 945, yvel: 20, xvel: 30, ox: 118, oy: 920 });
     const { events } = tick(s);
     expect(s.p.hit).toBe(true);
-    // 949 after the bounce, then the integration adds the new yvel.
-    expect(s.p.y).toBeCloseTo(C.BOUNCE_RESET_Y + (20 / C.PLAIN_BOUNCE_Y_DIV + C.GRAV), 10);
+    // 949 after the bounce, then the integration adds the new yvel - onto
+    // the twip grid, since `_y` is a clip property.
+    expect(s.p.y).toBe(toTwips(C.BOUNCE_RESET_Y + (20 / C.PLAIN_BOUNCE_Y_DIV + C.GRAV)));
     expect(s.p.xvel).toBeCloseTo(30 * C.BOUNCE_F * C.DRAG, 10);
     expect(events).toContainEqual({ t: "fx", id: "bounceFx", x: 148, y: 955 });
     expect(events.some((e) => e.t === "sfx" && e.id === "bump")).toBe(true);
@@ -47,7 +49,7 @@ describe("ground contact", () => {
     expect(done).toBe(true);
     expect(s.outcome).toBe("faceplant");
     // Pinned to the ground, then the tick's gravity still integrates once.
-    expect(s.p.y).toBeCloseTo(C.GROUND_Y + C.GRAV, 10);
+    expect(s.p.y).toBe(toTwips(C.GROUND_Y + C.GRAV));
     expect(s.p.xvel).toBe(0);
     expect(events.some((e) => e.t === "sfx" && e.id === "hit")).toBe(true);
     expect(events.filter((e) => e.t === "sfxStop" && e.id === "fly").length).toBeGreaterThan(0);
@@ -84,7 +86,7 @@ describe("ground contact", () => {
     expect(s.flags.slide).toBe(true); // latched for the rest of the shot
     expect(s.p.xvel).toBeCloseTo(30 * C.SLIDE_F * C.DRAG, 10);
     // Slides stay on 950, bounces reset to 949.
-    expect(s.p.y).toBeCloseTo(C.GROUND_Y + (20 / C.PLAIN_BOUNCE_Y_DIV + C.GRAV), 10);
+    expect(s.p.y).toBe(toTwips(C.GROUND_Y + (20 / C.PLAIN_BOUNCE_Y_DIV + C.GRAV)));
   });
 
   it("is skipped entirely on a rebound tick", () => {
