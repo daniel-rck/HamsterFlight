@@ -28,6 +28,7 @@ function snap(setup: Setup = {}): SimSnapshot {
       yvel: setup.yvel ?? 0,
       visible: true,
       doRotation: false,
+      rotationDeg: 0,
     },
     camera: { x: 0, y: 0 },
     powerups: [],

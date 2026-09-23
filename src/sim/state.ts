@@ -101,6 +101,8 @@ export interface SimSnapshot {
     readonly yvel: number;
     readonly visible: boolean;
     readonly doRotation: boolean;
+    /** `bltClip._rotation` in degrees while flying, including the +90. 0 otherwise. */
+    readonly rotationDeg: number;
   };
   readonly camera: CameraState;
   readonly powerups: readonly PowerupInstance[];

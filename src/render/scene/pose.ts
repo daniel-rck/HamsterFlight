@@ -1,6 +1,7 @@
 import type { SpriteId } from "@/assets/sprites.generated.ts";
-import { C } from "@/sim/constants.ts";
+import { type Box, rotateBox } from "@/sim/math/aabb.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
+import type { Tuning } from "@/sim/tuning.ts";
 
 /**
  * Which hamster clip the original would have made visible, and how it is
@@ -82,19 +83,23 @@ export function bottomCrop(s: SimSnapshot): number {
 }
 
 /**
- * `Bullet.update()` - Bullet.as:42-47. The clip turns to face its velocity,
- * except while crawling along the ground (`xvel < 7 && y > 940` - the signed
- * xvel, as written) or when a skid has switched rotation off. The original
- * adds 90 because the projectile's art is authored pointing up; the exported
- * flight poses face right, so the sprite aligns with the velocity directly.
- * The outcome clips are a different symbol and a different question - see
- * `OUTCOME_ROTATION`.
+ * `Bullet.update()` - Bullet.as:42-50. The rule itself (face the velocity,
+ * except crawling along the ground or with rotation switched off) lives in
+ * the sim, because the pickup test measures the rotated clip; this only reads
+ * `_rotation` back. The original adds 90 because the projectile's art is
+ * authored pointing up; the exported flight poses face right, so the quarter
+ * turn comes off again here. The outcome clips are a different symbol and a
+ * different question - see `OUTCOME_ROTATION`.
  */
 export function hamsterRotation(s: SimSnapshot): number {
   if (s.phaseKind === "settling") return OUTCOME_ROTATION;
   if (s.phaseKind !== "flying") return 0;
-  const h = s.hamster;
-  if (!h.doRotation) return 0;
-  if (h.xvel < C.NO_ROTATE_XVEL && h.y > C.NO_ROTATE_Y) return 0;
-  return Math.atan2(h.yvel, h.xvel);
+  return ((s.hamster.rotationDeg - 90) * Math.PI) / 180;
+}
+
+/** The hamster's hit box as the sim tests it: the flight core turns with the clip. */
+export function hamsterBox(s: SimSnapshot, tuning: Tuning): Box {
+  return s.phaseKind === "flying"
+    ? rotateBox(tuning.boxes.hamsterFlightCore, s.hamster.rotationDeg)
+    : tuning.boxes.hamsterJumpCore;
 }

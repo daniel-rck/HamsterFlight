@@ -1,8 +1,10 @@
 import { C } from "../constants.ts";
+import { radToDeg } from "../math/angles.ts";
 
 /**
  * The hamster in flight - a direct port of `reference/as2/Bullet.as` with the
- * display side (clip, shadow, rotation) removed.
+ * display side (clip, shadow) removed. The clip's `_rotation` stays: the
+ * pickup test measures the rotated clip, so it is physics.
  *
  * `ox`/`oy` are load-bearing physics state, not a rendering convenience: the
  * ground-impact angle is measured from them (Game.as:799-801), and because
@@ -20,8 +22,16 @@ export class Projectile {
   oy: number;
   grav: number;
   hit = false;
-  /** Display-only, but toggled by slide/skid, so it travels in the snapshot. */
+  /** Toggled by slide/skid; feeds `rotationDeg`, and through it the pickup box. */
   doRotation = true;
+  /**
+   * `bltClip._rotation` in degrees, as `update()` last wrote it. The pickup
+   * test runs before `update()` in the tick (Game.as:504 vs :630), so it sees
+   * the value from the previous tick. Starts as `setClipPos()`'s
+   * `_rotation = this.ang` (Bullet.as:79) - the launch angle in radians,
+   * written into a degrees property as the original does.
+   */
+  rotationDeg: number;
 
   constructor(x: number, y: number, vel: number, angleRad: number, gravity: number) {
     this.x = x;
@@ -35,12 +45,21 @@ export class Projectile {
     // contact on flight tick 0 would need |yvel| > 191 from y = 759.
     this.ox = x;
     this.oy = y;
+    this.rotationDeg = angleRad;
   }
 
-  /** `Bullet.update()` - order matters, ox/oy are captured before the move. */
+  /**
+   * `Bullet.update()` - order matters: ox/oy and the rotation are taken
+   * before the move, so the no-rotate test sees the pre-move y. Bullet.as:42-52.
+   */
   integrate(): void {
     this.ox = this.x;
     this.oy = this.y;
+    let deg = radToDeg(Math.atan2(this.yvel, this.xvel));
+    if ((this.xvel < C.NO_ROTATE_XVEL && this.y > C.NO_ROTATE_Y) || !this.doRotation) deg = 0;
+    // The art is authored pointing up, hence the quarter turn - also when
+    // rotation is off, so the clip is never at 0.
+    this.rotationDeg = deg + 90;
     this.x += this.xvel;
     this.y += this.yvel;
   }

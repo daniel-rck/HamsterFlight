@@ -37,7 +37,15 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     turn: 2,
     paused: false,
     swung: false,
-    hamster: { x: 800, y: 700, xvel: 20, yvel: -10, visible: true, doRotation: true },
+    hamster: {
+      x: 800,
+      y: 700,
+      xvel: 20,
+      yvel: -10,
+      visible: true,
+      doRotation: true,
+      rotationDeg: (Math.atan2(-10, 20) * 180) / Math.PI + 90,
+    },
     camera: { x: -650, y: -600 },
     powerups: [],
     glidePoints: 60,
@@ -84,18 +92,11 @@ describe("pose", () => {
     expect(at("flying", "faceplant")).toBe(0);
   });
 
-  it("turns the sprite to its velocity, except crawling along the ground", () => {
+  it("reads the sim's _rotation back, minus the original's quarter turn", () => {
+    // The rule (Bullet.as:44-50) is the sim's now - see test/sim/pickups.spec.ts.
     expect(hamsterRotation(flying())).toBeCloseTo(Math.atan2(-10, 20), 12);
-    // Bullet.as:46 - under 7 px/tick and below y = 940 the clip stands up.
-    const crawling = flying({ hamster: { ...flying().hamster, xvel: 5, y: 945 } });
-    expect(hamsterRotation(crawling)).toBe(0);
-    const lowButFast = flying({ hamster: { ...flying().hamster, xvel: 30, y: 945 } });
-    expect(hamsterRotation(lowButFast)).not.toBe(0);
-    const slowButHigh = flying({ hamster: { ...flying().hamster, xvel: 5, y: 700 } });
-    expect(hamsterRotation(slowButHigh)).not.toBe(0);
-    expect(hamsterRotation(flying({ hamster: { ...flying().hamster, doRotation: false } }))).toBe(
-      0,
-    );
+    const off = flying({ hamster: { ...flying().hamster, rotationDeg: 90 } });
+    expect(hamsterRotation(off)).toBe(0);
     expect(hamsterRotation(flying({ phaseKind: "jumping" }))).toBe(0);
     expect(hamsterRotation(flying({ phaseKind: "ready" }))).toBe(0);
   });

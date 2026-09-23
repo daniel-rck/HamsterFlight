@@ -41,7 +41,13 @@ import {
   starField,
 } from "@/render/scene/decor.ts";
 import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
-import { bottomCrop, hamsterRotation, outcomeOffsetY, poseFor } from "@/render/scene/pose.ts";
+import {
+  bottomCrop,
+  hamsterBox,
+  hamsterRotation,
+  outcomeOffsetY,
+  poseFor,
+} from "@/render/scene/pose.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -454,10 +460,7 @@ export class PixiRenderer implements Renderer {
     g.stroke({ color: HUD_COLOURS.hitboxPowerup, width: 1 });
 
     const h = s.hamster;
-    const box =
-      s.phaseKind === "flying"
-        ? this.#tuning.boxes.hamsterFlightCore
-        : this.#tuning.boxes.hamsterJumpCore;
+    const box = hamsterBox(s, this.#tuning);
     g.rect(h.x + box.cx - box.hw, h.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
     g.stroke({ color: HUD_COLOURS.hitboxHamster, width: 1 });
   }

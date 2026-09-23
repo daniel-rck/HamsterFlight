@@ -48,8 +48,9 @@ export const C = Object.freeze({
   /** Two consecutive ticks at or below this start the skid. Game.as:625. */
   SKID_Y: 946,
   /**
-   * Below this y and under 7 px/tick of xvel the sprite stops rotating.
-   * Bullet.as:46 - display only, so it is applied in `src/render/scene`.
+   * Below this y and under 7 px/tick of xvel the clip stops rotating.
+   * Bullet.as:46. Not display only: the rotated clip is what the pickup test
+   * measures, so it is applied in `Projectile.integrate()`.
    */
   NO_ROTATE_Y: 940,
   NO_ROTATE_XVEL: 7,

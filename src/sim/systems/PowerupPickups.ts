@@ -1,6 +1,6 @@
 import { C } from "../constants.ts";
 import type { SimEvent } from "../events.ts";
-import { overlaps } from "../math/aabb.ts";
+import { overlaps, rotateBox } from "../math/aabb.ts";
 import type { FlightState } from "../state.ts";
 import type { Tuning } from "../tuning.ts";
 import { type EffectFlags, POWERUPS, type PowerupKind } from "../types.ts";
@@ -14,9 +14,13 @@ import { type EffectFlags, POWERUPS, type PowerupKind } from "../types.ts";
  * speed keeps adding 20 per tick and wind keeps adding its impulse. How many
  * ticks that is depends on the pickup clip's animation, which is not in the
  * constant table - hence `Tuning.powerupActiveTicks`.
+ *
+ * `core.hitTest(this.bc.core)` compares stage-space bounds, and `bc` is the
+ * rotated flight clip, so the hamster's box turns with it. In level flight
+ * (`_rotation` near 90) the tall 19.9 x 32.5 core lies on its side.
  */
 export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): void {
-  const box = tuning.boxes.hamsterFlightCore;
+  const box = rotateBox(tuning.boxes.hamsterFlightCore, s.p.rotationDeg);
 
   for (const it of s.powerups) {
     const live = !it.taken || it.activeTicksLeft > 0;
