@@ -326,17 +326,31 @@ describe("session", () => {
     expect(over.total).toBe(over.shots.reduce((sum, feet) => sum + feet, 0));
     expect(sim.snapshot().shots).toHaveLength(5);
 
+    // `gameOver()`: prelude stopped, theme faded, then the ending. Game.as:416-418.
+    const overAt = all.indexOf(over);
+    const tail = all.slice(overAt);
+    const stopPrelude = tail.findIndex((e) => e.t === "sfxStop" && e.id === "prelude");
+    const fadeTheme = tail.findIndex(
+      (e) => e.t === "sfxStop" && e.id === "theme" && e.fade === true,
+    );
+    const ending = tail.findIndex((e) => e.t === "sfx" && e.id === "ending");
+    expect(stopPrelude).toBeGreaterThan(0);
+    expect(fadeTheme).toBeGreaterThan(stopPrelude);
+    expect(ending).toBeGreaterThan(fadeTheme);
+
     // `press` does nothing here; `confirm` starts a new session.
-    sim.step([{ kind: "press" }]);
+    expect(sim.step([{ kind: "press" }])).toEqual([]);
     expect(sim.phaseKind).toBe("gameOver");
-    sim.step([{ kind: "confirm" }]);
+    const restart = sim.step([{ kind: "confirm" }]);
+    // `reset()`: the prelude comes back, the theme is cut. Game.as:338-339.
+    expect(restart).toContainEqual({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
+    expect(restart).toContainEqual({ t: "sfxStop", id: "theme" });
     expect(sim.phaseKind).toBe("ready");
     expect(sim.snapshot().turn).toBe(1);
     expect(sim.snapshot().shots).toEqual([]);
   });
 
   it("stops the menu music on launch and restarts it for the next hamster", () => {
-    const sim = new Simulation({ seed: 0x5eed_0003 });
     let launched: SimEvent[] | null = null;
     for (let clickTick = 3; clickTick <= 26 && launched === null; clickTick++) {
       const fresh = new Simulation({ seed: 0x5eed_0003 });
@@ -351,6 +365,12 @@ describe("session", () => {
     const stopPrelude = launched.findIndex((e) => e.t === "sfxStop" && e.id === "prelude");
     expect(stopPrelude).toBeGreaterThan(launchAt);
     expect(launched.some((e) => e.t === "sfx" && e.id === "prelude" && e.loop === true)).toBe(true);
-    void sim;
+    // ...and `nextHamster()` fades the theme the launch started. Game.as:990.
+    const theme = launched.findIndex((e) => e.t === "sfx" && e.id === "theme");
+    const fade = launched.findIndex(
+      (e) => e.t === "sfxStop" && e.id === "theme" && e.fade === true,
+    );
+    expect(theme).toBeGreaterThan(launchAt);
+    expect(fade).toBeGreaterThan(theme);
   });
 });

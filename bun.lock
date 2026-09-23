@@ -5,17 +5,17 @@
     "": {
       "name": "hamsterflight",
       "dependencies": {
-        "pixi.js": "^8.20.1",
+        "pixi.js": "^8.21.0",
       },
       "devDependencies": {
-        "@types/node": "^26.5.1",
+        "@types/node": "^26.6.2",
         "oxfmt": "^0.70.0",
         "oxlint": "^1.85.0",
         "playwright": "^1.63.0",
         "typescript": "~7.0.2",
         "vite": "^8.3.0",
-        "vitest": "^5.0.0",
-        "wrangler": "^4.131.1",
+        "vitest": "^5.0.1",
+        "wrangler": "^4.136.3",
       },
     },
   },

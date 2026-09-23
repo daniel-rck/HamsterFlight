@@ -3,9 +3,10 @@ import type { PowerupKind, ShotOutcome } from "./types.ts";
 /**
  * Everything the original did inline via `playSound(...)`, `gotoAndPlay(...)`
  * and `_root.x.text = ...` comes out of the simulation as data instead. That is
- * what keeps `src/sim` headless, and it lets the golden tests assert on the cue
- * stream as well as the trajectory - so "physics still right, sound moved"
- * shows up as a failure.
+ * what keeps `src/sim` headless, and it lets tests assert on the cue stream as
+ * well as the trajectory - so "physics still right, sound moved" can show up
+ * as a failure. The golden specs check physics only; cues are pinned by the
+ * hand-written specs in `test/sim/`.
  */
 export type SoundId =
   | "shoot"
@@ -27,7 +28,11 @@ export type FxId = "bounceFx" | "break" | "superBreak";
 
 export type SimEvent =
   | { readonly t: "sfx"; readonly id: SoundId; readonly gain?: number; readonly loop?: boolean }
-  | { readonly t: "sfxStop"; readonly id: SoundId }
+  /**
+   * `fade` marks the original's `fadeOutSound(s)` (Game.as:280-284, 315-323:
+   * volume -3 every 50 ms, then `stop()`) as opposed to an immediate `stop()`.
+   */
+  | { readonly t: "sfxStop"; readonly id: SoundId; readonly fade?: true }
   /**
    * `Sound.setVolume` on a sound already playing. The original re-sets the
    * flight loop's volume from the speed every tick (Game.as:589-592) and the

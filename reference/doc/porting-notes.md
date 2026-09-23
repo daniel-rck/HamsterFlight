@@ -366,6 +366,16 @@ the source it cites. Each has a test in `test/sim/` that fails on the old code.
   never emitted `slide`; `flyGain`/`slideGain` had no callers. A `sfxGain`
   event carries the volumes now, and `shoot()`'s `sndPrelude.stop()` is
   emitted on launch.
+- **Music cues on restart, turn advance and game over.** `reset()` replays
+  `sndPrelude` and stops `sndTheme` (Game.as:338-339); `nextHamster()` fades
+  the theme out (Game.as:990); `gameOver()` stops the prelude and fades the
+  theme before the ending plays (Game.as:416-418). The port emitted none of
+  these, so the theme would have run forever after the first launch and the
+  prelude would not have come back after a restart. `sfxStop` carries
+  `fade: true` where the original calls `fadeOutSound`. `sndEnding` is not
+  stopped on restart: `reset()` itself never touches it, only `resetBtn()`'s
+  `stopAllSounds()` (Game.as:326) does, and which of the two the game-over
+  button calls lives in the timeline code, which is not in the reference.
 - **`falling = false` is an event.** Every arm of `checkCollision` ends with
   it, and the arming pickups do it too. The port emitted the `glide` off-cue
   two lines earlier and swallowed this one.
