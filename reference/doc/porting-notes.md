@@ -115,16 +115,18 @@ but only the SWF can confirm `core` is not itself placed turned.
 `core` (half-extent 13.73, centre offset +1.07/+5.32) against the whole pillow
 clip at (140, 740.9).
 
-**Not every jump can reach it.** `yvel` starts in -14..-10 and the one-shot boost
-adds -19..-15, so the apex spans roughly 660 (best rolls) to 840 (worst) - the
-document's "apex at about 726" is a mid-range figure, not a bound. Measured over
-1000 seeds, **68% of jumps can reach the pillow**; the rest are unavoidable
-faceplants. That is a consequence of the extracted geometry, not a decision, and
-it is the main open calibration item: `core` sits inside a multi-frame hamster
-sprite and the extractor reads the placement from the first frame it finds. If
-the clip moves its `core` during the jump animation, the window is wider than
-this. `test/golden/reachability.spec.ts` pins the share so recalibration shows
-its effect immediately.
+**Every jump can reach it.** For a long time this said the opposite: 68% of
+rolls, the rest unavoidable faceplants, an apex between 660 and 840. That came
+from starting the physics on the pad. Nothing in `Game.as` calls `jump()` -
+`onMouseDown` only does `hamster.gotoAndPlay("jump")`. Clip 52 calls it, from
+its frame 28 script, after playing a 26-frame wind-up in place, and the line
+before the call is `this._y -= 117.8` (`as2/timeline/DefineSprite_52/frame_28`).
+From y = 838.2 the one-shot boost fires on the first tick, the apex spans 492 to
+642, and all 1000 measured seeds pass through the window on the way up and on
+the way down. `test/golden/reachability.spec.ts` pins that. The `core` is placed
+on frame 28 and no other (`display-lists.txt`, sprite 52), which settles the
+old worry that it might move during the animation - and means a swing during
+the wind-up has nothing to hit.
 
 ## Sprite placement is verified, not trusted
 
@@ -285,13 +287,15 @@ faceplant's `+ 3` y offset is a display rule and lives in
 for every outcome as `blt.shadClip._visible = false` does.
 
 **A missed jump costs no turn.** `jumpFrame()` ends a jump that comes back down
-with `faceplant = true`, `shooting = true` and a zero (Game.as:1090-1096). With
-the hitboxes extracted from the shape records, about a third of the rolls cannot
-reach the launch window at all - see the reachability figure above - so the port
-returns to `ready` with the turn intact and lets the player jump again. Only a
-pillow hit ends a turn, and `ShotOutcome 'zero'` is therefore unreachable at run
-time. The original's one-swing-per-jump rule (`state = "launch"`, Game.as:1029-1037)
-is reproduced, which is what keeps the retry from being solved by mashing.
+with `faceplant = true`, `shooting = true` and a zero (Game.as:1090-1096). The
+port returns to `ready` with the turn intact and lets the player jump again.
+This began as a repair - with the physics wrongly starting on the pad, a third
+of the rolls could not reach the pillow - and stays as a deliberate leniency
+now that every roll can: a mistimed click, or one spent during the wind-up,
+puts the hamster back on the pad. Only a pillow hit ends a turn, and
+`ShotOutcome 'zero'` is therefore unreachable at run time. The original's
+one-swing-per-jump rule (`state = "launch"`, Game.as:1029-1037) is reproduced,
+which is what keeps the retry from being solved by mashing.
 
 **No clip is indexed off a free-running clock.** That used to be the default -
 one `animFrame(meta, elapsed)` for everything - and it was wrong for every clip
@@ -325,30 +329,23 @@ What is left looping is genuinely looping and event-gated: the launcher wheels
 turn only while the hamster is jumping (`PreLaunchScene`), and the `fx/*`
 impacts run once from their cue and are pruned (`Effects`).
 
-**The jump clip was authored for a clip nobody moves.** Char 52 is one timeline
-of four runs: five identical frames of the hamster standing (frame 1, what
-`gotoAndStop(1)` holds), seven of it pulling the goggles down, seven holding
-that pose - then a crouch, a five-frame takeoff, a tumbling ball and one blank
-frame. Two things in it only make sense for a clip that stays put:
+**The jump clip moves itself, once.** Char 52's frame scripts
+(`as2/timeline/DefineSprite_52`) say how it is played: label `jump` on frame 2;
+frames 2-27 on the pad - goggles down, crouch, and a leap that lifts the art
+115 px inside the clip; `snd_jump` on frame 23; and on frame 28
+`this._y -= 117.8; hamsterShoot.jump(); stop()`. The clip jumps up to where the
+art already is and draws the tumbling ball - nested clip 51, which loops four
+frames on its own - back on its registration point, so the hand-over to
+`jumpFrame()` is seamless. Frames 29-36 are never shown.
 
-- the takeoff lifts the art ~100 px out of its own box while the shadow stays
-  at the bottom, and
-- the shadow is *in the art* - the ellipse under the feet, the bottom 6 px of
-  every standing frame. There is no `shadow` sprite in the manifest at all;
-  `Bullet`'s `shadClip` was never exported, so the flight casts none.
-
-`jumpFrame()` does move the clip (`hamster._y += yvel`, Game.as:1082). Playing
-the takeoff on top of that drew the hamster a hundred px above the `core` that
-tests against the pillow and then snapped it back, and the blank frame blinked
-it out mid-jump; the standing frames carried their painted-on shadow up into
-the sky with it. So the port bounds the run at the held goggles pose
-(`JUMP_RUN_LAST`, the frame the original itself repeats seven times) and drops
-the shadow strip for the length of the jump (`bottomCrop`, `JUMP_SHADOW_STRIP`
-- both renderers leave that much off the bottom of the frame). Two display
-rules, next to the faceplant's `+ 3`. Where the `"jump"`
-label and the clip's `stop()` actually sit is not recoverable from the exported
-art - only the frame scripts would say - but which frames may be drawn while
-the code owns the position is, and that is what these bound.
+The port used to read the takeoff frames as art authored "for a clip nobody
+moves", start the physics on the pad at the click, hold the goggles frame for
+the whole jump and crop the painted-on pad shadow off the bottom. All of that
+is gone. The simulation plays the wind-up (`JumpState.windup`,
+`JUMP_WINDUP_FRAMES`, 28 ticks) and performs the lift; `PoseClock` draws the
+wind-up frame for the simulation's tick, so art and lift cannot drift apart,
+then loops the ball; interpolation cuts at the lift instead of smearing it; and
+the drop shadow stays off while the clip's own ellipse is on the pad.
 
 **Every outcome clip is turned a quarter, whatever the shot did.**
 `createHitClip(x, y, rot, type)` takes a rotation and ignores it:

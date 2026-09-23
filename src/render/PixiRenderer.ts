@@ -43,7 +43,7 @@ import {
 } from "@/render/scene/decor.ts";
 import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
 import {
-  bottomCrop,
+  castsShadow,
   hamsterBox,
   hamsterRotation,
   outcomeOffsetY,
@@ -400,9 +400,7 @@ export class PixiRenderer implements Renderer {
       return;
     }
 
-    // `blt.shadClip._visible = false` on every arm that ends a shot -
-    // Game.as:870, 876, 969 - so the outcome clip casts none.
-    const scale = s.phaseKind === "settling" ? 0 : shadowScale(h.y);
+    const scale = castsShadow(s) ? shadowScale(h.y) : 0;
     const showShadow = this.#assets.get("shadow") !== undefined && scale > SHADOW_MIN_SCALE;
     this.#shadowPivot.visible = showShadow;
     if (showShadow) {
@@ -415,11 +413,7 @@ export class PixiRenderer implements Renderer {
     const texture =
       asset === undefined
         ? undefined
-        : this.#textures.get(
-            asset,
-            this.#effects.poses.frame(s, asset.meta, this.#elapsed),
-            bottomCrop(s),
-          );
+        : this.#textures.get(asset, this.#effects.poses.frame(s, asset.meta, this.#elapsed));
     if (asset === undefined || texture === undefined) {
       this.#hamsterPivot.visible = false;
       return;

@@ -21,6 +21,7 @@ function snap(setup: Setup = {}): SimSnapshot {
     turn: setup.turn ?? 1,
     paused: false,
     swung: false,
+    windup: null,
     hamster: {
       x: C.HAMSTER_X,
       y: setup.y ?? C.HAMSTER_START_Y,

@@ -1,4 +1,5 @@
 import type { InputCommand } from "./commands.ts";
+import { JUMP_WINDUP_TICKS } from "./phases/JumpPhase.ts";
 import { Simulation } from "./Simulation.ts";
 import type { SimSnapshot } from "./state.ts";
 import { DEFAULT_TUNING, type Tuning } from "./tuning.ts";
@@ -106,6 +107,14 @@ export function runShot(options: ShotOptions): ShotResult {
   };
 }
 
+/**
+ * The swing ticks worth trying, counted from the jump press. Nothing connects
+ * during clip 52's wind-up; after the lift the hamster rises through the
+ * pillow and falls back through it about 45 ticks later (ticks 31-77 over
+ * 1000 seeds). The sweep covers that with a tick to spare either side.
+ */
+export const CLICK_WINDOW = { first: JUMP_WINDUP_TICKS + 1, last: JUMP_WINDUP_TICKS + 51 } as const;
+
 /** The best connecting shot for a seed, sweeping the click window a player would. */
 export function bestShot(
   seed: number,
@@ -113,7 +122,7 @@ export function bestShot(
   tuning: Tuning = DEFAULT_TUNING,
 ): ShotResult | null {
   let best: ShotResult | null = null;
-  for (let clickTick = 3; clickTick <= 26; clickTick++) {
+  for (let clickTick = CLICK_WINDOW.first; clickTick <= CLICK_WINDOW.last; clickTick++) {
     const r = runShot({ seed, clickTick, hold: policy, tuning });
     if (r.outcome === "miss") continue;
     if (best === null || r.feet > best.feet) best = r;

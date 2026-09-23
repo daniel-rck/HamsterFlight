@@ -61,25 +61,14 @@ export function outcomeOffsetY(s: SimSnapshot): number {
 const OUTCOME_ROTATION = Math.PI / 2;
 
 /**
- * How many stage px to leave off the bottom of the hamster's own clip.
- *
- * `hamster/jump` carries its pad shadow in its own art - the ellipse under the
- * feet, the bottom few px of every standing frame. Char 52 animates a leap
- * that *leaves that ellipse behind* (its takeoff frames lift the hamster out
- * of the box while the ellipse stays at the bottom), so the clip was authored
- * to be played where it stands. `jumpFrame()` moves it instead - `hamster._y
- * += yvel`, Game.as:1082 - and the painted-on shadow rode up into the sky with
- * the hamster, which is the one thing a shadow may never do.
- *
- * Dropping the strip for the length of the jump is a display rule, like the
- * faceplant's `+ 3` and the no-rotate one: the shadow is on the pad while the
- * hamster is on the pad, and gone the moment it leaves. Measured off the
- * frames, the ellipse is the bottom 6 px; the feet end 2 px above that.
+ * Whether the hamster casts the drop shadow. `blt.shadClip._visible = false`
+ * on every arm that ends a shot - Game.as:870, 876, 969 - so the outcome clip
+ * casts none. Nor does the wind-up: clip 52 paints its own ellipse on the pad
+ * for those frames (display-lists.txt, sprite 52, char 21 until frame 25).
  */
-export const JUMP_SHADOW_STRIP = 6;
-
-export function bottomCrop(s: SimSnapshot): number {
-  return s.phaseKind === "jumping" ? JUMP_SHADOW_STRIP : 0;
+export function castsShadow(s: SimSnapshot): boolean {
+  if (s.phaseKind === "settling") return false;
+  return !(s.phaseKind === "jumping" && s.windup !== null);
 }
 
 /**

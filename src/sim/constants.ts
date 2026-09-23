@@ -83,6 +83,29 @@ export const C = Object.freeze({
   LAUNCH_VEL_BASE: 90,
 
   // -- jump phase --------------------------------------------------------
+  /**
+   * The stage rate. `Game` runs on 50 ms intervals, but every clip timeline -
+   * and so everything a frame script triggers - runs on the SWF's 19 fps.
+   */
+  STAGE_FPS: 19,
+  /**
+   * `onMouseDown` only does `hamster.gotoAndPlay("jump")` (Game.as:1024);
+   * nothing in Game.as calls `jump()`. Clip 52 does, from its frame 28 script
+   * (as2/timeline/DefineSprite_52/frame_28), after playing its wind-up in place:
+   * goggles down, crouch, leap. Label `jump` is frame 2, so that is 26 frames
+   * on the pad - and no `core`, which the clip only places on frame 28
+   * (display-lists.txt, sprite 52), so a swing during the wind-up cannot hit.
+   */
+  JUMP_WINDUP_FRAMES: 26,
+  /** `sndJump.attachSound("snd_jump"); sndJump.start()` - clip 52, frame 23. */
+  JUMP_SFX_FRAMES: 21,
+  /**
+   * `this._y -= 117.8` right before `jump()` - clip 52, frame 28. The wind-up
+   * lifts the art 115 px inside the clip; this moves the clip up to where the
+   * art already is and draws the tumbling ball back on the registration point,
+   * so the physics starts from y = 838.2, not from the pad.
+   */
+  JUMP_CLIP_LIFT: 117.8,
   /** `yvel = (random(5) + 10) * -1`. Game.as:1066. */
   JUMP_YVEL_BASE: 10,
   JUMP_YVEL_RAND: 5,

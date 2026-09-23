@@ -92,13 +92,16 @@ export class Simulation {
     switch (this.#phase.kind) {
       case "jumping": {
         const st = this.#phase.jump;
+        const winding = st.windup !== null;
         const landed = stepJump(st, this.#rngJump, out);
-        follow(this.#phase.camera, C.HAMSTER_X, st.y);
+        // `cam.doFollow` is the last line of `jumpFrame()` (Game.as:1116), so
+        // the camera stays put through the wind-up and the lift.
+        if (!winding) follow(this.#phase.camera, C.HAMSTER_X, st.y);
         // A jump that never met the pillow costs nothing. The original scored
         // it as a zero and moved on (`faceplant = true`, `shooting = true` -
-        // Game.as:1090-1096), but the extracted geometry makes about a third of
-        // the rolls physically unable to reach the window at all, so the turn
-        // goes back on the pad instead. Only the pillow ends a turn.
+        // Game.as:1090-1096). Every roll can reach the window, so this is a
+        // leniency, not a repair: a mistimed click puts the hamster back on the
+        // pad with the turn intact. Only the pillow ends a turn.
         if (landed) {
           out.push({ t: "jumpFailed" });
           this.#phase = { kind: "ready" };
@@ -157,9 +160,8 @@ export class Simulation {
 
     if (cmd.kind === "press") {
       if (phase.kind === "ready") {
-        this.#phase = { kind: "jumping", jump: beginJump(this.#rngJump), camera: newCamera() };
+        this.#phase = { kind: "jumping", jump: beginJump(), camera: newCamera() };
         out.push({ t: "turnStart", turn: this.#turn });
-        out.push({ t: "sfx", id: "jump", gain: C.SFX_VOLUME });
         return;
       }
       if (phase.kind === "jumping") {
@@ -309,6 +311,7 @@ export class Simulation {
       // The one swing per jump is spent or it is not; the prompt needs to know
       // which, because a second click after a whiff does nothing.
       swung: phase.kind === "jumping" && phase.jump.swung,
+      windup: phase.kind === "jumping" ? phase.jump.windup : null,
       // Copied, like camera/powerups/flags below. A cast would have handed
       // out the live array: the type says readonly, the object was not.
       shots: [...this.#shots],

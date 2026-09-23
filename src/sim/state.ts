@@ -19,6 +19,11 @@ export interface PowerupInstance {
 }
 
 export interface JumpState {
+  /**
+   * Ticks since the click while clip 52 plays its wind-up on the pad; null
+   * once its frame 28 has lifted the clip and called `jump()`.
+   */
+  windup: number | null;
   y: number;
   yvel: number;
   /** The one-shot boost below y = 930 fires once per jump. */
@@ -96,6 +101,11 @@ export interface SimSnapshot {
   readonly paused: boolean;
   /** The jump's one pillow swing has been used, hit or miss. False outside `jumping`. */
   readonly swung: boolean;
+  /**
+   * Ticks into clip 52's wind-up (`JumpState.windup`); null outside `jumping`
+   * and once the clip has called `jump()`.
+   */
+  readonly windup: number | null;
   readonly hamster: {
     readonly x: number;
     readonly y: number;

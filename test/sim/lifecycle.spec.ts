@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { InputCommand } from "@/sim/commands.ts";
 import { C } from "@/sim/constants.ts";
+import { CLICK_WINDOW } from "@/sim/drive.ts";
 import type { SimEvent } from "@/sim/events.ts";
+import { JUMP_WINDUP_TICKS } from "@/sim/phases/JumpPhase.ts";
 import { Simulation } from "@/sim/Simulation.ts";
 import { beginQuickPan, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
@@ -70,7 +72,7 @@ function flownShot(sim: Simulation, clickTick: number): SimEvent[] {
  * the simulation in `settling`. Throws if no tick connects for the seed.
  */
 function connectingShot(seed: number, tuning = DEFAULT_TUNING): Simulation {
-  for (let clickTick = 3; clickTick <= 26; clickTick++) {
+  for (let clickTick = CLICK_WINDOW.first; clickTick <= CLICK_WINDOW.last; clickTick++) {
     const sim = new Simulation({ seed, tuning });
     const events = flownShot(sim, clickTick);
     if (events.some((e) => e.t === "launched") && sim.phaseKind === "settling") return sim;
@@ -117,7 +119,7 @@ describe("command ordering", () => {
       const sim = new Simulation({ seed: 12345 });
       sim.step([{ kind: "press" }]);
       sim.step([{ kind: "release" }]);
-      for (let i = 0; i < 13; i++) sim.step();
+      for (let i = 0; i < JUMP_WINDUP_TICKS + 2; i++) sim.step();
       sim.step([{ kind: "press" }]);
       sim.step([{ kind: "release" }]);
       expect(sim.phaseKind).toBe("flying");
@@ -238,7 +240,11 @@ describe("settling", () => {
     const sim = new Simulation({ seed: 0x5eed_0003 });
     let events: SimEvent[] = [];
     // Sweep the click window until one connects; a miss falls through to zero.
-    for (let clickTick = 3; clickTick <= 26 && sim.phaseKind !== "settling"; clickTick++) {
+    for (
+      let clickTick = CLICK_WINDOW.first;
+      clickTick <= CLICK_WINDOW.last && sim.phaseKind !== "settling";
+      clickTick++
+    ) {
       const fresh = new Simulation({ seed: 0x5eed_0003 });
       events = flownShot(fresh, clickTick);
       if (events.some((e) => e.t === "launched") && fresh.phaseKind === "settling") {
@@ -353,7 +359,11 @@ describe("session", () => {
 
   it("stops the menu music on launch and restarts it for the next hamster", () => {
     let launched: SimEvent[] | null = null;
-    for (let clickTick = 3; clickTick <= 26 && launched === null; clickTick++) {
+    for (
+      let clickTick = CLICK_WINDOW.first;
+      clickTick <= CLICK_WINDOW.last && launched === null;
+      clickTick++
+    ) {
       const fresh = new Simulation({ seed: 0x5eed_0003 });
       const events = flownShot(fresh, clickTick);
       if (events.some((e) => e.t === "launched")) {

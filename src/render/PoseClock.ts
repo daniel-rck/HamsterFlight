@@ -1,5 +1,6 @@
 import type { SpriteMeta } from "@/assets/sprites.generated.ts";
 import { poseFor } from "@/render/scene/pose.ts";
+import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 
 /**
@@ -26,24 +27,26 @@ import type { SimSnapshot } from "@/sim/state.ts";
 const FPS = 19;
 
 /**
- * The last frame of `hamster/jump` the port will show.
- *
- * The clip is one timeline with four runs in it: five identical frames of the
- * hamster standing (frame 1, which is what `gotoAndStop(1)` holds), seven of
- * it pulling the goggles down, seven more holding that pose - and then a
- * crouch, a takeoff that lifts the art 100 px out of the box, a tumbling ball
- * and one blank frame.
- *
- * Only the first three runs keep the body on the registration point, which is
- * where the `core` that tests against the pillow is and therefore the only
- * place the hamster may be drawn while `jumpFrame()` is the thing moving it.
- * The takeoff frames animate a leap *away* from a clip that stands still, so
- * playing them on top of a clip the code is already lifting drew the hamster a
- * hundred px above its own hitbox and then snapped it back; the blank frame
- * blinked it out mid-jump. The run therefore ends on the held goggles pose -
- * the one the original itself repeats seven times - and stays there.
+ * `hamster/jump` is clip 52 played the way its own frame scripts play it
+ * (as2/timeline/DefineSprite_52): label `jump` on frame 2, the wind-up on the
+ * pad through frame 27, and frame 28 lifts the clip, calls `jump()` and
+ * `stop()`s. The clip then holds frame 28, where the tumbling ball is a
+ * nested clip (51) that loops its four frames - `gotoAndPlay(1)` on its
+ * frame 4 - on its own. ffdec flattens that nesting into frames 28-35, so the
+ * loop is indices 27-30 of the export, and nothing past them is ever shown.
  */
-const JUMP_RUN_LAST = 18;
+const JUMP_BALL_FIRST = 27;
+const JUMP_BALL_FRAMES = 4;
+
+/**
+ * The wind-up frame for a tick count, 0-based: frame 2 at the click, then the
+ * stage rate. Driven by the simulation's tick rather than the wall clock, so
+ * the art and the frame-28 lift - which the simulation performs - cannot drift
+ * apart and draw the leap twice.
+ */
+export function windupFrame(windup: number): number {
+  return Math.min(JUMP_BALL_FIRST - 1, 1 + Math.floor((windup * C.TICK_MS * FPS) / 1000));
+}
 
 /** How many frames a clip has advanced since its anchor. Never negative. */
 export function clipStep(startedMs: number, nowMs: number, fps = FPS): number {
@@ -67,14 +70,9 @@ export class PoseClock {
    * `ready` pins to frame 0 - `gotoAndStop(1)`, the hamster waiting on the pad.
    * The outcome clips play once and hold their last frame, because the original
    * attaches them for the length of the outcome and never loops them. The jump
-   * plays once too, from the click and up to `JUMP_RUN_LAST`. The flight poses
-   * loop, but from the anchor rather than from boot.
-   *
-   * Where the jump clip's `stop()` and its `"jump"` label actually sit is not
-   * recoverable from the exported art - only the frame scripts would say, and
-   * they are not in the manifest. What the art does say is which frames may be
-   * drawn at all while the code owns the position, and that is what bounds the
-   * run: a jump lasts 1.7-2.5 s and holds its last frame for the rest of it.
+   * follows the simulation's wind-up and then loops the ball. The flight poses
+   * loop, but from the anchor rather than from boot. The ball re-anchors at
+   * the lift, which is where clip 51 starts.
    */
   frame(s: SimSnapshot, meta: Pick<SpriteMeta, "frames" | "fps">, nowMs: number): number {
     // The anchor is per *run*, not per pose: `ready` and `jumping` are the same
@@ -82,7 +80,8 @@ export class PoseClock {
     // dropped the hamster into whichever frame a clock started at boot had
     // reached - the tumbling ball, or the blank one. `gotoAndPlay("jump")`
     // (Game.as:1024) starts it from the top, and this is that.
-    const run = `${poseFor(s)}:${s.phaseKind}`;
+    const airborne = s.phaseKind === "jumping" && s.windup === null;
+    const run = `${poseFor(s)}:${s.phaseKind}${airborne ? ":air" : ""}`;
     if (run !== this.#run) {
       this.#run = run;
       this.#startedMs = nowMs;
@@ -92,7 +91,10 @@ export class PoseClock {
 
     const step = clipStep(this.#startedMs, nowMs, meta.fps ?? FPS);
     if (s.phaseKind === "settling") return Math.min(step, meta.frames - 1);
-    if (s.phaseKind === "jumping") return Math.min(step, JUMP_RUN_LAST, meta.frames - 1);
+    if (s.phaseKind === "jumping") {
+      if (s.windup !== null) return Math.min(windupFrame(s.windup), meta.frames - 1);
+      return Math.min(JUMP_BALL_FIRST + (step % JUMP_BALL_FRAMES), meta.frames - 1);
+    }
     return step % meta.frames;
   }
 

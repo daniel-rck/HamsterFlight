@@ -16,9 +16,8 @@ import {
 } from "@/render/scene/decor.ts";
 import { debugLines, glideFill, panelLines, promptFor, totalFeet } from "@/render/scene/hud.ts";
 import {
-  bottomCrop,
+  castsShadow,
   hamsterRotation,
-  JUMP_SHADOW_STRIP,
   outcomeOffsetY,
   poseFor,
   posePlacement,
@@ -38,6 +37,7 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     turn: 2,
     paused: false,
     swung: false,
+    windup: null,
     hamster: {
       x: 800,
       y: 700,
@@ -156,12 +156,12 @@ describe("pose", () => {
     ).toBe(quarter);
   });
 
-  it("leaves the painted-on pad shadow off the jump clip while it is airborne", () => {
-    expect(bottomCrop(flying({ phaseKind: "jumping" }))).toBe(JUMP_SHADOW_STRIP);
-    // On the pad the shadow belongs on the pad, and no other clip carries one.
-    expect(bottomCrop(flying({ phaseKind: "ready" }))).toBe(0);
-    expect(bottomCrop(flying())).toBe(0);
-    expect(bottomCrop(flying({ phaseKind: "settling", outcome: "cheer" }))).toBe(0);
+  it("casts no drop shadow during the wind-up or the outcome", () => {
+    // Clip 52 paints its own ellipse on the pad; the outcome clips cast none.
+    expect(castsShadow(flying({ phaseKind: "jumping", windup: 5 }))).toBe(false);
+    expect(castsShadow(flying({ phaseKind: "jumping", windup: null }))).toBe(true);
+    expect(castsShadow(flying())).toBe(true);
+    expect(castsShadow(flying({ phaseKind: "settling", outcome: "cheer" }))).toBe(false);
   });
 });
 
@@ -271,6 +271,7 @@ describe("hud strings", () => {
     expect(promptFor(flying({ phaseKind: "jumping" }), false)).toBe(
       "click again to hit the pillow",
     );
+    expect(promptFor(flying({ phaseKind: "jumping", windup: 3 }), false)).toBe("get ready...");
     // The swing is spent: a second click does nothing, so do not ask for one.
     expect(promptFor(flying({ phaseKind: "jumping", swung: true }), false)).toBe(
       "missed - wait for the landing",

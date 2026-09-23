@@ -10,7 +10,16 @@
  */
 
 import { C } from "../src/sim/constants.ts";
-import { bestShot, hold, mash, median, never, runShot, smart } from "../src/sim/drive.ts";
+import {
+  bestShot,
+  CLICK_WINDOW,
+  hold,
+  mash,
+  median,
+  never,
+  runShot,
+  smart,
+} from "../src/sim/drive.ts";
 
 const argv = process.argv.slice(2);
 const seedIndex = argv.indexOf("--seeds");
@@ -27,7 +36,7 @@ if (!Number.isInteger(seedCount) || seedCount < 1) {
   ] as const;
 
   console.log(`tick  ${policies.map(([name]) => name.padStart(22)).join("")}`);
-  for (let clickTick = 3; clickTick <= 26; clickTick++) {
+  for (let clickTick = CLICK_WINDOW.first; clickTick <= CLICK_WINDOW.last; clickTick++) {
     const cells = policies.map(([, policy]) => {
       const r = runShot({ seed: 0x5eed, clickTick, hold: policy });
       if (r.outcome === "miss") return "miss".padStart(21);
