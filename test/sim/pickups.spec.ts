@@ -139,6 +139,37 @@ describe("the wind cue", () => {
   });
 });
 
+describe("the wind pickup", () => {
+  it("keeps blowing for as long as the boxes overlap", () => {
+    // `_wind` never loses its core and is never sent to frame 2 (display-lists
+    // sprite 467; Game.as:732-745), unlike every other pickup clip. Held in
+    // place, the hamster is blown on every tick, not for a fixed few.
+    const s = makeFlight({ y: 600, xvel: 1, powerups: [centredOn("wind", C.HAMSTER_X, 600)] });
+    const blown: number[] = [];
+    for (let i = 0; i < 8; i++) {
+      s.p.x = C.HAMSTER_X;
+      s.p.y = 600;
+      s.p.yvel = 0;
+      tick(s);
+      blown.push(s.p.yvel);
+    }
+    expect(blown.every((yvel) => yvel <= C.WIND_YVEL + 1)).toBe(true);
+  });
+
+  it("stops the speed pickup after its clip's frame 2", () => {
+    const s = makeFlight({ y: 600, xvel: 1, powerups: [centredOn("speed", C.HAMSTER_X, 600)] });
+    const boosted: boolean[] = [];
+    for (let i = 0; i < 4; i++) {
+      s.p.x = C.HAMSTER_X;
+      s.p.y = 600;
+      s.p.xvel = 1;
+      tick(s);
+      boosted.push(s.p.xvel > 5);
+    }
+    expect(boosted).toEqual([true, false, false, false]);
+  });
+});
+
 describe("rotated flight core", () => {
   // `core.hitTest(this.bc.core)` measures stage-space bounds of the rotated
   // flight clip (Game.as:690 ff., Bullet.as:50), so the tall core lies on its

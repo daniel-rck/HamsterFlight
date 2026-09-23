@@ -233,7 +233,7 @@ glued to.
 |---|---|
 | `pi = 3.141593` instead of `Math.PI` | **Reproduced.** Used for every degree/radian conversion; keeps angle maths bit-stable. Also forbids `Math.hypot` in favour of `sqrt(dx*dx + dy*dy)`. |
 | `powerupMark = 650` in `init`/`reset` but `600` in `cleanUpItems` | **Reproduced.** Shifts the first spawn of turns 2-5 by 50 px, which is observable. |
-| `speed` and `wind` have no re-entry guard; `bounce`, `slide`, `superbounce`, `rebound` do | **Reproduced.** A multi-tick overlap really does apply speed repeatedly. |
+| `speed` and `wind` have no re-entry guard; `bounce`, `slide`, `superbounce`, `rebound` do | **Reproduced.** How long each keeps firing comes from its clip: `play()` sends every pickup clip to frame 2, which removes its `core`, so speed fires for about one tick - but `_wind` is never `play()`ed and never loses its core, so wind blows for as long as the boxes overlap. That used to be a guessed 3 ticks. |
 | Faceplant branch also requires `!slide` (Game.as:803) | **Reproduced.** The document's section 10 omits it. |
 | `xvel *= 1 + this.f` for superbounce | **Reproduced as written**, not as the literal 1.6. |
 | Impact angle exactly 70 degrees | **Reproduced.** Falls through to the final `else`, since it is neither `< 70` nor `> 70`. |
