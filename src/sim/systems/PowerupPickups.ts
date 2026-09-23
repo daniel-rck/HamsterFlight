@@ -31,6 +31,17 @@ export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): vo
         it.activeTicksLeft = tuning.powerupActiveTicks[it.kind];
         out.push({ t: "pickup", kind: it.kind });
         if (POWERUPS[it.kind].sound) out.push({ t: "sfx", id: "pickup", gain: C.SFX_VOLUME });
+        // Two pickups sound through their own clip instead of `playSound`: the
+        // `play()` that sends them off starts a `StartSound` on a later frame.
+        if (it.kind === "speed") out.push({ t: "sfx", id: "speed", gain: C.SFX_VOLUME });
+        if (it.kind === "rebound") {
+          out.push({
+            t: "sfx",
+            id: "rebound",
+            gain: C.SFX_VOLUME,
+            delayFrames: C.REBOUND_SFX_FRAME - 1,
+          });
+        }
       }
     }
     // Counted down whether or not the boxes still overlap, so a taken item

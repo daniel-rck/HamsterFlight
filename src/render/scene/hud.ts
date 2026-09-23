@@ -110,7 +110,10 @@ export function promptFor(s: SimSnapshot, metric: boolean, touch = false): strin
     case "flying":
       return s.flags.skidding ? null : "hold to glide";
     case "gameOver":
-      return `${distance(totalFeet(s), metric)} total - ${click} to play again`;
+      // Only once PLAY AGAIN is up: a click before that does nothing.
+      return s.restartable
+        ? `${distance(totalFeet(s), metric)} total - ${click} to play again`
+        : `${distance(totalFeet(s), metric)} total`;
     default:
       return null;
   }

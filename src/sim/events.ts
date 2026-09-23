@@ -22,12 +22,31 @@ export type SoundId =
   | "jump"
   | "prelude"
   | "theme"
-  | "ending";
+  | "ending"
+  // Started by clip timelines rather than by `Game` - see `as2/timeline/`.
+  | "tumble"
+  | "wheel"
+  | "cheer"
+  | "hole"
+  | "fanfare"
+  | "rebound"
+  | "speed";
 
 export type FxId = "bounceFx" | "break" | "superBreak";
 
 export type SimEvent =
-  | { readonly t: "sfx"; readonly id: SoundId; readonly gain?: number; readonly loop?: boolean }
+  | {
+      readonly t: "sfx";
+      readonly id: SoundId;
+      readonly gain?: number;
+      readonly loop?: boolean;
+      /**
+       * Stage frames (19 fps) after this tick. The timeline sounds are started
+       * by a clip's frame N, and the clip is often attached on this tick -
+       * `hit_cheer`'s cheer is frame 5, its caption tick frame 27.
+       */
+      readonly delayFrames?: number;
+    }
   /**
    * `fade` marks the original's `fadeOutSound(s)` (Game.as:280-284, 315-323:
    * volume -3 every 50 ms, then `stop()`) as opposed to an immediate `stop()`.

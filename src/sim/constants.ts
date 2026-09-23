@@ -117,6 +117,28 @@ export const C = Object.freeze({
   JUMP_GRAV_RISING: 1.5,
   JUMP_GRAV_FALLING: 0.75,
 
+  // -- timeline sounds ----------------------------------------------------
+  // Levels are the `StartSound` envelope's, averaged over the two channels
+  // (level / 32768 * 100); the port does not pan.
+  /** Clip 51 frame 1, envelope 6199/5904 - the tumbling ball, every 4 frames. */
+  TUMBLE_VOLUME: 18,
+  /** Clip 51 loops frames 1-4 (`gotoAndPlay(1)` on frame 4). */
+  TUMBLE_FRAMES: 4,
+  /** `background_mc` frame 22, `snd_bump` at 18303/12399 - 12 frames into "miss". */
+  SWING_MISS_BUMP_FRAMES: 12,
+  SWING_MISS_BUMP_VOLUME: 47,
+  /** `hit_cheer` frame 5, envelope 25093/26864. */
+  CHEER_VOLUME: 79,
+  CHEER_SFX_FRAME: 5,
+  /** `hit_cheer` frame 27 plays `snd_jump` as the distance caption goes up. */
+  CHEER_CAPTION_FRAME: 27,
+  /** `hit_hole`: its sound on frame 1, the fanfare on frame 28. */
+  HOLE_FANFARE_FRAME: 28,
+  /** `_rebound` frame 4, from `play()` at frame 1. */
+  REBOUND_SFX_FRAME: 4,
+  /** `gameOver_mc.gotoAndPlay(2)`; frame 60 places PLAY AGAIN and the fanfare. */
+  GAME_OVER_PLAY_AGAIN_FRAME: 60,
+
   // -- outcome clips ------------------------------------------------------
   /**
    * `hit_cheer` and `hit_hole` call `_root.hamsterShoot.setCamReset()` from

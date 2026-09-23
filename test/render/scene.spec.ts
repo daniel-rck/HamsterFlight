@@ -55,6 +55,7 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     feet: 8,
     outcome: null,
     outcomeClip: null,
+    restartable: false,
     ...over,
   };
 }
@@ -280,7 +281,8 @@ describe("hud strings", () => {
     expect(promptFor(flying(), false)).toBe("hold to glide");
     expect(promptFor(flying({ flags: { ...noEffects(), skidding: true } }), false)).toBeNull();
     expect(promptFor(flying({ phaseKind: "settling" }), false)).toBeNull();
-    expect(promptFor(flying({ phaseKind: "gameOver" }), false)).toBe(
+    expect(promptFor(flying({ phaseKind: "gameOver" }), false)).toBe("165 ft total");
+    expect(promptFor(flying({ phaseKind: "gameOver", restartable: true }), false)).toBe(
       "165 ft total - click to play again",
     );
     expect(promptFor(flying({ paused: true }), false)).toBe("paused - click, Space or P to resume");

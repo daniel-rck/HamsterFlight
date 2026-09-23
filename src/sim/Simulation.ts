@@ -41,6 +41,50 @@ export function clipHoldTicks(clip: ShotOutcome): number {
   return framesToTicks(frame - 1);
 }
 
+/**
+ * The `StartSound`s on the outcome clips, scheduled from the moment the shot
+ * ends. `hit_hole` has its own; everything else ends in a `hit_cheer`, which a
+ * faceplant or a zero only attaches part-way through their own clip.
+ */
+function outcomeSounds(outcome: ShotOutcome, out: SimEvent[]): void {
+  if (outcome === "hole") {
+    out.push({ t: "sfx", id: "hole", gain: C.SFX_VOLUME });
+    out.push({
+      t: "sfx",
+      id: "fanfare",
+      gain: C.SFX_VOLUME,
+      delayFrames: C.HOLE_FANFARE_FRAME - 1,
+    });
+    return;
+  }
+  const lead =
+    outcome === "faceplant"
+      ? C.FACEPLANT_CHEER_FRAME - 1
+      : outcome === "zero"
+        ? C.ZERO_CHEER_FRAME - 1
+        : 0;
+  out.push({
+    t: "sfx",
+    id: "cheer",
+    gain: C.CHEER_VOLUME,
+    delayFrames: lead + C.CHEER_SFX_FRAME - 1,
+  });
+  out.push({
+    t: "sfx",
+    id: "jump",
+    gain: C.SFX_VOLUME,
+    delayFrames: lead + C.CHEER_CAPTION_FRAME - 1,
+  });
+}
+
+/**
+ * PLAY AGAIN (button 257, which calls `reset()`) is placed on `gameOver_mc`'s
+ * frame 60, and the clip starts at frame 2 - so a click before then has
+ * nothing to land on. It also keeps the click that cut the last pan short from
+ * wiping the total before anyone has read it.
+ */
+export const PLAY_AGAIN_TICKS = framesToTicks(C.GAME_OVER_PLAY_AGAIN_FRAME - 2);
+
 export class Simulation {
   #tick = 0;
   #turn = 1;
@@ -51,6 +95,8 @@ export class Simulation {
   #rngPowerups: Rng;
   readonly #tuning: Tuning;
   #lastFeet = 0;
+  /** `Game.init()` has not had its say yet - see the top of `step`. */
+  #initialised = false;
 
   constructor(options: SimulationOptions) {
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
@@ -88,6 +134,12 @@ export class Simulation {
    */
   step(commands: readonly InputCommand[] = []): readonly SimEvent[] {
     const out: SimEvent[] = [];
+    if (!this.#initialised) {
+      // `init()` ends by starting the menu music (Game.as:205). The
+      // constructor has nowhere to put a cue, so the first step carries it.
+      this.#initialised = true;
+      out.push({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
+    }
 
     for (const cmd of commands) {
       if (cmd.kind === "togglePause") {
@@ -135,6 +187,9 @@ export class Simulation {
       }
       case "settling":
         this.#stepSettling(out);
+        break;
+      case "gameOver":
+        this.#phase.ticks++;
         break;
       default:
         break;
@@ -187,6 +242,9 @@ export class Simulation {
       if (phase.kind === "ready") {
         this.#phase = { kind: "jumping", jump: beginJump(), camera: newCamera() };
         out.push({ t: "turnStart", turn: this.#turn });
+        // The same click sets `hamsterWheel2.play()` going (Game.as:1027); its
+        // frame 2 starts the squeak.
+        out.push({ t: "sfx", id: "wheel", gain: C.SFX_VOLUME, delayFrames: 1 });
         return;
       }
       if (phase.kind === "jumping") {
@@ -228,7 +286,7 @@ export class Simulation {
       return;
     }
 
-    if (cmd.kind === "confirm" && phase.kind === "gameOver") {
+    if (cmd.kind === "confirm" && phase.kind === "gameOver" && phase.ticks >= PLAY_AGAIN_TICKS) {
       this.#turn = 1;
       this.#shots = [];
       this.#lastFeet = 0;
@@ -248,6 +306,14 @@ export class Simulation {
     if (!result.hit) {
       // A miss does not end the jump - it runs on until the faceplant.
       out.push({ t: "missed" });
+      // `background_mc.gotoAndPlay("miss")` (Game.as:1148): the pillow's whiff
+      // thumps into the frame on its frame 22, 12 frames past the label.
+      out.push({
+        t: "sfx",
+        id: "bump",
+        gain: C.SWING_MISS_BUMP_VOLUME,
+        delayFrames: C.SWING_MISS_BUMP_FRAMES,
+      });
       return;
     }
 
@@ -269,6 +335,8 @@ export class Simulation {
     follow(flight.camera, p.x, p.y);
 
     out.push({ t: "launched", vel: result.vel, angleDeg: result.angleDeg });
+    // `hamster.gotoAndStop(1)` (Game.as:1142) ends the tumbling ball.
+    out.push({ t: "sfxStop", id: "tumble" });
     // `shoot()` stops the menu music and starts the flight loop and the theme.
     // Game.as:1151-1157.
     out.push({ t: "sfxStop", id: "prelude" });
@@ -281,6 +349,7 @@ export class Simulation {
     this.#lastFeet = feet;
     this.#shots.push(feet);
     out.push({ t: "shotDone", feet, outcome });
+    outcomeSounds(outcome, out);
     const camera = this.#phase.kind === "flying" ? this.#phase.flight.camera : newCamera();
     // Where the outcome clip goes. `onShotDone` and the faceplant branch both
     // read the projectile's last position for `createHitClip`, and the ground
@@ -318,7 +387,15 @@ export class Simulation {
       out.push({ t: "sfxStop", id: "prelude" });
       out.push({ t: "sfxStop", id: "theme", fade: true });
       out.push({ t: "sfx", id: "ending", gain: C.MUSIC_VOL });
-      this.#phase = { kind: "gameOver", total };
+      // `gameOver_mc.gotoAndPlay(2)`; its frame 60 brings PLAY AGAIN on with a
+      // fanfare.
+      out.push({
+        t: "sfx",
+        id: "fanfare",
+        gain: C.SFX_VOLUME,
+        delayFrames: C.GAME_OVER_PLAY_AGAIN_FRAME - 2,
+      });
+      this.#phase = { kind: "gameOver", total, ticks: 0 };
       return;
     }
     // `nextHamster()` restarts the menu music and fades the theme out.
@@ -340,6 +417,7 @@ export class Simulation {
       swung: phase.kind === "jumping" && phase.jump.swung,
       windup: phase.kind === "jumping" ? phase.jump.windup : null,
       outcomeClip: phase.kind === "settling" ? phase.clip : null,
+      restartable: phase.kind === "gameOver" && phase.ticks >= PLAY_AGAIN_TICKS,
       // Copied, like camera/powerups/flags below. A cast would have handed
       // out the live array: the type says readonly, the object was not.
       shots: [...this.#shots],

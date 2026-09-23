@@ -28,15 +28,26 @@ const CHUNK_WARN_KB = 400;
  *   1x atlas 776 126 B       2x atlas 2 028 490 B
  * Re-measured after the shared scene module, interpolation and the input and
  * lifecycle hardening: eager 16.5 kB gzip. The lazy chunk shrank a little.
+ * After the timeline scripts - the jump wind-up, the outcome clips, the
+ * timeline sound cues, and the audio wiring in main.ts - eager 19.1 kB gzip.
+ * The player itself is a lazy chunk (about 2.4 kB gzip with its URL table).
+ * The sounds: 21 MP3s, 722 KiB, 489 of it the flight theme.
  */
-const BUDGET_KB: { eager: number; lazy: number; atlas: Record<number, number> } = {
+const BUDGET_KB: {
+  eager: number;
+  lazy: number;
+  atlas: Record<number, number>;
+  audio: number;
+} = {
   // Every visitor pays this.
-  eager: 19,
+  eager: 22,
   // The WebGL backend. Lazy in the bundle, but enhanced mode is the default,
   // so every visitor who is not on ?mode=faithful pays this too.
   lazy: 182,
   // Per atlas sheet, per density.
   atlas: { 1: 850, 2: 2250 },
+  // Every sound, raw - MP3 does not gzip. Fetched after the first gesture.
+  audio: 800,
 };
 
 interface Row {
@@ -153,6 +164,13 @@ async function main(): Promise<void> {
     }
   }
 
+  // The sounds, likewise raw: fetched once audio is unlocked, all of them.
+  let audioBytes = 0;
+  for (const name of names.filter((item) => item.endsWith(".mp3"))) {
+    audioBytes += (await readFile(join(ASSETS, name))).byteLength;
+  }
+  if (audioBytes > 0) console.log(`\naudio - fetched after the first gesture\n${kb(audioBytes)}`);
+
   if (!process.argv.includes("--check")) return;
 
   const over: string[] = [];
@@ -169,6 +187,7 @@ async function main(): Promise<void> {
     }
     budget(sheet.name, sheet.raw, limit);
   }
+  budget("audio", audioBytes, BUDGET_KB.audio);
 
   console.log("");
   if (over.length === 0) {

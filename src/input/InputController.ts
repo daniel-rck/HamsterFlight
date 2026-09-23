@@ -9,6 +9,8 @@ export interface InputTargets {
 export interface InputOptions {
   /** `H` - a renderer concern, not a simulation command, so it is a callback. */
   readonly onToggleHitboxes?: () => void;
+  /** `M` - the music button's key; audio is not a simulation command either. */
+  readonly onToggleMusic?: () => void;
   readonly targets?: InputTargets;
 }
 
@@ -91,6 +93,8 @@ export class InputController {
         this.#queue.push({ kind: "togglePause" });
       } else if (ev.key === "h" || ev.key === "H") {
         options.onToggleHitboxes?.();
+      } else if (ev.key === "m" || ev.key === "M") {
+        options.onToggleMusic?.();
       }
     });
     on<KeyboardEvent>(targets.keys, "keyup", (ev) => {

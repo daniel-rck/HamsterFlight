@@ -123,6 +123,7 @@ function snapshot(): SimSnapshot {
     feet: 0,
     outcome: null,
     outcomeClip: null,
+    restartable: false,
   };
 }
 

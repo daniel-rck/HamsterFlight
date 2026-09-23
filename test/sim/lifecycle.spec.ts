@@ -4,7 +4,7 @@ import { C } from "@/sim/constants.ts";
 import { CLICK_WINDOW } from "@/sim/drive.ts";
 import type { SimEvent } from "@/sim/events.ts";
 import { JUMP_WINDUP_TICKS } from "@/sim/phases/JumpPhase.ts";
-import { clipHoldTicks, Simulation } from "@/sim/Simulation.ts";
+import { clipHoldTicks, PLAY_AGAIN_TICKS, Simulation } from "@/sim/Simulation.ts";
 import { beginQuickPan, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
 import type { ShotOutcome } from "@/sim/types.ts";
@@ -379,20 +379,88 @@ describe("session", () => {
       (e) => e.t === "sfxStop" && e.id === "theme" && e.fade === true,
     );
     const ending = tail.findIndex((e) => e.t === "sfx" && e.id === "ending");
+    // gameOver_mc's frame 60, from its frame 2.
+    expect(tail).toContainEqual({
+      t: "sfx",
+      id: "fanfare",
+      gain: C.SFX_VOLUME,
+      delayFrames: 58,
+    });
     expect(stopPrelude).toBeGreaterThan(0);
     expect(fadeTheme).toBeGreaterThan(stopPrelude);
     expect(ending).toBeGreaterThan(fadeTheme);
 
-    // `press` does nothing here; `confirm` starts a new session.
+    // `press` does nothing here; `confirm` starts a new session - once
+    // `gameOver_mc` has put PLAY AGAIN up on its frame 60.
     expect(sim.step([{ kind: "press" }])).toEqual([]);
     expect(sim.phaseKind).toBe("gameOver");
+    expect(sim.snapshot().restartable).toBe(false);
+    sim.step([{ kind: "confirm" }]);
+    expect(sim.phaseKind).toBe("gameOver");
+    expect(PLAY_AGAIN_TICKS).toBe(62);
+    while (!sim.snapshot().restartable) sim.step();
     const restart = sim.step([{ kind: "confirm" }]);
     // `reset()`: the prelude comes back, the theme is cut. Game.as:338-339.
     expect(restart).toContainEqual({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
     expect(restart).toContainEqual({ t: "sfxStop", id: "theme" });
+    // PLAY AGAIN calls `reset()`, not `resetBtn()`: no `stopAllSounds()`, so
+    // the ending plays out over the new game, as it did in the original.
+    expect(restart.some((e) => e.t === "sfxStop" && e.id === "ending")).toBe(false);
     expect(sim.phaseKind).toBe("ready");
     expect(sim.snapshot().turn).toBe(1);
     expect(sim.snapshot().shots).toEqual([]);
+  });
+
+  it("starts the menu music on the first step, as init() does", () => {
+    const sim = new Simulation({ seed: 1 });
+    expect(sim.step()).toEqual([{ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true }]);
+    expect(sim.step()).toEqual([]);
+  });
+
+  it("plays the timeline sounds of the launcher, the jump and the outcome", () => {
+    const sim = new Simulation({ seed: 1 });
+    const click = sim.step([{ kind: "press" }, { kind: "release" }]);
+    // hamsterWheel2's frame 2, one frame after the click's play().
+    expect(click).toContainEqual({ t: "sfx", id: "wheel", gain: C.SFX_VOLUME, delayFrames: 1 });
+    // The click's own tick is the wind-up's first.
+    const windup: SimEvent[] = [];
+    for (let i = 2; i < JUMP_WINDUP_TICKS; i++) windup.push(...sim.step());
+    expect(windup.filter((e) => e.t === "sfx").map((e) => e.t === "sfx" && e.id)).toEqual(["jump"]);
+    // Clip 52's frame 28 places the ball, and the ball its sound.
+    expect(sim.step()).toContainEqual({
+      t: "sfx",
+      id: "tumble",
+      gain: C.TUMBLE_VOLUME,
+      loop: true,
+    });
+    // Up into the pillow's window.
+    for (let i = 0; i < 3; i++) sim.step();
+    const launch = sim.step([{ kind: "press" }, { kind: "release" }]);
+    expect(launch.some((e) => e.t === "launched")).toBe(true);
+    expect(launch).toContainEqual({ t: "sfxStop", id: "tumble" });
+    // A cheer is scheduled from the landing: frame 5, and the caption on 27.
+    const rest = stepOut(sim, "flying");
+    const done = rest.find((e) => e.t === "shotDone");
+    expect(done?.t === "shotDone" && done.outcome).toBe("cheer");
+    expect(rest).toContainEqual({ t: "sfx", id: "cheer", gain: C.CHEER_VOLUME, delayFrames: 4 });
+    expect(rest).toContainEqual({ t: "sfx", id: "jump", gain: C.SFX_VOLUME, delayFrames: 26 });
+  });
+
+  it("thumps the pillow into the frame 12 frames after a whiff", () => {
+    const sim = new Simulation({ seed: 1 });
+    sim.step([{ kind: "press" }, { kind: "release" }]);
+    // During the wind-up nothing can connect.
+    const whiff = sim.step([{ kind: "press" }, { kind: "release" }]);
+    expect(whiff.some((e) => e.t === "missed")).toBe(true);
+    expect(whiff).toContainEqual({
+      t: "sfx",
+      id: "bump",
+      gain: C.SWING_MISS_BUMP_VOLUME,
+      delayFrames: C.SWING_MISS_BUMP_FRAMES,
+    });
+    // The ball's sound goes with the ball when the hamster lands.
+    const landing = stepOut(sim, "jumping");
+    expect(landing).toContainEqual({ t: "sfxStop", id: "tumble" });
   });
 
   it("stops the menu music on launch and restarts it for the next hamster", () => {

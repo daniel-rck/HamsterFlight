@@ -32,6 +32,19 @@ describe("pickup sounds", () => {
       expect(POWERUPS[kind].sound).toBe(expected[kind]);
     }
   });
+
+  it("sounds speed and rebound through their own clips", () => {
+    // `_speed` starts sound 464 on frame 2, the frame `play()` sends it to;
+    // `_rebound` starts 457 on frame 4 (display-lists.txt, sprites 465/462).
+    const heard = (kind: PowerupKind) => {
+      const s = makeFlight({ y: 600, xvel: 10, powerups: [centredOn(kind, C.HAMSTER_X, 600)] });
+      return tick(s).events.filter((e) => e.t === "sfx" && e.id === kind);
+    };
+    expect(heard("speed")).toEqual([{ t: "sfx", id: "speed", gain: C.SFX_VOLUME }]);
+    expect(heard("rebound")).toEqual([
+      { t: "sfx", id: "rebound", gain: C.SFX_VOLUME, delayFrames: 3 },
+    ]);
+  });
 });
 
 describe("rebound pickup", () => {

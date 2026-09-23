@@ -104,8 +104,34 @@
         cursor: pointer;
         touch-action: manipulation;
       }
-      #pause[hidden] {
+      #pause[hidden],
+      #music[hidden] {
         display: none;
+      }
+      /* The original's music button sits in the same corner, left of where
+         the port put pause. Music only, as there: the effects stay on. */
+      #music {
+        position: absolute;
+        right: calc(8px + clamp(28px, 6.5%, 40px) + 6px);
+        bottom: 8px;
+        width: clamp(28px, 6.5%, 40px);
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: rgb(12 20 30 / 55%);
+        color: #eaf6ff;
+        font:
+          bold 17px/1 system-ui,
+          sans-serif;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      #music[aria-pressed="true"] {
+        color: rgb(234 246 255 / 45%);
+        text-decoration: line-through;
       }
       /* A landscape phone has ~340 px of height; reserving 10rem of it for the
          credits left a stage the size of a stamp. */
@@ -200,6 +226,16 @@
         aria-describedby="how-to"
       ></canvas>
       <button id="pause" type="button" tabindex="-1" aria-label="Pause" hidden>II</button>
+      <button
+        id="music"
+        type="button"
+        tabindex="-1"
+        aria-label="Mute music"
+        aria-pressed="false"
+        hidden
+      >
+        &#x266A;
+      </button>
       <div id="boot" role="status" aria-live="polite">loading…</div>
       <noscript>This game needs JavaScript to run.</noscript>
     </div>
@@ -208,7 +244,7 @@
       <span id="how-to"
         >Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide. One
         swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner button
-        pauses; a click resumes.</span
+        pauses; a click resumes. <kbd>M</kbd> or the note mutes the music.</span
       >
       Physics runs at a fixed 20&nbsp;Hz, as the original did.
       <br />

@@ -27,10 +27,14 @@ export function beginJump(): JumpState {
  * Clip 52's frame 28 script: `this._y -= 117.8; hamsterShoot.jump()`, and
  * `Game.jump()` - Game.as:1063-1071.
  */
-export function liftOff(s: JumpState, rng: Rng): void {
+export function liftOff(s: JumpState, rng: Rng, out: SimEvent[]): void {
   s.windup = null;
   s.y = toTwips(s.y - C.JUMP_CLIP_LIFT);
   s.yvel = (rng.int(C.JUMP_YVEL_RAND) + C.JUMP_YVEL_BASE) * -1;
+  // Frame 28 places the tumbling ball, clip 51, whose frame 1 starts a
+  // `StartSound` every time its four-frame loop comes round. It runs until the
+  // hamster clip is sent back to frame 1 - by the launch or by the landing.
+  out.push({ t: "sfx", id: "tumble", gain: C.TUMBLE_VOLUME, loop: true });
 }
 
 /**
@@ -47,7 +51,7 @@ export function stepJump(s: JumpState, rng: Rng, out: SimEvent[]): boolean {
   if (s.windup !== null) {
     s.windup++;
     if (s.windup === JUMP_SFX_TICK) out.push({ t: "sfx", id: "jump", gain: C.SFX_VOLUME });
-    if (s.windup >= JUMP_WINDUP_TICKS) liftOff(s, rng);
+    if (s.windup >= JUMP_WINDUP_TICKS) liftOff(s, rng, out);
     return false;
   }
 
@@ -67,6 +71,8 @@ export function stepJump(s: JumpState, rng: Rng, out: SimEvent[]): boolean {
 
   if (s.y >= C.HAMSTER_START_Y) {
     s.y = C.HAMSTER_START_Y;
+    // `hamster.gotoAndStop(1)` takes the ball, and its sound, with it.
+    out.push({ t: "sfxStop", id: "tumble" });
     out.push({ t: "sfx", id: "hit", gain: C.SFX_VOLUME });
     return true;
   }

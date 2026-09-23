@@ -36,7 +36,7 @@ describe("jump phase", () => {
   it("starts with yvel in -14..-10", () => {
     for (let seed = 1; seed <= 200; seed++) {
       const s = beginJump();
-      liftOff(s, mulberry32(seed));
+      liftOff(s, mulberry32(seed), []);
       expect(s.yvel).toBeGreaterThanOrEqual(-14);
       expect(s.yvel).toBeLessThanOrEqual(-10);
       expect(Number.isInteger(s.yvel)).toBe(true);
@@ -46,7 +46,7 @@ describe("jump phase", () => {
   it("fires the boost exactly once, on the first tick below y = 930", () => {
     const rng = mulberry32(42);
     const s = beginJump();
-    liftOff(s, rng);
+    liftOff(s, rng, []);
     let boostTicks = 0;
     let boostedFrom: number | null = null;
     for (let t = 0; t < 30; t++) {

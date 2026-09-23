@@ -99,7 +99,12 @@ export type Phase =
       /** `cameraTargetX/Y` - the pan's unquantised accumulator. See `quickPanStep`. */
       readonly pan: CameraState;
     }
-  | { readonly kind: "gameOver"; readonly total: number };
+  | {
+      readonly kind: "gameOver";
+      readonly total: number;
+      /** Ticks since `gameOver()` - `gameOver_mc` only offers PLAY AGAIN on its frame 60. */
+      ticks: number;
+    };
 
 /** The read-only view the renderer gets. It may not hold the Simulation itself. */
 export interface SimSnapshot {
@@ -133,4 +138,6 @@ export interface SimSnapshot {
   readonly outcome: ShotOutcome | null;
   /** The outcome clip showing - `outcome`, or the cheer that follows it. Null outside `settling`. */
   readonly outcomeClip: ShotOutcome | null;
+  /** Game over and PLAY AGAIN is up, so a confirm restarts. */
+  readonly restartable: boolean;
 }

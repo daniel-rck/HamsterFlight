@@ -432,8 +432,11 @@ the source it cites. Each has a test in `test/sim/` that fails on the old code.
   prelude would not have come back after a restart. `sfxStop` carries
   `fade: true` where the original calls `fadeOutSound`. `sndEnding` is not
   stopped on restart: `reset()` itself never touches it, only `resetBtn()`'s
-  `stopAllSounds()` (Game.as:326) does, and which of the two the game-over
-  button calls lives in the timeline code, which is not in the reference.
+  `stopAllSounds()` (Game.as:326) does - and the timeline settles which one
+  the game over offers. PLAY AGAIN is button 257, placed on `gameOver_mc`'s
+  frame 60, and it calls `reset()`. Button 505, the one wired to
+  `resetBtn()`, is a debug "reset" placed off the bottom of the stage at
+  (567.55, 413), where no player can click it.
 - **`falling = false` is an event.** Every arm of `checkCollision` ends with
   it, and the arming pickups do it too. The port emitted the `glide` off-cue
   two lines earlier and swallowed this one.
@@ -464,6 +467,49 @@ And two ordering details in the port itself: commands are applied in the order
 given, so `[press, togglePause]` no longer drops the press; and the shot driver
 in `src/sim/drive.ts` is the single one behind the golden tests and the bench,
 which used to disagree on their tick budgets.
+
+## Sound
+
+There was none. The simulation had emitted its cues all along - `sfx`,
+`sfxStop`, `sfxGain` - and nothing consumed them; no MP3 had been extracted.
+
+- **The files** come straight out of the DefineSound tags
+  (`tools/build_sounds.py`): every sound in this SWF is MP3, so the tag body
+  after its SeekSamples is a playable file, byte-identical to ffdec's export.
+  SeekSamples - the encoder latency, 1670-1695 samples, about 76 ms at
+  22 kHz - and the sample count go into `sounds.generated.ts`, and the player
+  plays and loops each sound on that extent rather than on the decoder's
+  padding, which is what Flash did.
+- **The player** (`src/audio/AudioPlayer.ts`) follows `Sound` semantics: one
+  object per id, `setVolume` for all its instances, `start()` adding one,
+  `stop()` stopping all, `fadeOutSound` as a single 50 ms interval taking 3
+  off, which a second fade abandons half-way, as the original's shared
+  `sndFadeInterval` does. Volumes above 100 - `flyGain` reaches them at speed
+  - are clamped, since Flash documents 0-100 and the port will not guess at
+  amplification.
+- **`jump` is `snd_jump`**, not `snd_hit`: clip 52 plays it on frame 23 of the
+  wind-up, and `hit_cheer` again on frame 27 as the distance caption appears.
+- **Timeline sounds.** Seven more sounds are started by `StartSound` tags on
+  clip frames, never by `Game`: the tumbling ball (clip 51, every pass of its
+  four-frame loop), the launcher wheel's squeak (twice, from its `LoopCount`),
+  the pillow's thump into the frame on a whiff (`background_mc` frame 22,
+  reusing `snd_bump`), the cheer and the caption tick, the hole and its
+  fanfare, the rebound and speed pickups, and the game-over fanfare with
+  PLAY AGAIN on `gameOver_mc` frame 60. The simulation emits them with
+  `delayFrames` - stage frames after the tick that attached the clip - and
+  their envelope levels as gains; out points and the speed pickup's fade-out
+  envelope are in the player. So speed and rebound do have a sound; `Game`
+  just never plays one for them.
+- **Unlocking.** Browsers only start audio from a gesture. Until then the
+  player remembers which loops ought to be playing - the prelude, from
+  `init()`'s first step - and starts them once the first press has created
+  the context and the files have loaded.
+- **The music button** is `toggleMusic()`: music only, back at 60 rather than
+  80 when unmuted, not remembered (`initSO` stores scores only). `M` is its
+  key.
+- **Not reproduced:** the title music (sound 484, root frame 5) - there is no
+  title screen - and panning: envelope levels are averaged over the two
+  channels.
 
 ## Presentation departures, recorded
 
