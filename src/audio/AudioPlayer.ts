@@ -14,7 +14,10 @@ import type { SimEvent, SoundId } from "@/sim/events.ts";
  * Nothing here feeds back into the simulation. Browsers only let audio start
  * from a user gesture, so until `unlock()` the player only keeps track of which
  * loops ought to be running and starts them once it can; one-shots from before
- * then are dropped, as they would be too late to mean anything.
+ * then are dropped, as they would be too late to mean anything. Once unlocked,
+ * a one-shot whose file is still decoding waits for it - and plays if that
+ * takes less than `PENDING_GRACE_SEC` past its time, which covers the first
+ * click's wheel squeak on a cold cache without a cheer arriving seconds late.
  */
 
 /** The stage rate the timeline sounds are scheduled in (`delayFrames`). */
@@ -24,6 +27,8 @@ const FADE_STEP = 3;
 const FADE_MS = 50;
 /** `toggleMusic()` brings the music back at 60, not at the 80 it started at. Game.as:307. */
 const MUSIC_UNMUTED_VOL = 60;
+/** How late a one-shot that was waiting for its file may still start. */
+const PENDING_GRACE_SEC = 0.25;
 
 const MUSIC: ReadonlySet<SoundId> = new Set(["prelude", "theme", "ending"]);
 
@@ -82,6 +87,8 @@ export class AudioPlayer {
   #ctx: AudioContext | null = null;
   readonly #channels = new Map<SoundId, Channel>();
   readonly #buffers = new Map<SoundId, AudioBuffer>();
+  /** One-shots cued after the unlock but before their file had decoded: when they were due. */
+  readonly #pending = new Map<SoundId, number[]>();
   #paused = false;
   /** `MUSIC_MUTE`. */
   #musicMuted = false;
@@ -150,11 +157,18 @@ export class AudioPlayer {
         const channel = this.#channel(event.id);
         this.#setVolume(channel, volume);
         if (event.loop === true) channel.loopWanted = true;
+        const ctx = this.#ctx;
+        if (ctx !== null && event.loop !== true && !this.#buffers.has(event.id)) {
+          const due = ctx.currentTime + (event.delayFrames ?? 0) / STAGE_FPS;
+          this.#pending.set(event.id, [...(this.#pending.get(event.id) ?? []), due]);
+          continue;
+        }
         this.#play(event.id, event.delayFrames ?? 0, event.loop === true);
       } else if (event.t === "sfxStop") {
         const channel = this.#channels.get(event.id);
         if (channel === undefined) continue;
         channel.loopWanted = false;
+        this.#pending.delete(event.id);
         if (event.fade === true && channel.voices.size > 0) this.#startFade(event.id);
         else this.#stop(event.id);
       } else if (event.t === "sfxGain") {
@@ -284,6 +298,11 @@ export class AudioPlayer {
           this.#buffers.set(id, buffer);
           const channel = this.#channels.get(id);
           if (channel?.loopWanted === true && channel.voices.size === 0) this.#play(id, 0, true);
+          for (const due of this.#pending.get(id) ?? []) {
+            const ahead = due - ctx.currentTime;
+            if (ahead >= -PENDING_GRACE_SEC) this.#play(id, Math.max(0, ahead) * STAGE_FPS, false);
+          }
+          this.#pending.delete(id);
         } catch (error) {
           // One sound missing is a quieter game, not a broken one.
           console.warn("[hamsterflight] sound %s unavailable: %o", id, error);

@@ -35,7 +35,14 @@ export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): vo
         if (POWERUPS[it.kind].sound) out.push({ t: "sfx", id: "pickup", gain: C.SFX_VOLUME });
         // Two pickups sound through their own clip instead of `playSound`: the
         // `play()` that sends them off starts a `StartSound` on a later frame.
-        if (it.kind === "speed") out.push({ t: "sfx", id: "speed", gain: C.SFX_VOLUME });
+        if (it.kind === "speed") {
+          out.push({
+            t: "sfx",
+            id: "speed",
+            gain: C.SFX_VOLUME,
+            delayFrames: C.SPEED_SFX_FRAME - 1,
+          });
+        }
         if (it.kind === "rebound") {
           out.push({
             t: "sfx",

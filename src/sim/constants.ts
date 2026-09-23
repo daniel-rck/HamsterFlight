@@ -134,6 +134,8 @@ export const C = Object.freeze({
   CHEER_CAPTION_FRAME: 27,
   /** `hit_hole`: its sound on frame 1, the fanfare on frame 28. */
   HOLE_FANFARE_FRAME: 28,
+  /** `_speed` frame 2, from `play()` at frame 1 (Game.as:729). */
+  SPEED_SFX_FRAME: 2,
   /** `_rebound` frame 4, from `play()` at frame 1. */
   REBOUND_SFX_FRAME: 4,
   /** `gameOver_mc.gotoAndPlay(2)`; frame 60 places PLAY AGAIN and the fanfare. */

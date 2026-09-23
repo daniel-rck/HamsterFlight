@@ -40,7 +40,7 @@ describe("pickup sounds", () => {
       const s = makeFlight({ y: 600, xvel: 10, powerups: [centredOn(kind, C.HAMSTER_X, 600)] });
       return tick(s).events.filter((e) => e.t === "sfx" && e.id === kind);
     };
-    expect(heard("speed")).toEqual([{ t: "sfx", id: "speed", gain: C.SFX_VOLUME }]);
+    expect(heard("speed")).toEqual([{ t: "sfx", id: "speed", gain: C.SFX_VOLUME, delayFrames: 1 }]);
     expect(heard("rebound")).toEqual([
       { t: "sfx", id: "rebound", gain: C.SFX_VOLUME, delayFrames: 3 },
     ]);

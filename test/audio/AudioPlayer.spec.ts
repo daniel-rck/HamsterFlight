@@ -145,6 +145,61 @@ describe("AudioPlayer", () => {
     expect(started(ctx, "shoot")).toHaveLength(0);
   });
 
+  it("holds a one-shot cued while its file is still decoding, if it is not stale", async () => {
+    const ctx = new FakeContext();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const player = new AudioPlayer({
+      urls,
+      createContext: () => ctx as unknown as AudioContext,
+      fetchBytes: async (url) => {
+        await gate;
+        return new ArrayBuffer(IDS.indexOf(url as SoundId) + 1);
+      },
+    });
+    player.unlock();
+    // The first click's squeak, cued before anything has decoded.
+    player.consume([
+      { t: "sfx", id: "wheel", gain: 100, delayFrames: 1 },
+      { t: "sfx", id: "hit", gain: 100 },
+    ]);
+    // By the time the files arrive the hit is half a second late: dropped.
+    ctx.currentTime = 10.5;
+    release();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(started(ctx, "hit")).toHaveLength(0);
+    // The wheel was due at 10 + 1/19, so it is 0.45 s late too.
+    expect(started(ctx, "wheel")).toHaveLength(0);
+  });
+
+  it("starts a pending one-shot that is still within the grace", async () => {
+    const ctx = new FakeContext();
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const player = new AudioPlayer({
+      urls,
+      createContext: () => ctx as unknown as AudioContext,
+      fetchBytes: async (url) => {
+        await gate;
+        return new ArrayBuffer(IDS.indexOf(url as SoundId) + 1);
+      },
+    });
+    player.unlock();
+    player.consume([{ t: "sfx", id: "cheer", gain: 79, delayFrames: 4 }]);
+    ctx.currentTime = 10.1;
+    release();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const [cheer] = started(ctx, "cheer");
+    // Still due at 10 + 4/19, so it keeps its time.
+    expect(cheer?.startedAt?.[0]).toBeCloseTo(10 + 4 / 19, 9);
+  });
+
   it("plays from past the encoder latency, for the DefineSound's own length", async () => {
     const { player, ctx } = await unlocked();
     player.consume([{ t: "sfx", id: "hit", gain: 100 }]);

@@ -283,6 +283,7 @@ async function boot(): Promise<void> {
     if (audio === null) return;
     const muted = audio.toggleMusic();
     musicButton?.setAttribute("aria-pressed", String(muted));
+    musicButton?.setAttribute("aria-label", muted ? "Unmute music" : "Mute music");
   };
   if (audio !== null) {
     // Audio may only start from a gesture. Any press on the page counts, and
