@@ -75,13 +75,18 @@ export class InputController {
     on<Event>(canvas, "contextmenu", (ev) => ev.preventDefault());
 
     on<KeyboardEvent>(targets.keys, "keydown", (ev) => {
-      if (ev.repeat || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+      if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
       if (isTyping(ev.target)) return;
       if (ev.key === " " || ev.key === "Enter") {
+        // Before the repeat check: the auto-repeats of a held glide are
+        // keydowns too, and each one let through scrolled the page.
         ev.preventDefault();
+        if (ev.repeat) return;
         if (this.#keyDown || this.#pointerId !== null) return;
         this.#keyDown = true;
         this.#press();
+      } else if (ev.repeat) {
+        return;
       } else if (ev.key === "p" || ev.key === "P" || ev.key === "Escape") {
         this.#queue.push({ kind: "togglePause" });
       } else if (ev.key === "h" || ev.key === "H") {
@@ -126,6 +131,16 @@ export class InputController {
 
   #release(): void {
     this.#queue.push({ kind: "release" });
+  }
+
+  /** The on-screen pause button: the same command as `P`. */
+  togglePause(): void {
+    this.#queue.push({ kind: "togglePause" });
+  }
+
+  /** Pause the game (never resume it) - the page went away while it was running. */
+  pause(): void {
+    this.#queue.push({ kind: "pause" });
   }
 
   /** Hand the queued commands to the simulation and clear it. */

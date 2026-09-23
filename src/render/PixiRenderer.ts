@@ -126,7 +126,7 @@ export class PixiRenderer implements Renderer {
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
-    this.#hud = new PixiHud(assets, this.#textures);
+    this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false);
     this.#ascentMono10 = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
 
     this.#skyFade = verticalFadeTexture();

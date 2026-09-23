@@ -240,7 +240,9 @@ describe("hud strings", () => {
     expect(promptFor(flying({ phaseKind: "gameOver" }), false)).toBe(
       "165 ft total - click to play again",
     );
-    expect(promptFor(flying({ paused: true }), false)).toBe("paused - click or P to resume");
+    expect(promptFor(flying({ paused: true }), false)).toBe("paused - click, Space or P to resume");
+    expect(promptFor(flying({ paused: true }), false, true)).toBe("paused - tap to resume");
+    expect(promptFor(flying({ phaseKind: "ready" }), false, true)).toBe("tap to jump");
   });
 
   it("lists only the flags that are on in the debug readout", () => {
@@ -269,8 +271,9 @@ describe("interpolate", () => {
     expect(mid.tick).toBe(10);
   });
 
-  it("is the new tick at alpha 0 and clamps at 1", () => {
-    expect(interpolate(prev, next, 0)).toBe(next);
+  it("is the old tick at alpha 0 and clamps at both ends", () => {
+    expect(interpolate(prev, next, 0).hamster.x).toBe(prev.hamster.x);
+    expect(interpolate(prev, next, -0.2).hamster.x).toBe(prev.hamster.x);
     expect(interpolate(prev, next, 1.5).hamster.x).toBe(800);
   });
 

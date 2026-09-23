@@ -122,6 +122,22 @@ describe("InputController", () => {
     expect(toggles).toHaveLength(1);
   });
 
+  it("keeps a held Space from scrolling the page, without pressing again", () => {
+    const { keys, input } = setup();
+    key(keys, "keydown", " ");
+    const repeat = key(keys, "keydown", " ", { repeat: true });
+    const repeatP = key(keys, "keydown", "p", { repeat: true });
+    expect(repeat.defaultPrevented).toBe(true);
+    expect(repeatP.defaultPrevented).toBe(false);
+    expect(kinds(input)).toEqual(["press", "confirm"]);
+  });
+
+  it("queues a one-way pause", () => {
+    const { input } = setup();
+    input.pause();
+    expect(kinds(input)).toEqual(["pause"]);
+  });
+
   it("does not steal keys from a text field", () => {
     const { keys, input } = setup();
     const field = { tagName: "INPUT" };

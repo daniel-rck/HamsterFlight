@@ -128,4 +128,30 @@ describe("FixedTimestepLoop", () => {
     t.frame(STEP_MS);
     expect(calls).toBe(1);
   });
+
+  it("reports a throwing hook once, so the page can say so", () => {
+    const t = fakeClock();
+    const reported: unknown[] = [];
+    const loop = new FixedTimestepLoop(
+      {
+        step: () => undefined,
+        draw: () => {
+          throw new Error("draw broke");
+        },
+        onError: (error) => reported.push(error),
+      },
+      t.clock,
+    );
+    loop.start();
+    expect(() => t.frame(1)).toThrow("draw broke");
+    expect(reported).toHaveLength(1);
+  });
+
+  it("never draws with a negative alpha", () => {
+    const { t, loop, draws } = harness();
+    loop.start();
+    // A rAF timestamp from before the `now()` that `start()` read.
+    t.frame(-4);
+    expect(draws.at(-1)?.alpha).toBe(0);
+  });
 });

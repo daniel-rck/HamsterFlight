@@ -87,6 +87,16 @@ describe("command ordering", () => {
     expect(sim.tick).toBe(0);
   });
 
+  it("pauses one way: a second pause does not resume", () => {
+    const sim = new Simulation({ seed: 7 });
+    sim.step([{ kind: "pause" }]);
+    sim.step([{ kind: "pause" }]);
+    expect(sim.snapshot().paused).toBe(true);
+    expect(sim.tick).toBe(0);
+    sim.step([{ kind: "togglePause" }, { kind: "pause" }]);
+    expect(sim.snapshot().paused).toBe(true);
+  });
+
   it("resumes on a press while paused, without jumping", () => {
     // A click is the only control a touch screen has, so on a paused stage it
     // means "go on". It does not double as the jump it would otherwise start.

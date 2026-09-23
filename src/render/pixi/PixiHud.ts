@@ -49,8 +49,11 @@ export class PixiHud {
   readonly #ascentMono12: number;
   readonly #ascentSans17: number;
 
-  constructor(assets: AssetBundle, textures: TextureCache) {
+  readonly #touch: boolean;
+
+  constructor(assets: AssetBundle, textures: TextureCache, touch = false) {
     this.#assets = assets;
+    this.#touch = touch;
     this.#textures = textures;
 
     this.#ascentMono12 = CanvasTextMetrics.measureFont(FONTS.hud).ascent;
@@ -158,7 +161,7 @@ export class PixiHud {
       setText(this.#debugLines[2], text[2]);
     }
 
-    const prompt = promptFor(s, metric);
+    const prompt = promptFor(s, metric, this.#touch);
     const show = prompt !== null;
     this.#promptBg.visible = show;
     this.#promptText.visible = show;

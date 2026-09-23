@@ -21,6 +21,8 @@ export interface RendererOptions {
    * in the noise, and only a sweep shows where the crossover is.
    */
   readonly stress?: number;
+  /** The primary pointer is a finger: the prompts say "tap", not "click". */
+  readonly touch?: boolean;
 }
 
 /**
