@@ -33,6 +33,7 @@ import {
   hamsterBox,
   hamsterRotation,
   outcomeOffsetY,
+  posePlacement,
   poseFor,
 } from "@/render/scene/pose.ts";
 import { C } from "@/sim/constants.ts";
@@ -247,14 +248,19 @@ export class GameRenderer implements Renderer {
     // for the whole bounce. Enhanced mode draws the flier underneath and lets
     // the bubble sit over it.
     const inBubble = id === "hamster/ball" && this.#effects.enhanced;
-    if (inBubble) {
-      const inside = this.#assets.get("hamster/fly");
-      if (inside !== undefined)
-        this.#blit(ctx, inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed), 0, 0);
-      ctx.globalAlpha = BUBBLE_ALPHA;
-    }
     const rotation = hamsterRotation(s);
     if (rotation !== 0) ctx.rotate(rotation);
+    if (inBubble) {
+      const inside = this.#assets.get("hamster/fly");
+      if (inside !== undefined) {
+        ctx.save();
+        ctx.transform(...posePlacement(inside.meta));
+        this.#blit(ctx, inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed), 0, 0);
+        ctx.restore();
+      }
+      ctx.globalAlpha = BUBBLE_ALPHA;
+    }
+    ctx.transform(...posePlacement(sprite.meta));
     this.#blit(
       ctx,
       sprite,

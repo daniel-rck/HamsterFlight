@@ -1,6 +1,7 @@
-import { type Container, Sprite, Text, TextStyle, Texture } from "pixi.js";
+import { type Container, Matrix, Sprite, Text, TextStyle, Texture } from "pixi.js";
 import type { Sprite as SpriteAsset } from "@/assets/AssetLoader.ts";
 import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
+import { posePlacement } from "@/render/scene/pose.ts";
 
 /** Small Pixi conveniences with no renderer state, so they can be read alone. */
 
@@ -12,6 +13,19 @@ import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
 export function place(sprite: Sprite, asset: SpriteAsset, x: number, y: number): void {
   sprite.position.set(x + asset.meta.ox, y + asset.meta.oy);
   sprite.scale.set(1 / asset.density);
+}
+
+/**
+ * `place()` at the origin, then the clip's own placement in its parent on top
+ * - the flight poses sit in the arrow clip turned or scaled (`posePlacement`).
+ * Pixi's `Matrix` is Flash's order, so the manifest's six numbers go straight in.
+ */
+export function placeInParent(sprite: Sprite, asset: SpriteAsset): void {
+  const [a, b, c, d, tx, ty] = posePlacement(asset.meta);
+  const inv = 1 / asset.density;
+  sprite.setFromMatrix(
+    new Matrix(a, b, c, d, tx, ty).append(new Matrix(inv, 0, 0, inv, asset.meta.ox, asset.meta.oy)),
+  );
 }
 
 /** A 1x1 white sprite; set width/height/tint and it is a filled rectangle. */

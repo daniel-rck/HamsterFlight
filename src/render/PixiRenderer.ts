@@ -14,6 +14,7 @@ import type { Effects } from "@/render/effects/Effects.ts";
 import {
   hideFrom,
   place,
+  placeInParent,
   poolAt,
   slab,
   solidRect,
@@ -437,7 +438,7 @@ export class PixiRenderer implements Renderer {
           : this.#textures.get(inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed));
       if (inside !== undefined && insideTexture !== undefined) {
         this.#hamsterInner.texture = insideTexture;
-        place(this.#hamsterInner, inside, 0, 0);
+        placeInParent(this.#hamsterInner, inside);
       } else {
         this.#hamsterInner.visible = false;
       }
@@ -447,7 +448,7 @@ export class PixiRenderer implements Renderer {
     this.#hamsterPivot.position.set(h.x, h.y + outcomeOffsetY(s));
     this.#hamsterPivot.rotation = hamsterRotation(s);
     this.#hamster.texture = texture;
-    place(this.#hamster, asset, 0, 0);
+    placeInParent(this.#hamster, asset);
   }
 
   #drawHitboxes(s: SimSnapshot): void {

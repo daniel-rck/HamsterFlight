@@ -1,4 +1,4 @@
-import type { SpriteId } from "@/assets/sprites.generated.ts";
+import type { SpriteId, SpriteMeta } from "@/assets/sprites.generated.ts";
 import { type Box, rotateBox } from "@/sim/math/aabb.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import type { Tuning } from "@/sim/tuning.ts";
@@ -86,15 +86,36 @@ export function bottomCrop(s: SimSnapshot): number {
  * `Bullet.update()` - Bullet.as:42-50. The rule itself (face the velocity,
  * except crawling along the ground or with rotation switched off) lives in
  * the sim, because the pickup test measures the rotated clip; this only reads
- * `_rotation` back. The original adds 90 because the projectile's art is
- * authored pointing up; the exported flight poses face right, so the quarter
- * turn comes off again here. The outcome clips are a different symbol and a
- * different question - see `OUTCOME_ROTATION`.
+ * `_rotation` back. It is the rotation of the arrow clip (331) as a whole -
+ * authored pointing up, hence the original's `+ 90` - and each pose inside it
+ * carries its own placement on top (`posePlacement`). The outcome clips are a
+ * different symbol and a different question - see `OUTCOME_ROTATION`.
  */
 export function hamsterRotation(s: SimSnapshot): number {
   if (s.phaseKind === "settling") return OUTCOME_ROTATION;
   if (s.phaseKind !== "flying") return 0;
-  return ((s.hamster.rotationDeg - 90) * Math.PI) / 180;
+  return (s.hamster.rotationDeg * Math.PI) / 180;
+}
+
+/** `[a, b, c, d, tx, ty]`, Flash's order - the same as canvas `transform()`. */
+export type Affine = readonly [number, number, number, number, number, number];
+
+const IDENTITY: Affine = [1, 0, 0, 1, 0, 0];
+
+/**
+ * Where a pose sits inside the arrow clip, straight off its PlaceObject2
+ * (display-lists.txt, sprite 331). Not every pose is authored the same way
+ * round: `flying_mc` and `drop` are drawn facing right and placed a quarter
+ * turn anticlockwise, `glide` is placed at 0.9 scale, and `wind`, `blur`,
+ * `slide`, `skid` and `ball` are drawn pointing up and placed as they are.
+ *
+ * Subtracting the `+ 90` from every pose, as this used to, was right for
+ * `flying_mc` alone: a skid or a skateboard slide - rotation pinned at 90 on
+ * the ground - drew the hamster standing next to a board on its end instead of
+ * lying on it.
+ */
+export function posePlacement(meta: SpriteMeta): Affine {
+  return meta.placement ?? IDENTITY;
 }
 
 /** The hamster's hit box as the sim tests it: the flight core turns with the clip. */

@@ -38,6 +38,12 @@ export interface SpriteMeta {
   readonly verified: boolean;
   readonly charId: number;
   readonly fps?: number;
+  /**
+   * `[a, b, c, d, tx, ty]` - where the clip sits inside its parent (the
+   * flight poses in the arrow clip, 331). `ox`/`oy` place the art in the
+   * clip; this then places the clip in the parent.
+   */
+  readonly placement?: readonly [number, number, number, number, number, number];
   /** Which atlas sheet the frames live on. */
   readonly sheet: number;
   /** Top-left of each frame within that sheet; `w`/`h` are shared. */
@@ -98,11 +104,12 @@ export const SPRITES = {
     frames: 8,
     w: 59,
     h: 38,
-    ox: -26.25,
-    oy: -12.2,
+    ox: -25.3,
+    oy: -16.25,
     verified: true,
     charId: 306,
     fps: 19,
+    placement: [0, -1, 1, 0, -0.95, 4.05],
     sheet: 0,
     rects: [
       [1501, 1368],
@@ -119,11 +126,12 @@ export const SPRITES = {
     frames: 7,
     w: 50,
     h: 71,
-    ox: -19.9,
-    oy: -35.35,
+    ox: -19.35,
+    oy: -32.8,
     verified: false,
     charId: 291,
     fps: 19,
+    placement: [0.9, 0, 0, 0.9, -0.55, -2.55],
     sheet: 0,
     rects: [
       [1573, 1038],
@@ -139,11 +147,12 @@ export const SPRITES = {
     frames: 17,
     w: 65,
     h: 70,
-    ox: -43.3,
-    oy: -41.0,
+    ox: -47.55,
+    oy: -32.25,
     verified: false,
     charId: 279,
     fps: 19,
+    placement: [0, -1, 1, 0, 4.25, -8.75],
     sheet: 0,
     rects: [
       [1937, 1038],
@@ -169,11 +178,12 @@ export const SPRITES = {
     frames: 12,
     w: 31,
     h: 83,
-    ox: -13.45,
-    oy: -30.6,
+    ox: 4.6,
+    oy: 1.2,
     verified: true,
     charId: 161,
     fps: 19,
+    placement: [1, 0, 0, 1, -18.05, -31.8],
     sheet: 0,
     rects: [
       [1676, 776],
@@ -194,11 +204,12 @@ export const SPRITES = {
     frames: 6,
     w: 40,
     h: 58,
-    ox: -22.7,
-    oy: -28.3,
+    ox: -0.55,
+    oy: -0.4,
     verified: true,
     charId: 305,
     fps: 19,
+    placement: [1, 0, 0, 1, -22.15, -27.9],
     sheet: 0,
     rects: [
       [1706, 1189],
@@ -213,11 +224,12 @@ export const SPRITES = {
     frames: 7,
     w: 46,
     h: 124,
-    ox: -22.65,
-    oy: -32.65,
+    ox: -22.3,
+    oy: -3.05,
     verified: true,
     charId: 312,
     fps: 19,
+    placement: [1, 0, 0, 1, -0.35, -29.6],
     sheet: 0,
     rects: [
       [1474, 614],
@@ -233,11 +245,12 @@ export const SPRITES = {
     frames: 4,
     w: 32,
     h: 79,
-    ox: -14.75,
-    oy: -29.75,
+    ox: -14.4,
+    oy: -0.15,
     verified: true,
     charId: 318,
     fps: 19,
+    placement: [1, 0, 0, 1, -0.35, -29.6],
     sheet: 0,
     rects: [
       [1775, 776],
@@ -255,6 +268,7 @@ export const SPRITES = {
     verified: true,
     charId: 177,
     fps: 19,
+    placement: [1, 0, 0, 1, 0, 0],
     sheet: 0,
     rects: [
       [911, 776],

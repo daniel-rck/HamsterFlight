@@ -153,11 +153,21 @@ children that animate their own scale, or a rotated placement, whose terms
 geometry; the build prints both boxes so the difference can be read rather than
 guessed at.
 
-One deliberate rendering divergence: the original sets
-`_rotation = radToDeg(atan2(yvel, xvel)) + 90` because its art is authored
-pointing up. The exported poses face right, so the renderer takes the sim's
-`rotationDeg` and subtracts the `+ 90` again; the sprite aligns directly with
-the velocity vector.
+The original sets `_rotation = radToDeg(atan2(yvel, xvel)) + 90` on the arrow
+clip (331), which is authored pointing up. The poses inside it are *not* all
+authored the same way round, and for a long time the port assumed they were:
+it subtracted the `+ 90` from every pose, which is right for `flying_mc` alone.
+Sprite 331's own display list (`as2/timeline/display-lists.txt`) says how each
+one is placed: `flying_mc` and `drop` are drawn facing right and placed with
+`[0, -1, 1, 0]`, a quarter turn back to pointing up; `glide` at 0.9 scale; and
+`wind`, `blur`, `slide`, `skid` and `ball` as they are. `build_sprites.py`
+dropped all but the translation of that matrix. It now writes the whole
+placement into the manifest, the renderers apply it inside the clip's
+rotation, and the rotation is the sim's `rotationDeg` unmodified. The visible
+casualty was the ground: rotation is pinned at 90 while skidding, and the
+skid and skateboard poses stood the hamster next to a board on its end instead
+of lying it on top. `blur`, `wind` and `glide` were a quarter turn off in the
+air too.
 
 ## The pre-launch scene was missing, and why
 

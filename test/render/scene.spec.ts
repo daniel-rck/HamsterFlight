@@ -21,6 +21,7 @@ import {
   JUMP_SHADOW_STRIP,
   outcomeOffsetY,
   poseFor,
+  posePlacement,
 } from "@/render/scene/pose.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
@@ -92,13 +93,52 @@ describe("pose", () => {
     expect(at("flying", "faceplant")).toBe(0);
   });
 
-  it("reads the sim's _rotation back, minus the original's quarter turn", () => {
+  it("reads the sim's _rotation back as the arrow clip's rotation", () => {
     // The rule (Bullet.as:44-50) is the sim's now - see test/sim/pickups.spec.ts.
-    expect(hamsterRotation(flying())).toBeCloseTo(Math.atan2(-10, 20), 12);
+    const deg = flying().hamster.rotationDeg;
+    expect(hamsterRotation(flying())).toBeCloseTo((deg * Math.PI) / 180, 12);
     const off = flying({ hamster: { ...flying().hamster, rotationDeg: 90 } });
-    expect(hamsterRotation(off)).toBe(0);
+    expect(hamsterRotation(off)).toBeCloseTo(Math.PI / 2, 12);
     expect(hamsterRotation(flying({ phaseKind: "jumping" }))).toBe(0);
     expect(hamsterRotation(flying({ phaseKind: "ready" }))).toBe(0);
+  });
+
+  it("places each pose in the arrow clip the way sprite 331 does", () => {
+    // display-lists.txt, sprite 331 f1. Only flying_mc and drop are turned.
+    expect(posePlacement(SPRITES["hamster/fly"]).slice(0, 4)).toEqual([0, -1, 1, 0]);
+    expect(posePlacement(SPRITES["hamster/drop"]).slice(0, 4)).toEqual([0, -1, 1, 0]);
+    expect(posePlacement(SPRITES["hamster/glide"]).slice(0, 4)).toEqual([0.9, 0, 0, 0.9]);
+    for (const id of [
+      "hamster/wind",
+      "hamster/blur",
+      "hamster/slide",
+      "hamster/skid",
+      "hamster/ball",
+    ] as const) {
+      expect(posePlacement(SPRITES[id]).slice(0, 4), id).toEqual([1, 0, 0, 1]);
+    }
+    // Everything outside the arrow clip is placed as exported.
+    expect(posePlacement(SPRITES["hit/cheer"])).toEqual([1, 0, 0, 1, 0, 0]);
+  });
+
+  it("lays a skid on its board rather than standing it on end", () => {
+    // Rotation pinned at 90 on the ground (Bullet.as:46-50); the skid art is
+    // drawn pointing up with the board down its right edge, so the quarter turn
+    // puts the board underneath. The old `- 90` drew it upright.
+    const skid = flying({
+      flags: { ...noEffects(), skidding: true },
+      hamster: { ...flying().hamster, rotationDeg: 90 },
+    });
+    expect(poseFor(skid)).toBe("hamster/skid");
+    const [a, b, c, d] = posePlacement(SPRITES["hamster/skid"]);
+    const r = hamsterRotation(skid);
+    // Where the art's +x (the board side) ends up on stage: straight down.
+    const x = Math.cos(r) * a - Math.sin(r) * b;
+    const y = Math.sin(r) * a + Math.cos(r) * b;
+    expect(x).toBeCloseTo(0, 12);
+    expect(y).toBeCloseTo(1, 12);
+    expect(c).toBe(0);
+    expect(d).toBe(1);
   });
 
   it("stands every outcome clip up, as createHitClip does whatever the shot did", () => {

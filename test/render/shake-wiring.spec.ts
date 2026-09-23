@@ -39,6 +39,7 @@ function recordingCanvas(
     translate: () => undefined,
     scale: () => undefined,
     rotate: () => undefined,
+    transform: () => undefined,
     fillRect: (x: number, y: number) => {
       rects.push({ sx: x, sy: y, alpha: ctx.globalAlpha });
     },
