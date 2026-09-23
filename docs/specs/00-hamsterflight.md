@@ -21,10 +21,33 @@ src/
 ├── sim/          # pure, deterministic simulation — no DOM, no time, no I/O
 ├── render/       # the two backends plus scene/ and the HUD; read snapshots, never write
 ├── input/        # DOM events to discrete press/release/confirm/pause commands
-├── assets/       # the atlas sheets and the generated placement manifest
+├── assets/       # atlas sheets, sounds, the instructions board, generated manifests
+├── audio/        # the Web Audio player - reads the sim's sound cues, never writes
 ├── app/          # boot (main.ts), the fixed-timestep loop, URL params, frame profiler
-reference/        # vendored: decompiled bytecode, extraction tools, notes
+reference/        # vendored: decompiled bytecode and frame scripts, extraction tools, notes
 ```
+
+Everything under `src/assets/` except the loaders is generated from the
+original SWF by `reference/tools/` (sprites, sounds, the instructions board),
+and `reference/as2/` holds both the decompiled classes and the timeline frame
+scripts. The frame scripts matter as much as the classes: the jump, the
+outcome clips, a third of the sounds and the start of the game are all driven
+from clip frames, not from `Game.as`.
+
+### Sound
+
+The simulation emits sound cues as events (`sfx`, `sfxStop`, `sfxGain`), with
+timeline sounds scheduled in stage frames (`delayFrames`). `src/audio/`
+plays them with Flash `Sound` semantics through Web Audio, fetched with
+`fetch` (the CSP's `connect-src 'self'`), from its own lazy chunk. It starts on
+the first user gesture, suspends with the game's pause, and never feeds back
+into the simulation. The music button mutes music only, as the original's did.
+
+### Start of the game
+
+A visit opens on the INSTRUCTIONS board over a still of the scene, as the
+original's frame 6 does; Play Now! starts the loop and unlocks audio.
+`?profile` and `?instructions=0` skip it. There is no title screen.
 
 There is no persistence layer: the game keeps no scores between visits, and
 the simulation may not touch storage even if one is added later.
@@ -80,5 +103,6 @@ runs actually start.
 
 ```bash
 bun run verify   # lint, sim purity, atlas, typecheck, tests, build, bundle budget
-bun run smoke    # opens the built page in Chromium — shader link, asset 404s
+bun run smoke    # opens the built page in Chromium — shader link, asset 404s,
+                 # and a first visit: the board, Play Now!, every sound loading
 ```

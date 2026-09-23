@@ -3,9 +3,9 @@
 A faithful browser port of the Flash game *Flight of the Hamsters*,
 reconstructed from bytecode analysis of the original AVM1/ActionScript 2 SWF.
 
-Not affiliated with the original publisher. The sprites are extracted from the
-original SWF and remain the copyright of their respective owners - see
-[Assets](#assets).
+Not affiliated with the original publisher. The sprites and sounds are
+extracted from the original SWF and remain the copyright of their respective
+owners - see [Assets](#assets).
 
 ## Quick start
 
@@ -18,11 +18,14 @@ bun run verify       # lint, sim purity, atlas, typecheck, tests, build, bundle 
 Bun is the package manager, like the other apps in this family
 (`daniel-rck/web-base`); Node runs the scripts under `scripts/`.
 
-Press <kbd>Space</kbd> or click to jump, again to hit the pillow, then hold to
-glide. One swing per jump: miss it and the hamster lands back on the pad and
-you jump again, which costs nothing - only the pillow ends a turn.
-<kbd>P</kbd> or <kbd>Esc</kbd> pauses and a click or tap resumes; <kbd>H</kbd>
-toggles the hitbox overlay. The keyboard works
+The game opens on the original's INSTRUCTIONS board; Play Now! (or
+<kbd>Enter</kbd>) starts it, and that first press is also what lets the browser
+play sound. Press <kbd>Space</kbd> or click to jump, again to hit the pillow,
+then hold to glide. One swing per jump: miss it and the hamster lands back on
+the pad and you jump again, which costs nothing - only the pillow ends a turn.
+<kbd>P</kbd> or <kbd>Esc</kbd> pauses and a click or tap resumes; <kbd>M</kbd>
+or the note button mutes the music (music only, as in the original);
+<kbd>H</kbd> toggles the hitbox overlay. The keyboard works
 from the first keystroke; no click on the stage is needed first. Append
 `?seed=12345` to replay an exact run.
 
@@ -33,7 +36,8 @@ from the first keystroke; no click on the stage is needed first. Append
 | `?mode=faithful` | the Canvas2D reference renderer, nothing added |
 | `?renderer=pixi` \| `canvas2d` | pick a backend explicitly, overriding the mode |
 | `?stress=N` | multiply renderer-only decoration; profiling aid, never touches physics |
-| `?profile` | report draw-time percentiles to the console |
+| `?profile` | report draw-time percentiles to the console (skips the instructions board) |
+| `?instructions=0` | skip the instructions board |
 
 ## What makes this port unusual
 
@@ -186,7 +190,20 @@ Without `--svg-dir` the tool falls back to the display-list walk and centres the
 six unresolved clips on their registration point, which misplaces them by up to
 63 px.
 
-**On rights:** this artwork is the original publisher's, not this project's.
+The sounds under `src/assets/sounds/` come out the same way, by
+`reference/tools/build_sounds.py`: all 21 the game uses - the 14 `Game` plays
+and the 7 its clip timelines start - as the SWF's own MP3 data, no transcoding,
+with each sound's encoder latency and length in `src/assets/sounds.generated.ts`
+so loops run on the sound's real extent. The instructions board and its button
+are rendered from root frame 6 by `reference/tools/build_screens.py`.
+
+```sh
+python3 reference/tools/build_sounds.py path/to/OCybCA4ADbpTKT.swf src/assets/sounds
+python3 reference/tools/build_screens.py <frame-dir>/6.svg <shape-dir> src/assets/screens
+```
+
+**On rights:** this artwork and these sounds are the original publisher's, not
+this project's.
 `LICENSE` (MIT) covers the original code and documentation; `NOTICE` lists what
 it does not.
 Section 13.4 of the analysis document notes that shipping it in a published
