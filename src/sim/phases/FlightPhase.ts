@@ -44,7 +44,9 @@ export function stepFlight(s: FlightState, tuning: Tuning, rng: Rng, out: SimEve
     p.yvel += C.WIND_YVEL;
     p.xvel += C.WIND_XVEL;
     s.flags.wind = false;
-    out.push({ t: "sfx", id: "wind", gain: C.SFX_VOLUME });
+    // Alternates, as the original's `windSound` toggle does (Game.as:512-520).
+    if (!s.windSound) out.push({ t: "sfx", id: "wind", gain: C.SFX_VOLUME });
+    s.windSound = !s.windSound;
   }
   if (s.flags.speed) {
     p.xvel += C.SPEED_XVEL;

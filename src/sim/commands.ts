@@ -15,4 +15,9 @@ export type InputCommand =
   | { readonly kind: "release" }
   /** Advance past an outcome or menu screen. */
   | { readonly kind: "confirm" }
-  | { readonly kind: "togglePause" };
+  | { readonly kind: "togglePause" }
+  /**
+   * Pause if running, never resume. The page sends it when the tab or the
+   * window goes away; a toggle there could cancel a `P` already in the queue.
+   */
+  | { readonly kind: "pause" };

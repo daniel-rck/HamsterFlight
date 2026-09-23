@@ -111,3 +111,17 @@ describe("shared tables", () => {
     expect(Object.isFrozen(POWERUPS.speed)).toBe(true);
   });
 });
+
+describe("the wind cue", () => {
+  it("plays on every other wind tick, as the original's windSound toggle does", () => {
+    // Game.as:512-520: the cue plays when `windSound` is false and flips it
+    // either way, so three wind ticks in a row sound twice (first and third).
+    const s = makeFlight({ y: 600, xvel: 10 });
+    const played: boolean[] = [];
+    for (let i = 0; i < 3; i++) {
+      s.flags.wind = true;
+      played.push(sfxIds(tick(s).events).includes("wind"));
+    }
+    expect(played).toEqual([true, false, true]);
+  });
+});

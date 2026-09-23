@@ -24,6 +24,7 @@ export const FORBIDDEN: readonly (readonly [RegExp, string])[] = [
   [/\bMath\s*\[/, "computed access on Math (Math['random']) - inject an Rng instead"],
   [/\bDate\s*\.\s*now\b/, "Date.now - the sim steps in fixed ticks, it must not read a clock"],
   [/\bnew\s+Date\b/, "new Date - the sim steps in fixed ticks, it must not read a clock"],
+  [/(?<!\bnew\s+)\bDate\s*\(/, "Date() - returns the current time as a string"],
   [/\bsetTimeout\s*\(|\bsetInterval\s*\(/, "timers - the loop drives the sim, not the reverse"],
   [/\bperformance\s*\./, "performance - time must not enter the sim"],
   [/\bcrypto\b/, "crypto - randomness is injected through Rng"],
@@ -43,6 +44,24 @@ export interface Violation {
   readonly why: string;
 }
 
+/** Keywords after which a `/` starts a regex literal rather than dividing. */
+const REGEX_AFTER_KEYWORD = new Set([
+  "return",
+  "typeof",
+  "case",
+  "in",
+  "of",
+  "void",
+  "delete",
+  "instanceof",
+  "new",
+  "throw",
+  "yield",
+  "await",
+  "do",
+  "else",
+]);
+
 /**
  * Blank out comments, string literals and regex literals, preserving line
  * structure, so the rules apply to code only. Documenting what the original
@@ -50,14 +69,54 @@ export interface Violation {
  *
  * Regex literals matter because `/["']/` would otherwise open a string that
  * never closes and blank out the rest of the file - a silent pass. A slash is
- * a regex when the previous significant character cannot end an operand.
+ * a regex when the previous significant token cannot end an operand: an
+ * operator, or a keyword like `return`.
+ *
+ * The `${...}` inside a template literal is code, and is scanned as code:
+ * blanking the whole literal hid `${Math.random()}` from every rule.
+ *
+ * `keepStrings` leaves string literals in place (comments and regexes still
+ * go), for the import check: it needs the specifiers, which blanking erased -
+ * so it matched nothing at all.
  */
-export function stripNonCode(src: string): string {
+export function stripNonCode(src: string, keepStrings = false): string {
   let out = "";
   let i = 0;
   const n = src.length;
-  const blank = (text: string): string => text.replace(/[^\n]/g, " ");
+  const blankAlways = (text: string): string => text.replace(/[^\n]/g, " ");
+  const blank = (text: string): string => (keepStrings ? text : blankAlways(text));
   let lastSignificant = "";
+  // One entry per open brace: whether closing it resumes a template literal.
+  const braces: boolean[] = [];
+
+  /** Scan template text from `from` (a backtick or a closing `}`) to its end or next `${`. */
+  const template = (from: number): void => {
+    let j = i;
+    while (j < n) {
+      const c = src[j];
+      if (c === "\\") j += 2;
+      else if (c === "`") {
+        j++;
+        lastSignificant = "`";
+        break;
+      } else if (c === "$" && src[j + 1] === "{") {
+        j += 2;
+        braces.push(true);
+        lastSignificant = "{";
+        break;
+      } else j++;
+    }
+    const stop = Math.min(j, n);
+    out += blank(src.slice(from, stop));
+    i = stop;
+  };
+
+  const regexAllowed = (): boolean => {
+    if (!/[\w$)\]]/.test(lastSignificant)) return true;
+    if (!/[\w$]/.test(lastSignificant)) return false;
+    const word = /[\w$]+$/.exec(out.slice(-16))?.[0] ?? "";
+    return REGEX_AFTER_KEYWORD.has(word);
+  };
 
   while (i < n) {
     const two = src.slice(i, i + 2);
@@ -65,21 +124,35 @@ export function stripNonCode(src: string): string {
     if (two === "/*") {
       const end = src.indexOf("*/", i + 2);
       const stop = end === -1 ? n : end + 2;
-      out += blank(src.slice(i, stop));
+      out += blankAlways(src.slice(i, stop));
       i = stop;
     } else if (two === "//") {
       const end = src.indexOf("\n", i);
       const stop = end === -1 ? n : end;
-      out += blank(src.slice(i, stop));
+      out += blankAlways(src.slice(i, stop));
       i = stop;
-    } else if (ch === '"' || ch === "'" || ch === "`") {
+    } else if (ch === '"' || ch === "'") {
       let j = i + 1;
-      while (j < n && src[j] !== ch) j += src[j] === "\\" ? 2 : 1;
+      while (j < n && src[j] !== ch && src[j] !== "\n") j += src[j] === "\\" ? 2 : 1;
       const stop = Math.min(j + 1, n);
       out += blank(src.slice(i, stop));
       i = stop;
       lastSignificant = ch;
-    } else if (ch === "/" && !/[\w$)\]]/.test(lastSignificant)) {
+    } else if (ch === "`") {
+      const from = i;
+      i++;
+      template(from);
+    } else if (ch === "{") {
+      braces.push(false);
+      out += ch;
+      lastSignificant = ch;
+      i++;
+    } else if (ch === "}" && braces.length > 0 && braces[braces.length - 1] === true) {
+      braces.pop();
+      const from = i;
+      i++;
+      template(from);
+    } else if (ch === "/" && regexAllowed()) {
       // Regex literal: skip to the closing slash, honouring escapes and classes.
       let j = i + 1;
       let inClass = false;
@@ -96,10 +169,11 @@ export function stripNonCode(src: string): string {
         else j++;
       }
       const stop = Math.min(j + 1, n);
-      out += blank(src.slice(i, stop));
+      out += blankAlways(src.slice(i, stop));
       i = stop;
       lastSignificant = "/";
     } else {
+      if (ch === "}") braces.pop();
       out += ch;
       if (!/\s/.test(ch)) lastSignificant = ch;
       i++;
@@ -124,7 +198,7 @@ export function checkSource(file: string, source: string): Violation[] {
       out.push({ file, line: lineOf(code, match.index ?? 0), why });
     }
   }
-  out.push(...checkImports(file, code));
+  out.push(...checkImports(file, stripNonCode(source, true)));
   return out;
 }
 
@@ -136,10 +210,11 @@ export function checkSource(file: string, source: string): Violation[] {
  */
 export function checkImports(file: string, code: string): Violation[] {
   const out: Violation[] = [];
+  // `from '...'`, `import('...')`, and the side-effect `import '...'`.
   const pattern =
-    /\b(?:import|export)\b[^;]*?\bfrom\s*\(?\s*(['"`])([^'"`]+)\1|\bimport\s*\(\s*(['"`])([^'"`]+)\3/g;
+    /\b(?:import|export)\b[^;]*?\bfrom\s*\(?\s*(['"`])([^'"`]+)\1|\bimport\s*\(\s*(['"`])([^'"`]+)\3|\bimport\s*(['"`])([^'"`]+)\5/g;
   for (const match of code.matchAll(pattern)) {
-    const spec = match[2] ?? match[4];
+    const spec = match[2] ?? match[4] ?? match[6];
     if (spec === undefined) continue;
     const line = lineOf(code, match.index ?? 0);
     if (!spec.startsWith("./") && !spec.startsWith("../")) {
@@ -179,8 +254,8 @@ export async function checkTree(
     files++;
     // Reported and matched as `src/sim/...` regardless of where we were run from.
     const file = relative(ROOT, path).split("\\").join("/");
-    // Note the source is stripped, not the file on disk: the import check runs
-    // on the same comment-free text as the rules.
+    // Note the source is stripped, not the file on disk: the rules see code
+    // only, the import check code plus string literals.
     violations.push(...checkSource(file, await readFile(path, "utf8")));
   }
   return { files, violations };

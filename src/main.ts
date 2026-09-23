@@ -21,7 +21,11 @@ import { DEFAULT_TUNING } from "@/sim/tuning.ts";
  */
 function webglAvailable(): boolean {
   const probe = document.createElement("canvas");
-  return probe.getContext("webgl2") !== null || probe.getContext("webgl") !== null;
+  const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
+  // Browsers cap live contexts at a handful; the probe's would otherwise hold
+  // one of those slots until it was garbage-collected.
+  gl?.getExtension("WEBGL_lose_context")?.loseContext();
+  return gl !== null;
 }
 
 type PixiModule = typeof import("@/render/PixiRenderer.ts");
@@ -85,6 +89,34 @@ function setBootMessage(text: string): void {
 }
 
 /**
+ * A failure the player can do something about: say what happened in words
+ * they can act on, and give them the one control that helps. "See the
+ * console" was the whole message before, which meant nothing to a player.
+ */
+function showFailure(text: string): void {
+  const boot = document.querySelector<HTMLElement>("#boot");
+  if (boot === null) return;
+  const message = document.createElement("p");
+  message.textContent = text;
+  const reload = document.createElement("button");
+  reload.type = "button";
+  reload.textContent = "Reload";
+  reload.addEventListener("click", () => window.location.reload());
+  boot.replaceChildren(message, reload);
+  boot.hidden = false;
+  reload.focus();
+}
+
+/**
+ * How long the final score stays up before a click may restart. The click that
+ * ended the last camera pan early - clicks do nothing there, so impatient
+ * players click - used to land on the first game-over tick and wipe the total
+ * before anyone had read it. 15 ticks is 750 ms. Presentation only: the filter
+ * runs before the simulation, which sees an ordinary command stream.
+ */
+const GAME_OVER_GRACE_TICKS = 15;
+
+/**
  * Re-fit the backing store when the stage changes size - a window drag, a
  * scrollbar appearing, a monitor with a different pixel ratio. Coalesced into
  * one call per frame: every `resize()` reallocates the canvas, and a drag
@@ -128,6 +160,33 @@ function watchStageSize(
   if (typeof matchMedia === "function") watchRatio();
 }
 
+/**
+ * Size the stage from what the page really has around it, not from an
+ * estimate: the footer wraps to a different number of lines at every width.
+ * `--chrome` is everything on the page that is not the stage; index.html
+ * derives the stage's width from what it leaves of the viewport height.
+ */
+function fitStageToPage(signal: AbortSignal): void {
+  if (typeof ResizeObserver !== "function") return;
+  const around = [...document.body.children].filter(
+    (el): el is HTMLElement =>
+      el instanceof HTMLElement && !el.classList.contains("stage") && el.tagName !== "SCRIPT",
+  );
+  const measure = (): void => {
+    const body = getComputedStyle(document.body);
+    const padding = Number.parseFloat(body.paddingTop) + Number.parseFloat(body.paddingBottom);
+    const gap = Number.parseFloat(body.rowGap) || 0;
+    // A hidden row (the footer on a landscape phone) takes no gap either.
+    let chrome = padding;
+    for (const el of around) if (el.offsetHeight > 0) chrome += gap + el.offsetHeight;
+    document.documentElement.style.setProperty("--chrome", `${Math.ceil(chrome)}px`);
+  };
+  measure();
+  const observer = new ResizeObserver(measure);
+  for (const el of around) observer.observe(el);
+  signal.addEventListener("abort", () => observer.disconnect());
+}
+
 async function boot(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>("#stage");
   if (canvas === null) throw new Error("#stage canvas missing");
@@ -135,6 +194,9 @@ async function boot(): Promise<void> {
   // one call rather than a list of removeEventListener pairs to keep in step.
   const teardown = new AbortController();
   const { signal } = teardown;
+
+  // Before the stage is measured below: the atlas density depends on its width.
+  fitStageToPage(signal);
 
   const params = new URLSearchParams(window.location.search);
   const seed = seedFromUrl(params);
@@ -156,7 +218,12 @@ async function boot(): Promise<void> {
     assets = await loadSprites(progress, 1);
   }
   if (assets.missing.length > 0) {
+    // One sheet holds every sprite, so a missing sheet is not a degraded game
+    // but an invisible one: sky and HUD, no hamster, clicks that seem to do
+    // nothing. Say so instead of starting it.
     console.error("[hamsterflight] sprite sheets missing: %s", assets.missing.join(", "));
+    showFailure("Couldn't load the game art. Check your connection and reload.");
+    return;
   }
 
   const sim = new Simulation({ seed, tuning: DEFAULT_TUNING });
@@ -173,10 +240,25 @@ async function boot(): Promise<void> {
     showHitboxes: params.has("debug"),
     stress,
     tuning: DEFAULT_TUNING,
+    touch: typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches,
   });
   const input = new InputController();
   input.attach(canvas, { onToggleHitboxes: () => renderer.toggleHitboxes() });
   signal.addEventListener("abort", () => input.detach());
+
+  const pauseButton = document.querySelector<HTMLButtonElement>("#pause");
+  if (pauseButton !== null) {
+    // Keep focus, and with it Space, on the canvas.
+    pauseButton.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
+    pauseButton.addEventListener("click", () => input.togglePause(), { signal });
+  }
+  let shownPaused: boolean | null = null;
+  const syncPauseButton = (paused: boolean): void => {
+    if (pauseButton === null || paused === shownPaused) return;
+    shownPaused = paused;
+    pauseButton.textContent = paused ? "\u25B6" : "II";
+    pauseButton.setAttribute("aria-label", paused ? "Resume" : "Pause");
+  };
 
   // The profiler wraps draw() from the outside, so neither backend can be
   // instrumented more kindly than the other.
@@ -191,14 +273,25 @@ async function boot(): Promise<void> {
   // both hooks used to build their own, twice the allocation for one picture.
   let previous: SimSnapshot | null = null;
   let current = sim.snapshot();
+  let gameOverTicks = 0;
 
   const loop = new FixedTimestepLoop({
     step: () => {
+      let commands = input.drain();
+      if (current.phaseKind === "gameOver") {
+        if (gameOverTicks < GAME_OVER_GRACE_TICKS) {
+          commands = commands.filter((command) => command.kind !== "confirm");
+        }
+        gameOverTicks++;
+      } else {
+        gameOverTicks = 0;
+      }
       // The event stream used to be discarded here. Impact clips ride on it.
-      const events = sim.step(input.drain());
+      const events = sim.step(commands);
       const now = performance.now();
       previous = current;
       current = sim.snapshot();
+      syncPauseButton(current.paused);
       effects.consume(events, now, current.hamster);
       // Grit comes off whenever the hamster is dragging along the ground, not
       // only during the `skidding` predicate - that one is a two-tick window
@@ -221,6 +314,9 @@ async function boot(): Promise<void> {
       if (profiler === null) renderer.draw(snapshot, now);
       else profiler.measure(() => renderer.draw(snapshot, now));
     },
+    // The loop stops and rethrows, so the stack still reaches the console;
+    // without this the picture just froze.
+    onError: () => showFailure("Something went wrong. Reload to play on."),
   });
 
   watchStageSize(canvas, () => renderer.resize(), signal);
@@ -232,11 +328,26 @@ async function boot(): Promise<void> {
     renderer.resync();
     loop.start();
   };
+  // Coming back to a hamster already in free fall is no way to return to a
+  // game, and a blur that does not hide the page - a notification shade, an
+  // OS dialog, devtools - used to let the flight play out unattended. Only
+  // while something is moving: the pad and the final score wait anyway. The
+  // "paused" prompt then covers the way back.
+  const pauseIfMoving = (): void => {
+    if (current.paused) return;
+    if (current.phaseKind === "ready" || current.phaseKind === "gameOver") return;
+    input.pause();
+  };
+  window.addEventListener("blur", pauseIfMoving, { signal });
   document.addEventListener(
     "visibilitychange",
     () => {
-      if (document.hidden) loop.stop();
-      else resume();
+      if (document.hidden) {
+        pauseIfMoving();
+        loop.stop();
+      } else {
+        resume();
+      }
     },
     { signal },
   );
@@ -264,6 +375,7 @@ async function boot(): Promise<void> {
 
   const bootPanel = document.querySelector<HTMLElement>("#boot");
   if (bootPanel !== null) bootPanel.hidden = true;
+  if (pauseButton !== null) pauseButton.hidden = false;
   const version = document.querySelector("#version");
   if (version !== null) version.textContent = versionLabel();
   // Keyboard play works from the first keystroke, not the first click.
@@ -282,5 +394,5 @@ async function boot(): Promise<void> {
 
 boot().catch((error: unknown) => {
   console.error("[hamsterflight] boot failed", error);
-  setBootMessage("failed to start - see the console");
+  showFailure("The game couldn't start in this browser. Reload to try again.");
 });

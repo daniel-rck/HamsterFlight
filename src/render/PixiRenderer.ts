@@ -11,7 +11,6 @@ import {
 } from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
-import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import {
   hideFrom,
   place,
@@ -23,6 +22,7 @@ import {
 import { PixiHud } from "@/render/pixi/PixiHud.ts";
 import { SceneFilters } from "@/render/pixi/SceneFilters.ts";
 import { TextureCache } from "@/render/pixi/TextureCache.ts";
+import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
 import { stageScale } from "@/render/resolution.ts";
 import {
@@ -126,7 +126,7 @@ export class PixiRenderer implements Renderer {
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
-    this.#hud = new PixiHud(assets, this.#textures);
+    this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false);
     this.#ascentMono10 = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
 
     this.#skyFade = verticalFadeTexture();

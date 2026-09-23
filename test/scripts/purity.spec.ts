@@ -76,6 +76,26 @@ describe("comments, strings and regexes", () => {
     expect(out).toContain("c");
   });
 
+  it("scans the expressions inside a template literal as code", () => {
+    expect(whys("const s = `${Math.random()}`;")).toContain("Math.random");
+    expect(whys("const s = `a ${`b ${Date.now()}`} c`;")).toContain("Date.now");
+    expect(whys("const s = `${{ a: 1 }.a} then ${performance.now()}`;")).toContain("performance");
+    // ...and the text around them is still not code.
+    expect(checkSource(file, "const s = `Math.random ${x} Date.now`;")).toEqual([]);
+  });
+
+  it("reads a slash after `return` or `typeof` as a regex, not a division", () => {
+    expect(whys('function f(x) { return /["]/.test(x); }\nMath.random();')).toContain(
+      "Math.random",
+    );
+    expect(whys("const t = typeof /'/;\nMath.random();")).toContain("Math.random");
+  });
+
+  it("rejects Date() called without new", () => {
+    expect(whys("const d = Date();")).toContain("Date()");
+    expect(whys("const d = new Date();")).not.toContain("Date()");
+  });
+
   it("still treats division as division", () => {
     expect(checkSource(file, "const half = total / 2; const r = Math.random();")).toHaveLength(1);
   });
@@ -94,6 +114,15 @@ describe("import boundary", () => {
     expect(why("import { C } from '@/render/units.ts';")[0]).toContain("'@/render/units.ts'");
     expect(why("import { x } from '../../render/units.ts';")[0]).toContain("leaves src/sim/");
     expect(why("const m = await import('../../app/build.ts');")[0]).toContain("leaves src/sim/");
+    expect(why("import '../../app/side-effect.ts';")[0]).toContain("leaves src/sim/");
+  });
+
+  it("is applied by checkSource, not only when called directly", () => {
+    // It used to run on text whose strings had been blanked, specifiers
+    // included, and so matched nothing: every import passed.
+    expect(whys("import { Sprite } from 'pixi.js';")).toContain("imports 'pixi.js'");
+    expect(whys("import '../../app/x.ts';")).toHaveLength(1);
+    expect(checkSource(file, "import { C } from '../constants.ts';")).toEqual([]);
   });
 });
 

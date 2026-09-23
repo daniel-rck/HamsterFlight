@@ -62,6 +62,7 @@ export class GameRenderer implements Renderer {
   readonly #stars: readonly Star[];
   #dpr = 1;
   #showHitboxes: boolean;
+  readonly #touch: boolean;
   /** Wall-clock milliseconds, for animations that are not physics. */
   #elapsed = 0;
   #lastFrameTime = 0;
@@ -80,6 +81,7 @@ export class GameRenderer implements Renderer {
     this.#effects = effects;
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
+    this.#touch = options.touch ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.#stars = starField(this.#stress);
     this.resize();
@@ -359,7 +361,7 @@ export class GameRenderer implements Renderer {
       }
     }
 
-    const prompt = promptFor(s, metric);
+    const prompt = promptFor(s, metric, this.#touch);
     if (prompt !== null) {
       const box = HUD.prompt;
       ctx.font = FONTS.prompt;

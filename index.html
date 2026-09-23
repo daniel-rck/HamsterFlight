@@ -8,6 +8,7 @@
       name="description"
       content="A faithful browser port of the Flash game Flight of the Hamsters, reconstructed from bytecode analysis."
     />
+    <meta name="theme-color" content="#141c26" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <style>
       :root {
@@ -18,7 +19,9 @@
            derived from what this leaves of the viewport height, so the page
            never grows past the fold - the old fixed max-height budgeted 8rem
            and came out 11 px short on every desktop viewport, which put a
-           scrollbar on a page whose only control is a canvas. */
+           scrollbar on a page whose only control is a canvas. main.ts
+           replaces this estimate with the measured footer: at 600-750 px the
+           footer wraps to seven or eight lines and the guess fell short. */
         --chrome: 10rem;
       }
       * {
@@ -26,6 +29,7 @@
       }
       body {
         margin: 0;
+        min-height: 100vh;
         min-height: 100svh;
         display: grid;
         place-items: center;
@@ -37,11 +41,16 @@
         padding: 1rem;
         background: #141c26;
         color: var(--ink);
-        font: 14px/1.5 system-ui, -apple-system, 'Segoe UI', sans-serif;
+        font:
+          14px/1.5 system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
       }
       .stage {
         /* Letterbox on short screens instead of pushing the HUD below the fold:
            the third term is the widest 3:2 stage the remaining height allows. */
+        width: min(100%, 1600px, calc((100vh - var(--chrome)) * 1.5));
         width: min(100%, 1600px, calc((100svh - var(--chrome)) * 1.5));
         aspect-ratio: 3 / 2;
         border-radius: 10px;
@@ -68,7 +77,59 @@
          able to see when their Space will reach it rather than scroll. */
       canvas:focus-visible {
         outline: 3px solid #7fd4ff;
-        outline-offset: 2px;
+        /* Inside: .stage clips its overflow, and a ring drawn outside the
+           canvas was clipped away entirely. */
+        outline-offset: -3px;
+      }
+      /* The only way to pause with a finger. Not in the tab order: keyboards
+         have P and Esc, and a focused button would take Space and Enter from
+         the game. */
+      #pause {
+        position: absolute;
+        right: 8px;
+        bottom: 8px;
+        /* Scales with the stage, so it stays a corner, not a slab, on a phone. */
+        width: clamp(28px, 6.5%, 40px);
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: rgb(12 20 30 / 55%);
+        color: #eaf6ff;
+        font:
+          bold 15px/1 system-ui,
+          sans-serif;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      #pause[hidden] {
+        display: none;
+      }
+      /* A landscape phone has ~340 px of height; reserving 10rem of it for the
+         credits left a stage the size of a stamp. */
+      /* Portrait phones get a 3:2 stage a third of the screen tall, and the
+         HUD text on it is tiny; landscape gives it the whole screen. */
+      #rotate {
+        display: none;
+        margin: 0;
+        font-size: 13px;
+        text-align: center;
+        opacity: 0.8;
+      }
+      @media (orientation: portrait) and (max-width: 600px) and (pointer: coarse) {
+        #rotate {
+          display: block;
+        }
+      }
+      @media (max-height: 500px) {
+        body {
+          padding: 0.5rem;
+        }
+        footer {
+          display: none;
+        }
       }
       noscript {
         position: absolute;
@@ -84,11 +145,29 @@
         inset: 0;
         display: grid;
         place-items: center;
+        align-content: center;
+        gap: 0.75rem;
         background: #1b2430;
       }
       /* The explicit display above would otherwise beat the hidden attribute. */
       #boot[hidden] {
         display: none;
+      }
+      #boot p {
+        margin: 0 1rem;
+        max-width: 32rem;
+        text-align: center;
+      }
+      #boot button {
+        justify-self: center;
+        font: inherit;
+        font-weight: 600;
+        padding: 0.4rem 1.2rem;
+        border: 0;
+        border-radius: 6px;
+        background: #7fd4ff;
+        color: #0c141e;
+        cursor: pointer;
       }
       footer {
         max-width: 900px;
@@ -105,7 +184,8 @@
       #version {
         font-family: ui-monospace, monospace;
         font-size: 11px;
-        opacity: 0.5;
+        /* Stacked on the footer's 0.65; 0.5 came out near 2.5:1. */
+        opacity: 0.8;
       }
     </style>
   </head>
@@ -119,17 +199,22 @@
         aria-label="Game stage"
         aria-describedby="how-to"
       ></canvas>
+      <button id="pause" type="button" tabindex="-1" aria-label="Pause" hidden>II</button>
       <div id="boot" role="status" aria-live="polite">loading…</div>
       <noscript>This game needs JavaScript to run.</noscript>
     </div>
+    <p id="rotate">Turn your phone sideways for a bigger stage.</p>
     <footer>
-      <span id="how-to">Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide.
-      One swing per jump; a miss costs no turn. <kbd>P</kbd> or <kbd>Esc</kbd> pauses; a click resumes.</span>
+      <span id="how-to"
+        >Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide. One
+        swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner button
+        pauses; a click resumes.</span
+      >
       Physics runs at a fixed 20&nbsp;Hz, as the original did.
       <br />
-      A fan reimplementation built from bytecode analysis of the original Flash game. Not
-      affiliated with the original publisher. Sprites are extracted from the original SWF and
-      remain the property of their respective owners.
+      A fan reimplementation built from bytecode analysis of the original Flash game. Not affiliated
+      with the original publisher. Sprites are extracted from the original SWF and remain the
+      property of their respective owners.
       <br />
       <span id="version"></span>
     </footer>

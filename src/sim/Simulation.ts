@@ -76,6 +76,8 @@ export class Simulation {
     for (const cmd of commands) {
       if (cmd.kind === "togglePause") {
         this.#paused = !this.#paused;
+      } else if (cmd.kind === "pause") {
+        this.#paused = true;
       } else if (this.#paused) {
         if (cmd.kind === "press") this.#paused = false;
         else if (cmd.kind === "release") this.#handle(cmd, out);
@@ -229,6 +231,7 @@ export class Simulation {
       outcome: null,
       slideSound: false,
       skidSound: false,
+      windSound: false,
     };
     follow(flight.camera, p.x, p.y);
 

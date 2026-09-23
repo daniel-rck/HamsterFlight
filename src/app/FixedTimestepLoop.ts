@@ -5,6 +5,8 @@ export interface LoopHooks {
   step(): void;
   /** `alpha` in [0,1) within the current tick; `stepped` is false on idle frames. */
   draw(alpha: number, stepped: boolean): void;
+  /** Called once when a hook throws and the loop stops, before the error is rethrown. */
+  onError?(error: unknown): void;
 }
 
 /** The clock and the frame scheduler, injectable so the loop can be tested. */
@@ -77,7 +79,9 @@ export class FixedTimestepLoop {
     if (!this.#running) return;
     this.#raf = this.#clock.schedule(this.#frame);
 
-    let elapsed = now - this.#last;
+    // Never negative: the first rAF timestamp after `start()` can predate the
+    // `performance.now()` read there, which pushed alpha below zero.
+    let elapsed = Math.max(0, now - this.#last);
     this.#last = now;
 
     // Refuse to fast-forward. Replaying dozens of input-less physics ticks on
@@ -101,6 +105,7 @@ export class FixedTimestepLoop {
       this.#hooks.draw(this.#accumulator / STEP_MS, steps > 0);
     } catch (error) {
       this.stop();
+      this.#hooks.onError?.(error);
       throw error;
     }
   };

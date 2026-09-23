@@ -19,10 +19,13 @@ export function interpolate(
   next: SimSnapshot,
   alpha: number,
 ): SimSnapshot {
-  if (prev === null || alpha <= 0) return next;
+  if (prev === null) return next;
   if (prev.phaseKind !== next.phaseKind || prev.tick !== next.tick - 1) return next;
   if (prev.turn !== next.turn) return next;
-  const t = alpha >= 1 ? 1 : alpha;
+  // Clamped at both ends, and alpha 0 is `prev` like every other alpha close to
+  // it: returning `next` there drew a frame landing exactly on a tick boundary
+  // one tick ahead, and the frame after it jumped back.
+  const t = Math.min(1, Math.max(0, alpha));
   const lerp = (a: number, b: number): number => a + (b - a) * t;
   return {
     ...next,

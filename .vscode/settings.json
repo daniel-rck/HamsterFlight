@@ -1,9 +1,9 @@
 {
-  "editor.defaultFormatter": "biomejs.biome",
+  "editor.defaultFormatter": "oxc.oxc-vscode",
   "editor.formatOnSave": true,
-  "editor.codeActionsOnSave": { "source.organizeImports.biome": "explicit" },
-  "[typescript]": { "editor.defaultFormatter": "biomejs.biome" },
-  "[json][jsonc]": { "editor.defaultFormatter": "biomejs.biome" },
+  "oxc.fmt.experimental": true,
+  "[typescript]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
+  "[json][jsonc]": { "editor.defaultFormatter": "oxc.oxc-vscode" },
   "files.exclude": { "**/node_modules": true, "dist": true, ".wrangler": true },
   "search.exclude": { "reference/**": true, "bun.lock": true }
   // Deliberately no "typescript.tsdk": TypeScript 7 ships a native LSP server

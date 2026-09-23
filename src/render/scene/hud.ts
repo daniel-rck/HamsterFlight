@@ -93,19 +93,21 @@ export function debugLines(s: SimSnapshot): readonly [string, string, string] {
 }
 
 /** What to tell the player, or null when the picture says it all. */
-export function promptFor(s: SimSnapshot, metric: boolean): string | null {
-  if (s.paused) return "paused - click or P to resume";
+export function promptFor(s: SimSnapshot, metric: boolean, touch = false): string | null {
+  // "Click" on a phone reads as a mouse-only game, and a phone has no P key.
+  const click = touch ? "tap" : "click";
+  if (s.paused) return touch ? "paused - tap to resume" : "paused - click, Space or P to resume";
   switch (s.phaseKind) {
     case "ready":
-      return "click to jump";
+      return `${click} to jump`;
     case "jumping":
       // One swing per jump: after a whiff there is nothing left to click for,
       // and saying "click again" was an invitation to mash at a dead button.
-      return s.swung ? "missed - wait for the landing" : "click again to hit the pillow";
+      return s.swung ? "missed - wait for the landing" : `${click} again to hit the pillow`;
     case "flying":
       return s.flags.skidding ? null : "hold to glide";
     case "gameOver":
-      return `${distance(totalFeet(s), metric)} total - click to play again`;
+      return `${distance(totalFeet(s), metric)} total - ${click} to play again`;
     default:
       return null;
   }

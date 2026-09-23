@@ -13,10 +13,10 @@
     // NOT "single-page-application": the game is one page with no client-side
     // router. SPA mode answers every unmatched path with 200 + index.html, which
     // manufactures soft-404s and hands back HTML for a missing hashed asset.
-    "not_found_handling": "404-page"
+    "not_found_handling": "404-page",
   },
 
   "workers_dev": true,
   "preview_urls": true,
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
 }
