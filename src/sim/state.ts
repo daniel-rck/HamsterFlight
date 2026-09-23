@@ -46,6 +46,11 @@ export interface FlightState {
   /** `slideSound` / `skidSound` - whether the loop has been started. Game.as:561, 580. */
   slideSound: boolean;
   skidSound: boolean;
+  /**
+   * `windSound`: the wind cue plays on every other wind tick, not every one.
+   * Game.as:512-520; reset per shot by `resetSounds()`, Game.as:952.
+   */
+  windSound: boolean;
 }
 
 /**

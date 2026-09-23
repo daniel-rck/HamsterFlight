@@ -62,6 +62,7 @@ export function makeFlight(setup: FlightSetup = {}): FlightState {
     outcome: null,
     slideSound: false,
     skidSound: false,
+    windSound: false,
   };
 }
 

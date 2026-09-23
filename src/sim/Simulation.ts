@@ -231,6 +231,7 @@ export class Simulation {
       outcome: null,
       slideSound: false,
       skidSound: false,
+      windSound: false,
     };
     follow(flight.camera, p.x, p.y);
 

@@ -1,6 +1,6 @@
 import { C } from "../constants.ts";
 import { overlaps } from "../math/aabb.ts";
-import { PI_AS2, radToDeg } from "../math/angles.ts";
+import { degToRad, radToDeg } from "../math/angles.ts";
 import type { JumpState } from "../state.ts";
 import type { Tuning } from "../tuning.ts";
 
@@ -52,11 +52,13 @@ export function attemptLaunch(jump: JumpState, tuning: Tuning): LaunchResult {
   // guaranteed bit-identical.
   const dist = Math.sqrt(dx * dx + dy * dy);
 
-  // The original round-trips through degrees using its own pi, twice:
+  // The original round-trips through degrees using its own pi (Game.as:1139-1141):
   //   ar = atan2(dy, dx); ad = ar * 180 / pi + 90; ar = ad * pi / 180
-  // The conversions cancel exactly, leaving ar = atan2(dy, dx) + PI_AS2 / 2.
+  // Transcribed literally. Algebraically that is atan2(dy, dx) + pi / 2, but
+  // not in doubles: the shortcut differed in the last bit on about a third of
+  // the launch heights.
   const angleDeg = radToDeg(Math.atan2(dy, dx)) + 90;
-  const angleRad = Math.atan2(dy, dx) + PI_AS2 / 2;
+  const angleRad = degToRad(angleDeg);
 
   let vel = C.LAUNCH_VEL_BASE - dist;
   // Bonus for connecting while still rising. yvel is negative here, so the
