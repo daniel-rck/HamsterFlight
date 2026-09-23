@@ -157,9 +157,20 @@ export class InputController {
 }
 
 /** Space in a text field is a space, not a jump. */
+/**
+ * A control that has the keys to itself: a text field, or a focused button -
+ * Play Now! on the instructions board, which Space and Enter must press
+ * rather than jump past.
+ */
 function isTyping(target: EventTarget | null): boolean {
   if (target === null || typeof target !== "object" || !("tagName" in target)) return false;
   const el = target as { tagName: string; isContentEditable?: boolean };
   const tag = el.tagName.toUpperCase();
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable === true;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    tag === "BUTTON" ||
+    el.isContentEditable === true
+  );
 }

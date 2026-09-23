@@ -468,6 +468,23 @@ given, so `[press, togglePause]` no longer drops the press; and the shot driver
 in `src/sim/drive.ts` is the single one behind the golden tests and the bench,
 which used to disagree on their tick budgets.
 
+## The instructions board
+
+Root frame 6 lays the INSTRUCTIONS board over the whole scene: `chalkboard_mc`
+(a half-transparent green sheet in a frame of planks), the text - DefineText
+502 in an embedded font - the six pickup icons, and Play Now!, button 503,
+whose `on(release)` hides the board and goes to frame 7, where the `Game` is
+built. The port had skipped straight to frame 7. `tools/build_screens.py`
+rasterises exactly those placements out of ffdec's frame export into a
+transparent stage-size overlay, and the button's two states from its shapes;
+the page shows them over a still of the scene until Play Now! starts the loop.
+Space and Enter press the button rather than jump past it. It shows once per
+page load, as it did; `?profile` (the smoke test and the bench) and
+`?instructions=0` skip it.
+
+Frame 5 before it - the title with its own music (sound 484) and a Start!
+button - is deliberately not reproduced.
+
 ## Sound
 
 There was none. The simulation had emitted its cues all along - `sfx`,

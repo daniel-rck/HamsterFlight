@@ -2,8 +2,19 @@ import { versionLabel } from "@/app/build.ts";
 import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
 import { modeFromUrl, type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
-import { profileWindowFromUrl, seedFromUrl, stressFromUrl } from "@/app/params.ts";
+import {
+  instructionsFromUrl,
+  profileWindowFromUrl,
+  seedFromUrl,
+  stressFromUrl,
+} from "@/app/params.ts";
 import { type AssetBundle, densityFor, loadSprites } from "@/assets/AssetLoader.ts";
+import boardUrl from "@/assets/screens/instructions.webp?url";
+import board2xUrl from "@/assets/screens/instructions@2x.webp?url";
+import playOverUrl from "@/assets/screens/play-over.webp?url";
+import playOver2xUrl from "@/assets/screens/play-over@2x.webp?url";
+import playUpUrl from "@/assets/screens/play-up.webp?url";
+import playUp2xUrl from "@/assets/screens/play-up@2x.webp?url";
 import type { AudioPlayer } from "@/audio/AudioPlayer.ts";
 import { InputController } from "@/input/InputController.ts";
 import { Effects } from "@/render/effects/Effects.ts";
@@ -30,6 +41,22 @@ function webglAvailable(): boolean {
 }
 
 type PixiModule = typeof import("@/render/PixiRenderer.ts");
+
+/** Root frame 6's art, at the density the page will show it at. */
+function showInstructions(panel: HTMLElement, button: HTMLButtonElement): void {
+  const board = panel.querySelector<HTMLImageElement>(":scope > img");
+  const up = button.querySelector<HTMLImageElement>(".up");
+  const over = button.querySelector<HTMLImageElement>(".over");
+  const set = (img: HTMLImageElement | null, x1: string, x2: string): void => {
+    if (img === null) return;
+    img.src = x1;
+    img.srcset = `${x1} 1x, ${x2} 2x`;
+  };
+  set(board, boardUrl, board2xUrl);
+  set(up, playUpUrl, playUp2xUrl);
+  set(over, playOverUrl, playOver2xUrl);
+  panel.hidden = false;
+}
 
 /**
  * The player and its sound URLs, in a chunk of their own. A failure here is a
@@ -344,9 +371,21 @@ async function boot(): Promise<void> {
     onError: () => showFailure("Something went wrong. Reload to play on."),
   });
 
-  watchStageSize(canvas, () => renderer.resize(), signal);
+  // Until Play Now! the scene stands still behind the board, as frame 6 has
+  // no Game yet: one picture, redrawn whenever the stage is resized.
+  let started = false;
+  const drawStill = (): void => renderer.draw(current, performance.now());
+  watchStageSize(
+    canvas,
+    () => {
+      renderer.resize();
+      if (!started) drawStill();
+    },
+    signal,
+  );
 
   const resume = (): void => {
+    if (!started) return;
     // Clips started before the tab went away would all expire at once, and
     // the renderer's animation clock must not count the time away either.
     effects.clear();
@@ -402,13 +441,40 @@ async function boot(): Promise<void> {
 
   const bootPanel = document.querySelector<HTMLElement>("#boot");
   if (bootPanel !== null) bootPanel.hidden = true;
-  if (pauseButton !== null) pauseButton.hidden = false;
   if (musicButton !== null && audio !== null) musicButton.hidden = false;
   const version = document.querySelector("#version");
   if (version !== null) version.textContent = versionLabel();
-  // Keyboard play works from the first keystroke, not the first click.
-  canvas.focus({ preventScroll: true });
-  loop.start();
+  const start = (): void => {
+    started = true;
+    if (pauseButton !== null) pauseButton.hidden = false;
+    // Keyboard play works from the first keystroke, not the first click.
+    canvas.focus({ preventScroll: true });
+    // Nothing pressed before the game existed carries over into it.
+    input.drain();
+    loop.start();
+  };
+  const instructions = document.querySelector<HTMLElement>("#instructions");
+  const playNow = document.querySelector<HTMLButtonElement>("#play-now");
+  if (instructionsFromUrl(params) && instructions !== null && playNow !== null) {
+    showInstructions(instructions, playNow);
+    drawStill();
+    playNow.focus({ preventScroll: true });
+    // Button 503: `chalkboard_mc._visible = false; nextFrame()` - frame 7
+    // builds the Game. Its `stopAllSounds()` has nothing to stop here: no
+    // sound can have started before this click, which is also the one that
+    // unlocks audio.
+    playNow.addEventListener(
+      "click",
+      () => {
+        instructions.hidden = true;
+        audio?.unlock();
+        start();
+      },
+      { signal, once: true },
+    );
+  } else {
+    start();
+  }
 
   console.info(
     "[hamsterflight] build=%s seed=%d mode=%s renderer=%s - append ?seed=%d to replay",

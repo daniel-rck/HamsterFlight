@@ -31,13 +31,16 @@ const CHUNK_WARN_KB = 400;
  * After the timeline scripts - the jump wind-up, the outcome clips, the
  * timeline sound cues, and the audio wiring in main.ts - eager 19.1 kB gzip.
  * The player itself is a lazy chunk (about 2.4 kB gzip with its URL table).
- * The sounds: 21 MP3s, 722 KiB, 489 of it the flight theme.
+ * The sounds: 21 MP3s, 722 KiB, 489 of it the flight theme. The instructions
+ * board and its button: 275 KiB of WebP over both densities, of which a
+ * visitor fetches one density's worth.
  */
 const BUDGET_KB: {
   eager: number;
   lazy: number;
   atlas: Record<number, number>;
   audio: number;
+  screens: number;
 } = {
   // Every visitor pays this.
   eager: 22,
@@ -48,6 +51,8 @@ const BUDGET_KB: {
   atlas: { 1: 850, 2: 2250 },
   // Every sound, raw - MP3 does not gzip. Fetched after the first gesture.
   audio: 800,
+  // The instructions board and Play Now!, both densities, raw.
+  screens: 310,
 };
 
 interface Row {
@@ -170,6 +175,11 @@ async function main(): Promise<void> {
     audioBytes += (await readFile(join(ASSETS, name))).byteLength;
   }
   if (audioBytes > 0) console.log(`\naudio - fetched after the first gesture\n${kb(audioBytes)}`);
+  let screenBytes = 0;
+  for (const name of names.filter((item) => item.endsWith(".webp"))) {
+    screenBytes += (await readFile(join(ASSETS, name))).byteLength;
+  }
+  if (screenBytes > 0) console.log(`\ninstructions board - both densities\n${kb(screenBytes)}`);
 
   if (!process.argv.includes("--check")) return;
 
@@ -188,6 +198,7 @@ async function main(): Promise<void> {
     budget(sheet.name, sheet.raw, limit);
   }
   budget("audio", audioBytes, BUDGET_KB.audio);
+  budget("instructions board", screenBytes, BUDGET_KB.screens);
 
   console.log("");
   if (over.length === 0) {

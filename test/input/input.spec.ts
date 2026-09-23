@@ -38,7 +38,7 @@ function pointer(target: EventTarget, type: string, pointerId: number, button = 
   target.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { pointerId, button }));
 }
 
-function setup() {
+function setup(extra: { onToggleMusic?: () => void } = {}) {
   const canvas = fakeCanvas();
   const keys = new EventTarget();
   const page = fakePage();
@@ -47,6 +47,7 @@ function setup() {
   input.attach(canvas, {
     targets: { keys, page },
     onToggleHitboxes: () => toggles.push(1),
+    ...extra,
   });
   return { canvas, keys, page, input, toggles };
 }
@@ -152,6 +153,31 @@ describe("InputController", () => {
     keys.dispatchEvent(ev);
     expect(ev.defaultPrevented).toBe(false);
     expect(kinds(input)).toEqual([]);
+  });
+
+  it("leaves Space and Enter to a focused button, so Play Now! can be pressed", () => {
+    const { keys, input } = setup();
+    for (const k of [" ", "Enter"]) {
+      const ev = Object.assign(new Event("keydown", { cancelable: true }), {
+        key: k,
+        repeat: false,
+        ctrlKey: false,
+        metaKey: false,
+        altKey: false,
+      });
+      Object.defineProperty(ev, "target", { value: { tagName: "BUTTON" } });
+      keys.dispatchEvent(ev);
+      expect(ev.defaultPrevented).toBe(false);
+    }
+    expect(kinds(input)).toEqual([]);
+  });
+
+  it("toggles the music on M", () => {
+    let toggled = 0;
+    const { keys } = setup({ onToggleMusic: () => toggled++ });
+    key(keys, "keydown", "m");
+    key(keys, "keydown", "M");
+    expect(toggled).toBe(2);
   });
 
   it("releases a held key when the window loses focus", () => {

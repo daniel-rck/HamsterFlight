@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { modeFromUrl, rendererFromUrl } from "@/app/GameMode.ts";
-import { MAX_STRESS, profileWindowFromUrl, seedFromUrl, stressFromUrl } from "@/app/params.ts";
+import {
+  instructionsFromUrl,
+  MAX_STRESS,
+  profileWindowFromUrl,
+  seedFromUrl,
+  stressFromUrl,
+} from "@/app/params.ts";
 
 const q = (s: string) => new URLSearchParams(s);
 const silent = (): void => undefined;
@@ -32,6 +38,18 @@ describe("?profileWindow", () => {
     expect(profileWindowFromUrl(q(""))).toBe(240);
     expect(profileWindowFromUrl(q("profileWindow=60"))).toBe(60);
     expect(profileWindowFromUrl(q("profileWindow=x"))).toBe(240);
+  });
+});
+
+describe("the instructions board", () => {
+  const at = (query: string) => instructionsFromUrl(new URLSearchParams(query));
+  it("opens a normal visit, as root frame 6 does", () => {
+    expect(at("")).toBe(true);
+    expect(at("?seed=5")).toBe(true);
+  });
+  it("stays out of the measuring runs, and out of the way on request", () => {
+    expect(at("?seed=5&profile")).toBe(false);
+    expect(at("?instructions=0")).toBe(false);
   });
 });
 

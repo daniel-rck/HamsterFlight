@@ -68,6 +68,8 @@ async function distinctColours(page: Page): Promise<number> {
 
 /** Enough that a sky gradient alone would clear it, far short of a real frame. */
 const MIN_COLOURS = 8;
+/** `src/assets/sounds/` - every one is fetched once audio is unlocked. */
+const SOUND_COUNT = 21;
 
 /**
  * What the page looks like right now, for a failure whose cause is not in its
@@ -96,6 +98,8 @@ interface Result {
   readonly frames?: number;
   readonly colours?: number;
   readonly version?: string;
+  /** Printed in place of the frame and colour counts. */
+  readonly note?: string;
 }
 
 async function check(
@@ -171,6 +175,47 @@ async function check(
   return { label, failures, frames, colours, version };
 }
 
+/**
+ * What a first visit sees: the INSTRUCTIONS board, which the `?profile` runs
+ * above skip. Its art has to load, Play Now! has to take it away, and that
+ * click - the first gesture - has to fetch every sound without a failure.
+ */
+async function checkFirstVisit(browser: Browser, origin: string): Promise<Result> {
+  const label = "first visit";
+  const failures: string[] = [];
+  const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
+  page.on("pageerror", (error) => failures.push(`uncaught: ${error.message}`));
+  page.on("console", (message) => {
+    if (message.type() === "error") failures.push(`console.error: ${message.text()}`);
+  });
+  watchRequests(page, failures);
+  let sounds = 0;
+  page.on("response", (response) => {
+    if (response.url().endsWith(".mp3") && response.ok()) sounds++;
+  });
+
+  try {
+    await page.goto(`${origin}/?seed=${SEED}`, { waitUntil: "load" });
+    await waitForBoot(page);
+    await page.waitForSelector("#instructions:not([hidden])", { timeout: 10_000 });
+    const loaded = await page.$$eval("#instructions img", (imgs) =>
+      imgs.every((img) => (img as HTMLImageElement).naturalWidth > 0 || img.className === "over"),
+    );
+    if (!loaded) failures.push("the instructions art did not load");
+    await page.click("#play-now");
+    await page.waitForSelector("#instructions", { state: "hidden", timeout: 5_000 });
+    for (let waited = 0; sounds < SOUND_COUNT && waited < 15_000; waited += 250) {
+      await sleep(250);
+    }
+    if (sounds < SOUND_COUNT) failures.push(`only ${sounds} of ${SOUND_COUNT} sounds loaded`);
+  } catch (error) {
+    failures.push(String(error).split("\n")[0] ?? String(error));
+    failures.push(await describe(page));
+  }
+  await page.close();
+  return { label, failures, note: `board, then ${sounds} sounds` };
+}
+
 async function main(): Promise<void> {
   const results = await withPreview(PORT, async (browser, origin) => {
     const out: Result[] = [];
@@ -178,6 +223,8 @@ async function main(): Promise<void> {
       process.stderr.write(`checking ${combination.mode}/${combination.renderer}...\n`);
       out.push(await check(browser, origin, combination));
     }
+    process.stderr.write("checking the first visit...\n");
+    out.push(await checkFirstVisit(browser, origin));
     return out;
   });
 
@@ -186,7 +233,7 @@ async function main(): Promise<void> {
     const ok = result.failures.length === 0;
     console.log(
       `${ok ? "ok  " : "FAIL"}  ${result.label.padEnd(20)}` +
-        (ok ? `${result.frames} frames, ${result.colours} colours` : ""),
+        (ok ? (result.note ?? `${result.frames} frames, ${result.colours} colours`) : ""),
     );
     for (const failure of result.failures) console.error(`        ${failure}`);
   }
