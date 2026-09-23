@@ -84,9 +84,30 @@ are scaled between 1.08 and 1.97, which is what makes the naive reading wrong.
 | `_wind` `core` | DefineSprite 467 -> char 391, scale 1.69/1.97 | 18.06 x 30.00 |
 | `pillow` | char 234, tested as a whole clip | 21.50 x 27.10 |
 
-`sim.js` used 40 px on both axes. Against the real flight core the x window is
-`19.90 + 8.0 = 27.9` and the y window `32.50 + 8.0 = 40.5`, so its x window was
-about 1.4x too generous and powerup pickup rates in section 12 are optimistic.
+`sim.js` used 40 px on both axes. The flight core's extents are clip-local,
+though, and the clip turns: `Bullet.update()` writes
+`_rotation = radToDeg(atan2(yvel, xvel)) + 90` every tick (`0 + 90` with
+rotation off, so never 0), and `core.hitTest(this.bc.core)` compares
+stage-space bounds, which include the parent's rotation. In level flight
+(about 90) the core lies on its side: against an 8 px powerup `node` the x
+window is `32.50 + 8.0 = 40.5` and the y window `19.90 + 8.0 = 27.9`. Only a
+hamster flying straight up or down gets the upright `27.9 x 40.5`. So
+`sim.js`'s 40 px was about right in x and about 1.4x too generous in y.
+
+`rotateBox` in `src/sim/math/aabb.ts` computes the stage-space box - the centre
+offset turns with the clip, the half-extents mix as `|cos| hw + |sin| hh` and
+`|sin| hw + |cos| hh` - and `Projectile.rotationDeg` carries `_rotation` with
+the original's rule, taken before the move. The pickup test runs before
+`update()` in the tick (Game.as:504 vs :630), so it sees the previous tick's
+value, and on the first flight tick `setClipPos()`'s `_rotation = this.ang`
+(Bullet.as:79) - the launch angle in radians, written into a degrees property.
+
+**Interpretation, not verified against a player.** This follows from the
+bytecode and from `hitTest(clip)`'s documented stage-space semantics; it has
+not been checked in Ruffle or a Flash player. One gap in the evidence:
+`extract_hitboxes.py` discards the rotate/skew terms of the `core` placement
+inside sprite 331. The tall box is consistent with art authored pointing up,
+but only the SWF can confirm `core` is not itself placed turned.
 
 ### Two consequences worth knowing
 
@@ -134,8 +155,9 @@ guessed at.
 
 One deliberate rendering divergence: the original sets
 `_rotation = radToDeg(atan2(yvel, xvel)) + 90` because its art is authored
-pointing up. The exported poses face right, so the `+ 90` is dropped and the
-sprite aligns directly with the velocity vector.
+pointing up. The exported poses face right, so the renderer takes the sim's
+`rotationDeg` and subtracts the `+ 90` again; the sprite aligns directly with
+the velocity vector.
 
 ## The pre-launch scene was missing, and why
 
@@ -249,7 +271,7 @@ played at the launcher, normally far off the left edge. `settling` carries the
 landing position now; `onDone()` is what returns the hamster to the pad, and it
 does not run until the camera has panned home (Game.as:971-981). The
 faceplant's `+ 3` y offset is a display rule and lives in
-`src/render/scene/pose.ts`, next to the no-rotate one, and the shadow is hidden
+`src/render/scene/pose.ts`, and the shadow is hidden
 for every outcome as `blt.shadClip._visible = false` does.
 
 **A missed jump costs no turn.** `jumpFrame()` ends a jump that comes back down
@@ -313,7 +335,7 @@ the sky with it. So the port bounds the run at the held goggles pose
 (`JUMP_RUN_LAST`, the frame the original itself repeats seven times) and drops
 the shadow strip for the length of the jump (`bottomCrop`, `JUMP_SHADOW_STRIP`
 - both renderers leave that much off the bottom of the frame). Two display
-rules, next to the faceplant's `+ 3` and the no-rotate one. Where the `"jump"`
+rules, next to the faceplant's `+ 3`. Where the `"jump"`
 label and the clip's `stop()` actually sit is not recoverable from the exported
 art - only the frame scripts would say - but which frames may be drawn while
 the code owns the position is, and that is what these bound.
@@ -347,6 +369,35 @@ guaranteed bit-identical across engines or architectures.** Therefore:
 A golden that shifts by exactly 1 ft on a different machine is a landing sitting
 on the `Math.floor` boundary, not a regression. Note the seed and re-pin.
 
+### Clip positions live on the twip grid
+
+AVM1 stores `_x`/`_y` as whole twips (1/20 px), so every write to a clip
+property is quantised. The original keeps four things as clip properties: the
+hamster's position (`bc._x`/`_y`, Bullet.as:51-52), `ox`/`oy` (read back from
+the clip, Bullet.as:42-43), the camera container (`_$mc._x`/`_y`,
+GameCamera.as:68-79, 184-187) and the powerup positions (Game.as:1325-1332).
+Velocities are plain `Number`s and are not affected. The port quantises at
+exactly those writes with `toTwips` (`src/sim/math/twips.ts`): in
+`Projectile.integrate()`, `follow`, `quickPanStep`, `spawnPowerups` and the
+jump. The quick pan keeps the original's split - `cameraTargetX/Y` are
+unquantised accumulators and only the container copy is rounded - so
+`settling` carries a `pan` accumulator next to `camera`. The ground writes
+(`950`, `949`) are whole pixels already.
+
+The error adds up tick by tick, so it matters near the boundaries: the
+`Math.floor(x / 100)` feet boundary, the exactly-70 degree angle test, the
+`>= 946` skid test and the `600 - camX` spawn gate.
+
+**The rounding mode is an assumption.** Nearest twip (`Math.round`) is used;
+nothing has been checked against a Flash player. Truncation toward zero -
+what Ruffle's `Twips::from_pixels` may do - was tried: it biases every
+position toward zero by up to a twip per write, and that flips two relations
+in `test/golden/strategies.spec.ts` that were already on a knife edge (the
+`hold` and `mash` peak medians sit on the same ~226k px plateau, 0.3% apart,
+and the long-tail check cleared `2 x median` by 4 ft). Nearest rounding leaves
+every golden where it was. A player trace would settle it; the rounding is one
+line in `toTwips`.
+
 ## Fixed against the bytecode, later
 
 A review against `Game.as` found four places where the port had drifted from
@@ -366,6 +417,16 @@ the source it cites. Each has a test in `test/sim/` that fails on the old code.
   never emitted `slide`; `flyGain`/`slideGain` had no callers. A `sfxGain`
   event carries the volumes now, and `shoot()`'s `sndPrelude.stop()` is
   emitted on launch.
+- **Music cues on restart, turn advance and game over.** `reset()` replays
+  `sndPrelude` and stops `sndTheme` (Game.as:338-339); `nextHamster()` fades
+  the theme out (Game.as:990); `gameOver()` stops the prelude and fades the
+  theme before the ending plays (Game.as:416-418). The port emitted none of
+  these, so the theme would have run forever after the first launch and the
+  prelude would not have come back after a restart. `sfxStop` carries
+  `fade: true` where the original calls `fadeOutSound`. `sndEnding` is not
+  stopped on restart: `reset()` itself never touches it, only `resetBtn()`'s
+  `stopAllSounds()` (Game.as:326) does, and which of the two the game-over
+  button calls lives in the timeline code, which is not in the reference.
 - **`falling = false` is an event.** Every arm of `checkCollision` ends with
   it, and the arming pickups do it too. The port emitted the `glide` off-cue
   two lines earlier and swallowed this one.
@@ -378,9 +439,10 @@ Two things that were half-present are now whole:
   turn on arrival. `settling` has the two stages, `quickPanStep` has a caller,
   and `camera.maxPanTicks` is the soft-lock cap it was described as.
 - **The no-rotate rule.** `Bullet.update` (Bullet.as:46) stops turning the
-  clip below y = 940 while `xvel < 7` - the signed value, as written. It is a
-  display rule, so it lives in `src/render/scene/pose.ts`, applied by both
-  renderers.
+  clip below y = 940 while `xvel < 7` - the signed value, as written, and
+  tested on the pre-move y. It first lived in `src/render/scene/pose.ts` as a
+  display rule; since the pickup box turns with the clip it is physics, and
+  `Projectile.integrate()` applies it. The renderers read `rotationDeg` back.
 
 And two ordering details in the port itself: commands are applied in the order
 given, so `[press, togglePause]` no longer drops the press; and the shot driver

@@ -1,4 +1,5 @@
 import { C } from "../constants.ts";
+import { toTwips } from "../math/twips.ts";
 import type { CameraState } from "../state.ts";
 
 /**
@@ -7,7 +8,8 @@ import type { CameraState } from "../state.ts";
  *
  * This is simulation state, not presentation: `getCameraPos().x` feeds the
  * powerup spawn gate and spawn position, so the exact behaviour moves where
- * items appear.
+ * items appear. `CameraState` is the container's `_x`/`_y`, so every write
+ * goes through `toTwips`.
  */
 
 /** `GameCamera.zero()` - the camera starts at (0, -600), not at the origin. */
@@ -27,10 +29,10 @@ export function newCamera(): CameraState {
  */
 export function follow(cam: CameraState, targetX: number, targetY: number): void {
   const x = -targetX + C.CAM_ANCHOR_X;
-  if (x < 0) cam.x = x;
+  if (x < 0) cam.x = toTwips(x);
 
   const y = -targetY + C.CAM_ANCHOR_Y;
-  cam.y = y > C.CAM_Y_CLAMP ? y : C.CAM_Y_CLAMP;
+  cam.y = y > C.CAM_Y_CLAMP ? toTwips(y) : C.CAM_Y_CLAMP;
 }
 
 /**
@@ -38,10 +40,18 @@ export function follow(cam: CameraState, targetX: number, targetY: number): void
  * by `qpan_time`, so it converges geometrically, and finishes once the distance
  * drops below 2. `reset()` sets `qpan_time = 2` and pans to (300, 800).
  *
+ * The original accumulates the move in `cameraTargetX/Y`, plain `Number`s
+ * seeded from the container by `quickPanTo()` (GameCamera.as:152-153), and
+ * copies them to `_$mc._x/_y` each tick (GameCamera.as:184-187). So the pan
+ * keeps full precision while the container, and the distance measured from
+ * it, sit on the twip grid. `pan` is that accumulator, in the container's
+ * sign - see `beginQuickPan`.
+ *
  * Returns true once the pan has arrived.
  */
 export function quickPanStep(
   cam: CameraState,
+  pan: CameraState,
   targetX: number,
   targetY: number,
   panDivisor: number,
@@ -52,13 +62,20 @@ export function quickPanStep(
   const dy = centreY - targetY;
   const distance = Math.floor(Math.sqrt(dx * dx + dy * dy));
 
-  cam.x += dx / panDivisor;
-  cam.y += dy / panDivisor;
+  pan.x += dx / panDivisor;
+  pan.y += dy / panDivisor;
+  cam.x = toTwips(pan.x);
+  cam.y = toTwips(pan.y);
 
   if (distance < C.CAM_PAN_ARRIVE) {
-    cam.x = -targetX + C.VIEW_W / 2;
-    cam.y = -targetY + C.VIEW_H / 2;
+    cam.x = toTwips(-targetX + C.VIEW_W / 2);
+    cam.y = toTwips(-targetY + C.VIEW_H / 2);
     return true;
   }
   return false;
+}
+
+/** `quickPanTo()`'s `cameraTargetX = -_$mc._x` - the pan starts where the container is. */
+export function beginQuickPan(cam: CameraState): CameraState {
+  return { x: cam.x, y: cam.y };
 }

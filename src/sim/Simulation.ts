@@ -8,7 +8,7 @@ import { attemptLaunch } from "./phases/Launch.ts";
 import { mulberry32 } from "./rng/mulberry32.ts";
 import type { Rng } from "./rng/Rng.ts";
 import type { FlightState, Phase, SimSnapshot } from "./state.ts";
-import { follow, newCamera, quickPanStep } from "./systems/CameraModel.ts";
+import { beginQuickPan, follow, newCamera, quickPanStep } from "./systems/CameraModel.ts";
 import { DEFAULT_TUNING, type Tuning } from "./tuning.ts";
 import { noEffects, type ShotOutcome } from "./types.ts";
 
@@ -142,6 +142,7 @@ export class Simulation {
     }
     const arrived = quickPanStep(
       st.camera,
+      st.pan,
       C.CAM_RESET_TARGET_X,
       C.CAM_RESET_TARGET_Y,
       C.CAM_QPAN_TIME,
@@ -204,6 +205,11 @@ export class Simulation {
       this.#turn = 1;
       this.#shots = [];
       this.#lastFeet = 0;
+      // `reset()` restarts the menu music and cuts the theme - Game.as:338-339.
+      // Its trailing `nextHamster()` (Game.as:346) would replay the prelude and
+      // fade the theme again; both are already covered by these two cues.
+      out.push({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
+      out.push({ t: "sfxStop", id: "theme" });
       this.#phase = { kind: "ready" };
     }
   }
@@ -266,6 +272,9 @@ export class Simulation {
       stage: "hold",
       ticksLeft: this.#tuning.outcomeHoldTicks[outcome],
       camera,
+      // The camera does not move during `hold`, so seeding the pan here is
+      // the same as `quickPanTo()` seeding it when the hold ends.
+      pan: beginQuickPan(camera),
     };
   }
 
@@ -274,12 +283,19 @@ export class Simulation {
     if (this.#turn >= C.GAME_OVER_TURN) {
       const total = this.#shots.reduce((a, b) => a + b, 0);
       out.push({ t: "gameOver", total, shots: [...this.#shots] });
+      // `gameOver()`: stop the prelude, fade the theme, play the ending.
+      // Game.as:416-418. The prelude is already silent after a launch; the
+      // stop is transcribed anyway.
+      out.push({ t: "sfxStop", id: "prelude" });
+      out.push({ t: "sfxStop", id: "theme", fade: true });
       out.push({ t: "sfx", id: "ending", gain: C.MUSIC_VOL });
       this.#phase = { kind: "gameOver", total };
       return;
     }
-    // `nextHamster()` restarts the menu music. Game.as:986-990.
+    // `nextHamster()` restarts the menu music and fades the theme out.
+    // Game.as:986-990.
     out.push({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
+    out.push({ t: "sfxStop", id: "theme", fade: true });
     this.#phase = { kind: "ready" };
   }
 
@@ -310,6 +326,7 @@ export class Simulation {
           yvel: f.p.yvel,
           visible: true,
           doRotation: f.p.doRotation,
+          rotationDeg: f.p.rotationDeg,
         },
         camera: { ...f.camera },
         powerups: f.powerups.map((it) => ({ ...it })),
@@ -330,6 +347,7 @@ export class Simulation {
           yvel: phase.jump.yvel,
           visible: true,
           doRotation: false,
+          rotationDeg: 0,
         },
         camera: { ...phase.camera },
         powerups: [],
@@ -352,6 +370,7 @@ export class Simulation {
           yvel: 0,
           visible: false,
           doRotation: false,
+          rotationDeg: 0,
         },
         camera: { ...phase.camera },
         powerups: [],
@@ -370,6 +389,7 @@ export class Simulation {
         yvel: 0,
         visible: phase.kind === "ready",
         doRotation: false,
+        rotationDeg: 0,
       },
       camera: newCamera(),
       powerups: [],

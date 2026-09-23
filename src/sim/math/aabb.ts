@@ -17,6 +17,28 @@ export interface Box {
 }
 
 /**
+ * The stage-space box of a clip-local box on a clip turned by `_rotation`
+ * degrees. `hitTest(clip)` compares bounds in global space, and the global
+ * bounds of a rotated rectangle are the axis-aligned box around its four
+ * turned corners: the centre offset turns with the clip, the half-extents
+ * mix. Flash turns `_rotation` into the clip matrix with its own full-precision
+ * pi, so `Math.PI` is right here - `PI_AS2` belongs to the game's own maths.
+ */
+export function rotateBox(box: Box, degrees: number): Box {
+  const rad = (degrees * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const ac = Math.abs(cos);
+  const as = Math.abs(sin);
+  return {
+    hw: ac * box.hw + as * box.hh,
+    hh: as * box.hw + ac * box.hh,
+    cx: box.cx * cos - box.cy * sin,
+    cy: box.cx * sin + box.cy * cos,
+  };
+}
+
+/**
  * True when two boxes overlap. Touching edges count as a hit, matching Flash,
  * hence `<=` rather than `<`.
  */

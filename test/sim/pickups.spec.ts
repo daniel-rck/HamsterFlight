@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { C } from "@/sim/constants.ts";
 import type { SimEvent } from "@/sim/events.ts";
+import { rotateBox } from "@/sim/math/aabb.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
 import { POWERUP_KINDS, POWERUPS, type PowerupKind } from "@/sim/types.ts";
 import { centredOn, makeFlight, tick } from "../support/harness.ts";
@@ -123,5 +124,44 @@ describe("the wind cue", () => {
       played.push(sfxIds(tick(s).events).includes("wind"));
     }
     expect(played).toEqual([true, false, true]);
+  });
+});
+
+describe("rotated flight core", () => {
+  // `core.hitTest(this.bc.core)` measures stage-space bounds of the rotated
+  // flight clip (Game.as:690 ff., Bullet.as:50), so the tall core lies on its
+  // side in level flight: wide in x, short in y.
+  const core = DEFAULT_TUNING.boxes.hamsterFlightCore;
+  const item = DEFAULT_TUNING.boxes.powerups.speed;
+  const x = 1000;
+  const y = 600;
+
+  /** A speed pickup offset from the rotated core's centre by (dx, dy). */
+  function offsetBy(rotationDeg: number, dx: number, dy: number) {
+    const turned = rotateBox(core, rotationDeg);
+    return {
+      kind: "speed" as const,
+      x: x + turned.cx + dx - item.cx,
+      y: y + turned.cy + dy - item.cy,
+    };
+  }
+
+  function picks(rotationDeg: number, dx: number, dy: number): boolean {
+    const s = makeFlight({ x, y, xvel: 10, powerups: [offsetBy(rotationDeg, dx, dy)] });
+    s.p.rotationDeg = rotationDeg;
+    return tick(s).events.some((e) => e.t === "pickup");
+  }
+
+  // Between the upright x window (19.9 + 8) and the level one (32.5 + 8).
+  const between = (core.hw + core.hh) / 2 + item.hw;
+
+  it("reaches further in x and less far in y in level flight", () => {
+    expect(picks(90, between, 0)).toBe(true);
+    expect(picks(90, 0, between)).toBe(false);
+  });
+
+  it("is upright when the clip points straight up", () => {
+    expect(picks(0, between, 0)).toBe(false);
+    expect(picks(0, 0, between)).toBe(true);
   });
 });

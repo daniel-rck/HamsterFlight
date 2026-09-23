@@ -83,6 +83,8 @@ export type Phase =
       /** Ticks left in the current stage; in `pan` it is the safety cap. */
       ticksLeft: number;
       readonly camera: CameraState;
+      /** `cameraTargetX/Y` - the pan's unquantised accumulator. See `quickPanStep`. */
+      readonly pan: CameraState;
     }
   | { readonly kind: "gameOver"; readonly total: number };
 
@@ -101,6 +103,8 @@ export interface SimSnapshot {
     readonly yvel: number;
     readonly visible: boolean;
     readonly doRotation: boolean;
+    /** `bltClip._rotation` in degrees while flying, including the +90. 0 otherwise. */
+    readonly rotationDeg: number;
   };
   readonly camera: CameraState;
   readonly powerups: readonly PowerupInstance[];

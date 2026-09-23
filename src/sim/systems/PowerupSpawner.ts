@@ -1,4 +1,5 @@
 import { C } from "../constants.ts";
+import { toTwips } from "../math/twips.ts";
 import type { Rng } from "../rng/Rng.ts";
 import type { FlightState } from "../state.ts";
 import { POWERUPS, powerupFromRoll } from "../types.ts";
@@ -20,7 +21,8 @@ export function spawnPowerups(s: FlightState, rng: Rng): void {
 
   s.powerups.push({
     kind,
-    x: C.SPAWN_AHEAD_X - s.camera.x,
+    // `_x = 800 - camX` is a clip property write (Game.as:1325); y is whole.
+    x: toTwips(C.SPAWN_AHEAD_X - s.camera.x),
     y,
     taken: false,
     activeTicksLeft: 0,
