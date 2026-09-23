@@ -7,7 +7,11 @@ remain the property of their respective owners:
 
   src/assets/sprites/**            sprite sheets extracted from the original SWF
   src/assets/sprites.generated.ts  the placement manifest describing that art
-  reference/as2/**                 decompiled ActionScript from the original SWF
+  src/assets/sounds/**             sounds extracted from the original SWF
+  src/assets/sounds.generated.ts   the manifest describing those sounds
+  src/assets/screens/**            the instructions board rendered from the SWF
+  reference/as2/**                 decompiled ActionScript and frame scripts
+                                   from the original SWF
 
 They are included so the port can be verified against the original. Shipping
 them is a deliberate choice by the repository owner, discussed in README.md

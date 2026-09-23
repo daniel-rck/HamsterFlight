@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Simulation } from "@/sim/index.ts";
+import { JUMP_WINDUP_TICKS } from "@/sim/phases/JumpPhase.ts";
 
 describe("Simulation.snapshot", () => {
   it("hands out a copy of the shot list, not the live array", () => {
@@ -7,7 +8,7 @@ describe("Simulation.snapshot", () => {
     // Drive one shot to completion so `shots` has something in it.
     sim.step([{ kind: "press" }]);
     sim.step([{ kind: "release" }]);
-    for (let i = 0; i < 12; i++) sim.step([]);
+    for (let i = 0; i < JUMP_WINDUP_TICKS + 2; i++) sim.step([]);
     sim.step([{ kind: "press" }]);
     for (let i = 0; i < 400 && sim.snapshot().shots.length === 0; i++) sim.step([]);
 

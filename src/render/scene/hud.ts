@@ -103,11 +103,17 @@ export function promptFor(s: SimSnapshot, metric: boolean, touch = false): strin
     case "jumping":
       // One swing per jump: after a whiff there is nothing left to click for,
       // and saying "click again" was an invitation to mash at a dead button.
-      return s.swung ? "missed - wait for the landing" : `${click} again to hit the pillow`;
+      if (s.swung) return "missed - wait for the landing";
+      // Nothing can connect before clip 52 lifts off, and the swing is spent
+      // on the first click - so do not ask for one while it is still winding up.
+      return s.windup !== null ? "get ready..." : `${click} again to hit the pillow`;
     case "flying":
       return s.flags.skidding ? null : "hold to glide";
     case "gameOver":
-      return `${distance(totalFeet(s), metric)} total - ${click} to play again`;
+      // Only once PLAY AGAIN is up: a click before that does nothing.
+      return s.restartable
+        ? `${distance(totalFeet(s), metric)} total - ${click} to play again`
+        : `${distance(totalFeet(s), metric)} total`;
     default:
       return null;
   }

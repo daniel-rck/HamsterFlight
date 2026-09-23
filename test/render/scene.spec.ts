@@ -16,11 +16,11 @@ import {
 } from "@/render/scene/decor.ts";
 import { debugLines, glideFill, panelLines, promptFor, totalFeet } from "@/render/scene/hud.ts";
 import {
-  bottomCrop,
+  castsShadow,
   hamsterRotation,
-  JUMP_SHADOW_STRIP,
   outcomeOffsetY,
   poseFor,
+  posePlacement,
 } from "@/render/scene/pose.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
@@ -37,6 +37,7 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     turn: 2,
     paused: false,
     swung: false,
+    windup: null,
     hamster: {
       x: 800,
       y: 700,
@@ -53,6 +54,8 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     shots: [120, 45],
     feet: 8,
     outcome: null,
+    outcomeClip: null,
+    restartable: false,
     ...over,
   };
 }
@@ -92,13 +95,52 @@ describe("pose", () => {
     expect(at("flying", "faceplant")).toBe(0);
   });
 
-  it("reads the sim's _rotation back, minus the original's quarter turn", () => {
+  it("reads the sim's _rotation back as the arrow clip's rotation", () => {
     // The rule (Bullet.as:44-50) is the sim's now - see test/sim/pickups.spec.ts.
-    expect(hamsterRotation(flying())).toBeCloseTo(Math.atan2(-10, 20), 12);
+    const deg = flying().hamster.rotationDeg;
+    expect(hamsterRotation(flying())).toBeCloseTo((deg * Math.PI) / 180, 12);
     const off = flying({ hamster: { ...flying().hamster, rotationDeg: 90 } });
-    expect(hamsterRotation(off)).toBe(0);
+    expect(hamsterRotation(off)).toBeCloseTo(Math.PI / 2, 12);
     expect(hamsterRotation(flying({ phaseKind: "jumping" }))).toBe(0);
     expect(hamsterRotation(flying({ phaseKind: "ready" }))).toBe(0);
+  });
+
+  it("places each pose in the arrow clip the way sprite 331 does", () => {
+    // display-lists.txt, sprite 331 f1. Only flying_mc and drop are turned.
+    expect(posePlacement(SPRITES["hamster/fly"]).slice(0, 4)).toEqual([0, -1, 1, 0]);
+    expect(posePlacement(SPRITES["hamster/drop"]).slice(0, 4)).toEqual([0, -1, 1, 0]);
+    expect(posePlacement(SPRITES["hamster/glide"]).slice(0, 4)).toEqual([0.9, 0, 0, 0.9]);
+    for (const id of [
+      "hamster/wind",
+      "hamster/blur",
+      "hamster/slide",
+      "hamster/skid",
+      "hamster/ball",
+    ] as const) {
+      expect(posePlacement(SPRITES[id]).slice(0, 4), id).toEqual([1, 0, 0, 1]);
+    }
+    // Everything outside the arrow clip is placed as exported.
+    expect(posePlacement(SPRITES["hit/cheer"])).toEqual([1, 0, 0, 1, 0, 0]);
+  });
+
+  it("lays a skid on its board rather than standing it on end", () => {
+    // Rotation pinned at 90 on the ground (Bullet.as:46-50); the skid art is
+    // drawn pointing up with the board down its right edge, so the quarter turn
+    // puts the board underneath. The old `- 90` drew it upright.
+    const skid = flying({
+      flags: { ...noEffects(), skidding: true },
+      hamster: { ...flying().hamster, rotationDeg: 90 },
+    });
+    expect(poseFor(skid)).toBe("hamster/skid");
+    const [a, b, c, d] = posePlacement(SPRITES["hamster/skid"]);
+    const r = hamsterRotation(skid);
+    // Where the art's +x (the board side) ends up on stage: straight down.
+    const x = Math.cos(r) * a - Math.sin(r) * b;
+    const y = Math.sin(r) * a + Math.cos(r) * b;
+    expect(x).toBeCloseTo(0, 12);
+    expect(y).toBeCloseTo(1, 12);
+    expect(c).toBe(0);
+    expect(d).toBe(1);
   });
 
   it("stands every outcome clip up, as createHitClip does whatever the shot did", () => {
@@ -116,12 +158,12 @@ describe("pose", () => {
     ).toBe(quarter);
   });
 
-  it("leaves the painted-on pad shadow off the jump clip while it is airborne", () => {
-    expect(bottomCrop(flying({ phaseKind: "jumping" }))).toBe(JUMP_SHADOW_STRIP);
-    // On the pad the shadow belongs on the pad, and no other clip carries one.
-    expect(bottomCrop(flying({ phaseKind: "ready" }))).toBe(0);
-    expect(bottomCrop(flying())).toBe(0);
-    expect(bottomCrop(flying({ phaseKind: "settling", outcome: "cheer" }))).toBe(0);
+  it("casts no drop shadow during the wind-up or the outcome", () => {
+    // Clip 52 paints its own ellipse on the pad; the outcome clips cast none.
+    expect(castsShadow(flying({ phaseKind: "jumping", windup: 5 }))).toBe(false);
+    expect(castsShadow(flying({ phaseKind: "jumping", windup: null }))).toBe(true);
+    expect(castsShadow(flying())).toBe(true);
+    expect(castsShadow(flying({ phaseKind: "settling", outcome: "cheer" }))).toBe(false);
   });
 });
 
@@ -231,6 +273,7 @@ describe("hud strings", () => {
     expect(promptFor(flying({ phaseKind: "jumping" }), false)).toBe(
       "click again to hit the pillow",
     );
+    expect(promptFor(flying({ phaseKind: "jumping", windup: 3 }), false)).toBe("get ready...");
     // The swing is spent: a second click does nothing, so do not ask for one.
     expect(promptFor(flying({ phaseKind: "jumping", swung: true }), false)).toBe(
       "missed - wait for the landing",
@@ -238,7 +281,8 @@ describe("hud strings", () => {
     expect(promptFor(flying(), false)).toBe("hold to glide");
     expect(promptFor(flying({ flags: { ...noEffects(), skidding: true } }), false)).toBeNull();
     expect(promptFor(flying({ phaseKind: "settling" }), false)).toBeNull();
-    expect(promptFor(flying({ phaseKind: "gameOver" }), false)).toBe(
+    expect(promptFor(flying({ phaseKind: "gameOver" }), false)).toBe("165 ft total");
+    expect(promptFor(flying({ phaseKind: "gameOver", restartable: true }), false)).toBe(
       "165 ft total - click to play again",
     );
     expect(promptFor(flying({ paused: true }), false)).toBe("paused - click, Space or P to resume");

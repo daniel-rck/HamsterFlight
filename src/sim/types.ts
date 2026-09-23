@@ -34,19 +34,27 @@ export interface PowerupSpec {
   readonly groundItem: boolean;
   /**
    * Whether the pickup plays `sndPickup`. Only bounce (Game.as:700),
-   * superbounce (:715) and slide (:749) do; speed, wind and rebound are
-   * silent in the original.
+   * superbounce (:715) and slide (:749) do. Speed and rebound sound through
+   * their own clips instead; wind is silent.
    */
   readonly sound: boolean;
+  /**
+   * The clip keeps its `core` after the pickup. Every pickup clip removes it
+   * on frame 2, which the `play()` in its branch sends it to - except
+   * `_wind`, whose core is never removed and whose branch never calls
+   * `play()` (display-lists.txt, sprites 454-467; Game.as:732-745). So wind
+   * goes on firing for as long as the boxes overlap.
+   */
+  readonly coreStays: boolean;
 }
 
 export const POWERUPS = deepFreeze({
-  bounce: { mode: "arm", groundItem: false, sound: true },
-  speed: { mode: "pulse", groundItem: false, sound: false },
-  wind: { mode: "pulse", groundItem: false, sound: false },
-  slide: { mode: "latch", groundItem: false, sound: true },
-  rebound: { mode: "impulse", groundItem: true, sound: false },
-  superbounce: { mode: "arm", groundItem: false, sound: true },
+  bounce: { mode: "arm", groundItem: false, sound: true, coreStays: false },
+  speed: { mode: "pulse", groundItem: false, sound: false, coreStays: false },
+  wind: { mode: "pulse", groundItem: false, sound: false, coreStays: true },
+  slide: { mode: "latch", groundItem: false, sound: true, coreStays: false },
+  rebound: { mode: "impulse", groundItem: true, sound: false, coreStays: false },
+  superbounce: { mode: "arm", groundItem: false, sound: true, coreStays: false },
 } as const satisfies Record<PowerupKind, PowerupSpec>);
 
 /**

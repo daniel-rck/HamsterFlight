@@ -39,3 +39,14 @@ export function profileWindowFromUrl(params: URLSearchParams, fallback = 240): n
   const parsed = Number.parseInt(params.get("profileWindow") ?? "", 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
+
+/**
+ * Whether to open on the INSTRUCTIONS board, as root frame 6 does once per page
+ * load. Not under `?profile`: the smoke test and the renderer bench drive the
+ * game from the first frame and would only ever measure a board. `?instructions=0`
+ * skips it by hand.
+ */
+export function instructionsFromUrl(params: URLSearchParams): boolean {
+  if (params.has("profile")) return false;
+  return params.get("instructions") !== "0";
+}

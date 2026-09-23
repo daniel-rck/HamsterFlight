@@ -2,8 +2,20 @@ import { versionLabel } from "@/app/build.ts";
 import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
 import { modeFromUrl, type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
-import { profileWindowFromUrl, seedFromUrl, stressFromUrl } from "@/app/params.ts";
+import {
+  instructionsFromUrl,
+  profileWindowFromUrl,
+  seedFromUrl,
+  stressFromUrl,
+} from "@/app/params.ts";
 import { type AssetBundle, densityFor, loadSprites } from "@/assets/AssetLoader.ts";
+import boardUrl from "@/assets/screens/instructions.webp?url";
+import board2xUrl from "@/assets/screens/instructions@2x.webp?url";
+import playOverUrl from "@/assets/screens/play-over.webp?url";
+import playOver2xUrl from "@/assets/screens/play-over@2x.webp?url";
+import playUpUrl from "@/assets/screens/play-up.webp?url";
+import playUp2xUrl from "@/assets/screens/play-up@2x.webp?url";
+import type { AudioPlayer } from "@/audio/AudioPlayer.ts";
 import { InputController } from "@/input/InputController.ts";
 import { Effects } from "@/render/effects/Effects.ts";
 import { createCanvasRenderer } from "@/render/GameRenderer.ts";
@@ -29,6 +41,35 @@ function webglAvailable(): boolean {
 }
 
 type PixiModule = typeof import("@/render/PixiRenderer.ts");
+
+/** Root frame 6's art, at the density the page will show it at. */
+function showInstructions(panel: HTMLElement, button: HTMLButtonElement): void {
+  const board = panel.querySelector<HTMLImageElement>(":scope > img");
+  const up = button.querySelector<HTMLImageElement>(".up");
+  const over = button.querySelector<HTMLImageElement>(".over");
+  const set = (img: HTMLImageElement | null, x1: string, x2: string): void => {
+    if (img === null) return;
+    img.src = x1;
+    img.srcset = `${x1} 1x, ${x2} 2x`;
+  };
+  set(board, boardUrl, board2xUrl);
+  set(up, playUpUrl, playUp2xUrl);
+  set(over, playOverUrl, playOver2xUrl);
+  panel.hidden = false;
+}
+
+/**
+ * The player and its sound URLs, in a chunk of their own. A failure here is a
+ * silent game, not a broken one, so it resolves to null instead of rejecting.
+ */
+function startAudioImport(): Promise<AudioPlayer | null> {
+  return Promise.all([import("@/audio/AudioPlayer.ts"), import("@/assets/SoundUrls.ts")])
+    .then(([{ AudioPlayer: Player }, { SOUND_URLS }]) => new Player({ urls: SOUND_URLS }))
+    .catch((error: unknown) => {
+      console.warn("[hamsterflight] no sound: %o", error);
+      return null;
+    });
+}
 
 /**
  * The Pixi module is imported dynamically so it lands in its own Vite chunk.
@@ -106,15 +147,6 @@ function showFailure(text: string): void {
   boot.hidden = false;
   reload.focus();
 }
-
-/**
- * How long the final score stays up before a click may restart. The click that
- * ended the last camera pan early - clicks do nothing there, so impatient
- * players click - used to land on the first game-over tick and wipe the total
- * before anyone had read it. 15 ticks is 750 ms. Presentation only: the filter
- * runs before the simulation, which sees an ordinary command stream.
- */
-const GAME_OVER_GRACE_TICKS = 15;
 
 /**
  * Re-fit the backing store when the stage changes size - a window drag, a
@@ -207,6 +239,9 @@ async function boot(): Promise<void> {
   // a 1x screen showing a wide layout is already past 1:1.
   const scale = stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
   const pixiImport = startPixiImport(rendererName);
+  // Its own chunk: every visitor pays for the eager bundle, and nothing can
+  // sound before the first gesture anyway.
+  const audioImport = startAudioImport();
   const progress = ({ loaded, total }: { loaded: number; total: number }): void => {
     setBootMessage(total > 1 ? `loading ${Math.round((loaded / total) * 100)}%` : "loading…");
   };
@@ -242,8 +277,31 @@ async function boot(): Promise<void> {
     tuning: DEFAULT_TUNING,
     touch: typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches,
   });
+  const audio = await audioImport;
+  const musicButton = document.querySelector<HTMLButtonElement>("#music");
+  const toggleMusic = (): void => {
+    if (audio === null) return;
+    const muted = audio.toggleMusic();
+    musicButton?.setAttribute("aria-pressed", String(muted));
+    musicButton?.setAttribute("aria-label", muted ? "Unmute music" : "Mute music");
+  };
+  if (audio !== null) {
+    // Audio may only start from a gesture. Any press on the page counts, and
+    // the listeners go once the context is running.
+    const unlock = (): void => audio.unlock();
+    window.addEventListener("pointerdown", unlock, { signal, capture: true });
+    window.addEventListener("keydown", unlock, { signal, capture: true });
+  }
+  if (musicButton !== null && audio !== null) {
+    musicButton.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
+    musicButton.addEventListener("click", toggleMusic, { signal });
+  }
+
   const input = new InputController();
-  input.attach(canvas, { onToggleHitboxes: () => renderer.toggleHitboxes() });
+  input.attach(canvas, {
+    onToggleHitboxes: () => renderer.toggleHitboxes(),
+    onToggleMusic: toggleMusic,
+  });
   signal.addEventListener("abort", () => input.detach());
 
   const pauseButton = document.querySelector<HTMLButtonElement>("#pause");
@@ -273,19 +331,10 @@ async function boot(): Promise<void> {
   // both hooks used to build their own, twice the allocation for one picture.
   let previous: SimSnapshot | null = null;
   let current = sim.snapshot();
-  let gameOverTicks = 0;
 
   const loop = new FixedTimestepLoop({
     step: () => {
-      let commands = input.drain();
-      if (current.phaseKind === "gameOver") {
-        if (gameOverTicks < GAME_OVER_GRACE_TICKS) {
-          commands = commands.filter((command) => command.kind !== "confirm");
-        }
-        gameOverTicks++;
-      } else {
-        gameOverTicks = 0;
-      }
+      const commands = input.drain();
       // The event stream used to be discarded here. Impact clips ride on it.
       const events = sim.step(commands);
       const now = performance.now();
@@ -293,6 +342,10 @@ async function boot(): Promise<void> {
       current = sim.snapshot();
       syncPauseButton(current.paused);
       effects.consume(events, now, current.hamster);
+      if (audio !== null) {
+        audio.setPaused(current.paused);
+        audio.consume(events);
+      }
       // Grit comes off whenever the hamster is dragging along the ground, not
       // only during the `skidding` predicate - that one is a two-tick window
       // and fires in 2 runs out of 40, which is not an effect anyone would see.
@@ -319,9 +372,21 @@ async function boot(): Promise<void> {
     onError: () => showFailure("Something went wrong. Reload to play on."),
   });
 
-  watchStageSize(canvas, () => renderer.resize(), signal);
+  // Until Play Now! the scene stands still behind the board, as frame 6 has
+  // no Game yet: one picture, redrawn whenever the stage is resized.
+  let started = false;
+  const drawStill = (): void => renderer.draw(current, performance.now());
+  watchStageSize(
+    canvas,
+    () => {
+      renderer.resize();
+      if (!started) drawStill();
+    },
+    signal,
+  );
 
   const resume = (): void => {
+    if (!started) return;
     // Clips started before the tab went away would all expire at once, and
     // the renderer's animation clock must not count the time away either.
     effects.clear();
@@ -345,7 +410,9 @@ async function boot(): Promise<void> {
       if (document.hidden) {
         pauseIfMoving();
         loop.stop();
+        audio?.setPaused(true);
       } else {
+        audio?.setPaused(current.paused);
         resume();
       }
     },
@@ -375,12 +442,40 @@ async function boot(): Promise<void> {
 
   const bootPanel = document.querySelector<HTMLElement>("#boot");
   if (bootPanel !== null) bootPanel.hidden = true;
-  if (pauseButton !== null) pauseButton.hidden = false;
+  if (musicButton !== null && audio !== null) musicButton.hidden = false;
   const version = document.querySelector("#version");
   if (version !== null) version.textContent = versionLabel();
-  // Keyboard play works from the first keystroke, not the first click.
-  canvas.focus({ preventScroll: true });
-  loop.start();
+  const start = (): void => {
+    started = true;
+    if (pauseButton !== null) pauseButton.hidden = false;
+    // Keyboard play works from the first keystroke, not the first click.
+    canvas.focus({ preventScroll: true });
+    // Nothing pressed before the game existed carries over into it.
+    input.drain();
+    loop.start();
+  };
+  const instructions = document.querySelector<HTMLElement>("#instructions");
+  const playNow = document.querySelector<HTMLButtonElement>("#play-now");
+  if (instructionsFromUrl(params) && instructions !== null && playNow !== null) {
+    showInstructions(instructions, playNow);
+    drawStill();
+    playNow.focus({ preventScroll: true });
+    // Button 503: `chalkboard_mc._visible = false; nextFrame()` - frame 7
+    // builds the Game. Its `stopAllSounds()` has nothing to stop here: no
+    // sound can have started before this click, which is also the one that
+    // unlocks audio.
+    playNow.addEventListener(
+      "click",
+      () => {
+        instructions.hidden = true;
+        audio?.unlock();
+        start();
+      },
+      { signal, once: true },
+    );
+  } else {
+    start();
+  }
 
   console.info(
     "[hamsterflight] build=%s seed=%d mode=%s renderer=%s - append ?seed=%d to replay",

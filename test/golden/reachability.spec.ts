@@ -5,26 +5,26 @@ import { mulberry32 } from "@/sim/rng/mulberry32.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
 
 /**
- * The pillow window follows from the hitboxes extracted out of the SWF, and it
- * turns out not every jump can reach it: with the weakest rolls the apex stays
- * short of the box entirely, making that turn an unavoidable faceplant.
+ * The pillow window follows from the hitboxes extracted out of the SWF. With
+ * the physics starting from the pad this came out at 68%: a third of the rolls
+ * peaked short of the box, an unavoidable faceplant. That was the port's
+ * mistake, not the original's - clip 52 lifts itself 117.8 px before it calls
+ * `jump()` (as2/timeline/DefineSprite_52/frame_28), and from there every roll
+ * clears the window.
  *
- * That is a measured consequence of the extracted geometry, not a decision. It
- * is pinned here because it is the most feel-critical number in the game, and
- * because the `core` placement is the one measurement still open to
- * calibration: `core` sits inside a multi-frame hamster sprite and this port
- * reads the placement from the frame the extractor encounters first. If the box
- * is ever recalibrated, this test says exactly what that did to playability.
+ * Pinned because it is the most feel-critical number in the game, and because
+ * `core` placement is the measurement most open to calibration: if the box is
+ * ever recalibrated, this test says exactly what that did to playability.
  */
 describe("pillow reachability", () => {
-  it("pins the share of jumps that can reach the pillow", () => {
+  it("lets every jump reach the pillow", () => {
     let reachable = 0;
     const total = 1000;
 
     for (let seed = 1; seed <= total; seed++) {
       const rng = mulberry32(seed);
-      const state = beginJump(rng);
-      for (let t = 0; t < 80; t++) {
+      const state = beginJump();
+      for (let t = 0; t < 120; t++) {
         if (stepJump(state, rng, [])) break;
         if (attemptLaunch(state, DEFAULT_TUNING).hit) {
           reachable++;
@@ -33,12 +33,17 @@ describe("pillow reachability", () => {
       }
     }
 
-    const share = reachable / total;
-    // Measured at 68% with the extracted boxes. The band is wide enough not
-    // to flap on a rounding change and narrow enough that a recalibration of
-    // `core` - the one open measurement - shows up here first.
-    expect(share).toBeGreaterThan(0.6);
-    expect(share).toBeLessThan(0.76);
-    console.info("[reachability] %d%% of jumps can reach the pillow", Math.round(share * 100));
+    expect(reachable).toBe(total);
+    console.info("[reachability] %d%% of jumps can reach the pillow", (reachable / total) * 100);
+  });
+
+  it("never lets a swing during the wind-up connect", () => {
+    // No `core` before clip 52's frame 28.
+    const state = beginJump();
+    const rng = mulberry32(1);
+    while (state.windup !== null) {
+      expect(attemptLaunch(state, DEFAULT_TUNING).hit).toBe(false);
+      stepJump(state, rng, []);
+    }
   });
 });

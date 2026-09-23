@@ -619,13 +619,22 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None, densities=(1,)):
             ox, oy = -stage[0] / 2, -stage[1] / 2
             verified = False
 
+        # The whole placement, not just its translation: `flying_mc` and `drop`
+        # sit in the arrow clip turned a quarter, and `glide` at 0.9 scale.
+        # Folding only the translation into ox/oy drew every pose as if it were
+        # authored the way `flying_mc` is, and stood the upright ones on end.
+        # ox/oy stay the art's own offset; the renderer applies this matrix
+        # inside the arrow clip's rotation. Flash's order: x' = a*x + c*y + tx,
+        # y' = b*x + d*y + ty - the same as canvas `transform()`.
+        parent_matrix = None
         placement = PARENT_PLACEMENT.get(name)
         if placement is not None:
             found = resolver.child_placement(*placement)
             if found is not None:
-                _child_cid, matrix = found
-                ox += matrix[4]
-                oy += matrix[5]
+                _child_cid, (sx, sy, r0, r1, tx, ty) = found
+                parent_matrix = [
+                    round(v, 3) + 0.0 for v in (sx, r0, r1, sy, tx, ty)
+                ]
 
         # ffdec crops every frame of a sprite to the same box - the one unioned
         # over its frames - so a single w/h covers them all. Checked, not assumed.
@@ -655,6 +664,8 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None, densities=(1,)):
         }
         if fps is not None:
             entry['fps'] = fps
+        if parent_matrix is not None:
+            entry['placement'] = parent_matrix
         entries[name] = entry
 
     if svg_dir is not None:
@@ -707,6 +718,12 @@ HEADER = [
     '  readonly verified: boolean;',
     '  readonly charId: number;',
     '  readonly fps?: number;',
+    '  /**',
+    '   * `[a, b, c, d, tx, ty]` - where the clip sits inside its parent (the',
+    '   * flight poses in the arrow clip, 331). `ox`/`oy` place the art in the',
+    '   * clip; this then places the clip in the parent.',
+    '   */',
+    '  readonly placement?: readonly [number, number, number, number, number, number];',
     '  /** Which atlas sheet the frames live on. */',
     '  readonly sheet: number;',
     '  /** Top-left of each frame within that sheet; `w`/`h` are shared. */',
@@ -721,6 +738,8 @@ def emit(entries, path, densities=(1,)):
     lines = list(HEADER)
     for name, entry in entries.items():
         fps = f", fps: {entry['fps']}" if 'fps' in entry else ''
+        if 'placement' in entry:
+            fps += ', placement: [' + ', '.join(f'{v:g}' for v in entry['placement']) + ']'
         rects = ', '.join(f'[{x}, {y}]' for x, y in entry['rects'])
         lines.append(
             f"  '{name}': {{ frames: {entry['frames']}, w: {entry['w']}, "

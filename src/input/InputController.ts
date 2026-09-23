@@ -9,6 +9,8 @@ export interface InputTargets {
 export interface InputOptions {
   /** `H` - a renderer concern, not a simulation command, so it is a callback. */
   readonly onToggleHitboxes?: () => void;
+  /** `M` - the music button's key; audio is not a simulation command either. */
+  readonly onToggleMusic?: () => void;
   readonly targets?: InputTargets;
 }
 
@@ -91,6 +93,8 @@ export class InputController {
         this.#queue.push({ kind: "togglePause" });
       } else if (ev.key === "h" || ev.key === "H") {
         options.onToggleHitboxes?.();
+      } else if (ev.key === "m" || ev.key === "M") {
+        options.onToggleMusic?.();
       }
     });
     on<KeyboardEvent>(targets.keys, "keyup", (ev) => {
@@ -153,9 +157,20 @@ export class InputController {
 }
 
 /** Space in a text field is a space, not a jump. */
+/**
+ * A control that has the keys to itself: a text field, or a focused button -
+ * Play Now! on the instructions board, which Space and Enter must press
+ * rather than jump past.
+ */
 function isTyping(target: EventTarget | null): boolean {
   if (target === null || typeof target !== "object" || !("tagName" in target)) return false;
   const el = target as { tagName: string; isContentEditable?: boolean };
   const tag = el.tagName.toUpperCase();
-  return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || el.isContentEditable === true;
+  return (
+    tag === "INPUT" ||
+    tag === "TEXTAREA" ||
+    tag === "SELECT" ||
+    tag === "BUTTON" ||
+    el.isContentEditable === true
+  );
 }

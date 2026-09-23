@@ -83,6 +83,29 @@ export const C = Object.freeze({
   LAUNCH_VEL_BASE: 90,
 
   // -- jump phase --------------------------------------------------------
+  /**
+   * The stage rate. `Game` runs on 50 ms intervals, but every clip timeline -
+   * and so everything a frame script triggers - runs on the SWF's 19 fps.
+   */
+  STAGE_FPS: 19,
+  /**
+   * `onMouseDown` only does `hamster.gotoAndPlay("jump")` (Game.as:1024);
+   * nothing in Game.as calls `jump()`. Clip 52 does, from its frame 28 script
+   * (as2/timeline/DefineSprite_52/frame_28), after playing its wind-up in place:
+   * goggles down, crouch, leap. Label `jump` is frame 2, so that is 26 frames
+   * on the pad - and no `core`, which the clip only places on frame 28
+   * (display-lists.txt, sprite 52), so a swing during the wind-up cannot hit.
+   */
+  JUMP_WINDUP_FRAMES: 26,
+  /** `sndJump.attachSound("snd_jump"); sndJump.start()` - clip 52, frame 23. */
+  JUMP_SFX_FRAMES: 21,
+  /**
+   * `this._y -= 117.8` right before `jump()` - clip 52, frame 28. The wind-up
+   * lifts the art 115 px inside the clip; this moves the clip up to where the
+   * art already is and draws the tumbling ball back on the registration point,
+   * so the physics starts from y = 838.2, not from the pad.
+   */
+  JUMP_CLIP_LIFT: 117.8,
   /** `yvel = (random(5) + 10) * -1`. Game.as:1066. */
   JUMP_YVEL_BASE: 10,
   JUMP_YVEL_RAND: 5,
@@ -93,6 +116,52 @@ export const C = Object.freeze({
   /** Asymmetric gravity: 1.5 rising, 0.75 falling. Game.as:1083. */
   JUMP_GRAV_RISING: 1.5,
   JUMP_GRAV_FALLING: 0.75,
+
+  // -- timeline sounds ----------------------------------------------------
+  // Levels are the `StartSound` envelope's, averaged over the two channels
+  // (level / 32768 * 100); the port does not pan.
+  /** Clip 51 frame 1, envelope 6199/5904 - the tumbling ball, every 4 frames. */
+  TUMBLE_VOLUME: 18,
+  /** Clip 51 loops frames 1-4 (`gotoAndPlay(1)` on frame 4). */
+  TUMBLE_FRAMES: 4,
+  /** `background_mc` frame 22, `snd_bump` at 18303/12399 - 12 frames into "miss". */
+  SWING_MISS_BUMP_FRAMES: 12,
+  SWING_MISS_BUMP_VOLUME: 47,
+  /** `hit_cheer` frame 5, envelope 25093/26864. */
+  CHEER_VOLUME: 79,
+  CHEER_SFX_FRAME: 5,
+  /** `hit_cheer` frame 27 plays `snd_jump` as the distance caption goes up. */
+  CHEER_CAPTION_FRAME: 27,
+  /** `hit_hole`: its sound on frame 1, the fanfare on frame 28. */
+  HOLE_FANFARE_FRAME: 28,
+  /** `_speed` frame 2, from `play()` at frame 1 (Game.as:729). */
+  SPEED_SFX_FRAME: 2,
+  /** `_rebound` frame 4, from `play()` at frame 1. */
+  REBOUND_SFX_FRAME: 4,
+  /** `gameOver_mc.gotoAndPlay(2)`; frame 60 places PLAY AGAIN and the fanfare. */
+  GAME_OVER_PLAY_AGAIN_FRAME: 60,
+
+  // -- outcome clips ------------------------------------------------------
+  /**
+   * `hit_cheer` and `hit_hole` call `_root.hamsterShoot.setCamReset()` from
+   * their frame 50 script (as2/timeline/DefineSprite_351_hit_cheer/frame_50,
+   * DefineSprite_365_hit_hole/frame_50) - the quick pan home starts there.
+   */
+  OUTCOME_CAM_RESET_FRAME: 50,
+  /**
+   * `hit_faceplant` does not reset the camera: its frame 20 script calls
+   * `createHitClip(this._x, this._y, this._rotation, "cheer")`, which attaches
+   * a cheer at the same depth, replacing it - so a faceplant is followed by
+   * the whole cheer clip. DefineSprite_372_hit_faceplant/frame_20.
+   */
+  FACEPLANT_CHEER_FRAME: 20,
+  /**
+   * `hit_zero` does the same on frame 36, after `this._x = 220`, at its own
+   * depth (the `dpth` argument), so the zero stays under the cheer.
+   * DefineSprite_378_hit_zero/frame_36.
+   */
+  ZERO_CHEER_FRAME: 36,
+  ZERO_CHEER_X: 220,
 
   // -- powerup effects ---------------------------------------------------
   SPEED_XVEL: 20,

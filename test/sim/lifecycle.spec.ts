@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { InputCommand } from "@/sim/commands.ts";
 import { C } from "@/sim/constants.ts";
+import { CLICK_WINDOW } from "@/sim/drive.ts";
 import type { SimEvent } from "@/sim/events.ts";
-import { Simulation } from "@/sim/Simulation.ts";
+import { JUMP_WINDUP_TICKS } from "@/sim/phases/JumpPhase.ts";
+import { clipHoldTicks, PLAY_AGAIN_TICKS, Simulation } from "@/sim/Simulation.ts";
 import { beginQuickPan, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
+import type { ShotOutcome } from "@/sim/types.ts";
+
+/** The whole `hold` stage: the outcome's clip, and the cheer a faceplant or zero hands over to. */
+function totalHold(outcome: ShotOutcome): number {
+  const followed = outcome === "faceplant" || outcome === "zero";
+  return clipHoldTicks(outcome) + (followed ? clipHoldTicks("cheer") : 0);
+}
 
 /** Steps until the phase changes away from `from`, returning every event. */
 function stepOut(sim: Simulation, from: string, limit = 10_000): SimEvent[] {
@@ -70,7 +79,7 @@ function flownShot(sim: Simulation, clickTick: number): SimEvent[] {
  * the simulation in `settling`. Throws if no tick connects for the seed.
  */
 function connectingShot(seed: number, tuning = DEFAULT_TUNING): Simulation {
-  for (let clickTick = 3; clickTick <= 26; clickTick++) {
+  for (let clickTick = CLICK_WINDOW.first; clickTick <= CLICK_WINDOW.last; clickTick++) {
     const sim = new Simulation({ seed, tuning });
     const events = flownShot(sim, clickTick);
     if (events.some((e) => e.t === "launched") && sim.phaseKind === "settling") return sim;
@@ -117,7 +126,7 @@ describe("command ordering", () => {
       const sim = new Simulation({ seed: 12345 });
       sim.step([{ kind: "press" }]);
       sim.step([{ kind: "release" }]);
-      for (let i = 0; i < 13; i++) sim.step();
+      for (let i = 0; i < JUMP_WINDUP_TICKS + 2; i++) sim.step();
       sim.step([{ kind: "press" }]);
       sim.step([{ kind: "release" }]);
       expect(sim.phaseKind).toBe("flying");
@@ -238,7 +247,11 @@ describe("settling", () => {
     const sim = new Simulation({ seed: 0x5eed_0003 });
     let events: SimEvent[] = [];
     // Sweep the click window until one connects; a miss falls through to zero.
-    for (let clickTick = 3; clickTick <= 26 && sim.phaseKind !== "settling"; clickTick++) {
+    for (
+      let clickTick = CLICK_WINDOW.first;
+      clickTick <= CLICK_WINDOW.last && sim.phaseKind !== "settling";
+      clickTick++
+    ) {
       const fresh = new Simulation({ seed: 0x5eed_0003 });
       events = flownShot(fresh, clickTick);
       if (events.some((e) => e.t === "launched") && fresh.phaseKind === "settling") {
@@ -251,7 +264,7 @@ describe("settling", () => {
       const shotDone = launchEvents.find((e) => e.t === "shotDone");
       expect(shotDone).toBeDefined();
       if (shotDone === undefined || shotDone.t !== "shotDone") return;
-      const hold = DEFAULT_TUNING.outcomeHoldTicks[shotDone.outcome];
+      const hold = totalHold(shotDone.outcome);
 
       const start = s.snapshot().camera;
       expect(start.x).toBeLessThan(0); // the camera followed the flight
@@ -283,6 +296,37 @@ describe("settling", () => {
     }
   });
 
+  it("follows a faceplant with the cheer its frame 20 script attaches", () => {
+    // `createHitClip(this._x, this._y, this._rotation, "cheer")` -
+    // DefineSprite_372_hit_faceplant/frame_20; the cheer then runs to its own
+    // frame 50 before the camera moves.
+    const sim = new Simulation({ seed: 1 });
+    const events = flownShot(sim, 32);
+    const done = events.find((e) => e.t === "shotDone");
+    expect(done?.t === "shotDone" && done.outcome).toBe("faceplant");
+    const first = sim.snapshot();
+    expect(first.outcomeClip).toBe("faceplant");
+    expect(clipHoldTicks("faceplant")).toBe(20);
+    expect(clipHoldTicks("cheer")).toBe(52);
+    // A zero only ever comes from a jump that lands, which hands the turn back
+    // instead (see "a jump that never meets the pillow"), so its hand-over at
+    // x = 220 is kept for completeness and pinned only by its length.
+    expect(clipHoldTicks("zero")).toBe(37);
+    for (let i = 0; i < clipHoldTicks("faceplant"); i++) sim.step();
+    const cheer = sim.snapshot();
+    expect(cheer.outcomeClip).toBe("cheer");
+    // The shot is still a faceplant, and the cheer stays where it came down.
+    expect(cheer.outcome).toBe("faceplant");
+    expect(cheer.hamster.x).toBe(first.hamster.x);
+    for (let i = 0; i < clipHoldTicks("cheer"); i++) {
+      expect(sim.snapshot().camera).toEqual(first.camera);
+      sim.step();
+    }
+    // setCamReset(): the pan starts with the next tick.
+    sim.step();
+    expect(sim.snapshot().camera).not.toEqual(first.camera);
+  });
+
   it("arrives in a single pan step when the camera is already home", () => {
     // This used to be reached through a zero shot. Only a launched shot enters
     // `settling` now, and a launch always moves the camera, so the property is
@@ -302,7 +346,7 @@ describe("settling", () => {
     const outcome = sim.snapshot().outcome;
     expect(outcome).not.toBeNull();
     if (outcome === null) return;
-    for (let i = 0; i < DEFAULT_TUNING.outcomeHoldTicks[outcome]; i++) sim.step();
+    for (let i = 0; i < totalHold(outcome); i++) sim.step();
     expect(sim.phaseKind).toBe("settling");
     for (let i = 0; i < cap; i++) sim.step();
     // Released by the cap, not by arrival: the camera is still on its way.
@@ -335,25 +379,97 @@ describe("session", () => {
       (e) => e.t === "sfxStop" && e.id === "theme" && e.fade === true,
     );
     const ending = tail.findIndex((e) => e.t === "sfx" && e.id === "ending");
+    // gameOver_mc's frame 60, from its frame 2.
+    expect(tail).toContainEqual({
+      t: "sfx",
+      id: "fanfare",
+      gain: C.SFX_VOLUME,
+      delayFrames: 58,
+    });
     expect(stopPrelude).toBeGreaterThan(0);
     expect(fadeTheme).toBeGreaterThan(stopPrelude);
     expect(ending).toBeGreaterThan(fadeTheme);
 
-    // `press` does nothing here; `confirm` starts a new session.
+    // `press` does nothing here; `confirm` starts a new session - once
+    // `gameOver_mc` has put PLAY AGAIN up on its frame 60.
     expect(sim.step([{ kind: "press" }])).toEqual([]);
     expect(sim.phaseKind).toBe("gameOver");
+    expect(sim.snapshot().restartable).toBe(false);
+    sim.step([{ kind: "confirm" }]);
+    expect(sim.phaseKind).toBe("gameOver");
+    expect(PLAY_AGAIN_TICKS).toBe(62);
+    while (!sim.snapshot().restartable) sim.step();
     const restart = sim.step([{ kind: "confirm" }]);
     // `reset()`: the prelude comes back, the theme is cut. Game.as:338-339.
     expect(restart).toContainEqual({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
     expect(restart).toContainEqual({ t: "sfxStop", id: "theme" });
+    // PLAY AGAIN calls `reset()`, not `resetBtn()`: no `stopAllSounds()`, so
+    // the ending plays out over the new game, as it did in the original.
+    expect(restart.some((e) => e.t === "sfxStop" && e.id === "ending")).toBe(false);
     expect(sim.phaseKind).toBe("ready");
     expect(sim.snapshot().turn).toBe(1);
     expect(sim.snapshot().shots).toEqual([]);
   });
 
+  it("starts the menu music on the first step, as init() does", () => {
+    const sim = new Simulation({ seed: 1 });
+    expect(sim.step()).toEqual([{ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true }]);
+    expect(sim.step()).toEqual([]);
+  });
+
+  it("plays the timeline sounds of the launcher, the jump and the outcome", () => {
+    const sim = new Simulation({ seed: 1 });
+    const click = sim.step([{ kind: "press" }, { kind: "release" }]);
+    // hamsterWheel2's frame 2, one frame after the click's play().
+    expect(click).toContainEqual({ t: "sfx", id: "wheel", gain: C.SFX_VOLUME, delayFrames: 1 });
+    // The click's own tick is the wind-up's first.
+    const windup: SimEvent[] = [];
+    for (let i = 2; i < JUMP_WINDUP_TICKS; i++) windup.push(...sim.step());
+    expect(windup.filter((e) => e.t === "sfx").map((e) => e.t === "sfx" && e.id)).toEqual(["jump"]);
+    // Clip 52's frame 28 places the ball, and the ball its sound.
+    expect(sim.step()).toContainEqual({
+      t: "sfx",
+      id: "tumble",
+      gain: C.TUMBLE_VOLUME,
+      loop: true,
+    });
+    // Up into the pillow's window.
+    for (let i = 0; i < 3; i++) sim.step();
+    const launch = sim.step([{ kind: "press" }, { kind: "release" }]);
+    expect(launch.some((e) => e.t === "launched")).toBe(true);
+    expect(launch).toContainEqual({ t: "sfxStop", id: "tumble" });
+    // A cheer is scheduled from the landing: frame 5, and the caption on 27.
+    const rest = stepOut(sim, "flying");
+    const done = rest.find((e) => e.t === "shotDone");
+    expect(done?.t === "shotDone" && done.outcome).toBe("cheer");
+    expect(rest).toContainEqual({ t: "sfx", id: "cheer", gain: C.CHEER_VOLUME, delayFrames: 4 });
+    expect(rest).toContainEqual({ t: "sfx", id: "jump", gain: C.SFX_VOLUME, delayFrames: 26 });
+  });
+
+  it("thumps the pillow into the frame 12 frames after a whiff", () => {
+    const sim = new Simulation({ seed: 1 });
+    sim.step([{ kind: "press" }, { kind: "release" }]);
+    // During the wind-up nothing can connect.
+    const whiff = sim.step([{ kind: "press" }, { kind: "release" }]);
+    expect(whiff.some((e) => e.t === "missed")).toBe(true);
+    expect(whiff).toContainEqual({
+      t: "sfx",
+      id: "bump",
+      gain: C.SWING_MISS_BUMP_VOLUME,
+      delayFrames: C.SWING_MISS_BUMP_FRAMES,
+    });
+    // The ball's sound goes with the ball when the hamster lands.
+    const landing = stepOut(sim, "jumping");
+    expect(landing).toContainEqual({ t: "sfxStop", id: "tumble" });
+  });
+
   it("stops the menu music on launch and restarts it for the next hamster", () => {
     let launched: SimEvent[] | null = null;
-    for (let clickTick = 3; clickTick <= 26 && launched === null; clickTick++) {
+    for (
+      let clickTick = CLICK_WINDOW.first;
+      clickTick <= CLICK_WINDOW.last && launched === null;
+      clickTick++
+    ) {
       const fresh = new Simulation({ seed: 0x5eed_0003 });
       const events = flownShot(fresh, clickTick);
       if (events.some((e) => e.t === "launched")) {

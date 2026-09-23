@@ -29,10 +29,11 @@ import {
   promptFor,
 } from "@/render/scene/hud.ts";
 import {
-  bottomCrop,
+  castsShadow,
   hamsterBox,
   hamsterRotation,
   outcomeOffsetY,
+  posePlacement,
   poseFor,
 } from "@/render/scene/pose.ts";
 import { C } from "@/sim/constants.ts";
@@ -224,9 +225,7 @@ export class GameRenderer implements Renderer {
     if (!h.visible && s.phaseKind !== "settling") return;
 
     const shadow = this.#assets.get("shadow");
-    // `blt.shadClip._visible = false` on every arm that ends a shot -
-    // Game.as:870, 876, 969 - so the outcome clip casts none.
-    const scale = s.phaseKind === "settling" ? 0 : shadowScale(h.y);
+    const scale = castsShadow(s) ? shadowScale(h.y) : 0;
     if (shadow !== undefined && scale > SHADOW_MIN_SCALE) {
       ctx.save();
       ctx.translate(h.x, C.SHADOW_Y);
@@ -247,22 +246,20 @@ export class GameRenderer implements Renderer {
     // for the whole bounce. Enhanced mode draws the flier underneath and lets
     // the bubble sit over it.
     const inBubble = id === "hamster/ball" && this.#effects.enhanced;
-    if (inBubble) {
-      const inside = this.#assets.get("hamster/fly");
-      if (inside !== undefined)
-        this.#blit(ctx, inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed), 0, 0);
-      ctx.globalAlpha = BUBBLE_ALPHA;
-    }
     const rotation = hamsterRotation(s);
     if (rotation !== 0) ctx.rotate(rotation);
-    this.#blit(
-      ctx,
-      sprite,
-      this.#effects.poses.frame(s, sprite.meta, this.#elapsed),
-      0,
-      0,
-      bottomCrop(s),
-    );
+    if (inBubble) {
+      const inside = this.#assets.get("hamster/fly");
+      if (inside !== undefined) {
+        ctx.save();
+        ctx.transform(...posePlacement(inside.meta));
+        this.#blit(ctx, inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed), 0, 0);
+        ctx.restore();
+      }
+      ctx.globalAlpha = BUBBLE_ALPHA;
+    }
+    ctx.transform(...posePlacement(sprite.meta));
+    this.#blit(ctx, sprite, this.#effects.poses.frame(s, sprite.meta, this.#elapsed), 0, 0);
     if (inBubble) ctx.globalAlpha = 1;
     ctx.restore();
 
@@ -279,34 +276,20 @@ export class GameRenderer implements Renderer {
    * offsets. `w`/`h` are art pixels and `ox`/`oy` stage pixels, so the frame is
    * drawn at its stage size - which is how art packed above 1:1 stays put.
    */
-  /**
-   * `cropBottom` is in stage px and leaves that much off the bottom of the
-   * frame - `bottomCrop`, for the shadow painted into the jump clip. `ox`/`oy`
-   * place the top-left, so a shorter frame lands in exactly the same place.
-   */
-  #blit(
-    ctx: CanvasRenderingContext2D,
-    sprite: Sprite,
-    frame: number,
-    x: number,
-    y: number,
-    cropBottom = 0,
-  ): void {
+  #blit(ctx: CanvasRenderingContext2D, sprite: Sprite, frame: number, x: number, y: number): void {
     const rect = sprite.frames[frame] ?? sprite.frames[0];
     if (rect === undefined) return;
     const density = sprite.density;
-    const height = rect.h - cropBottom * density;
-    if (height <= 0) return;
     ctx.drawImage(
       sprite.sheet,
       rect.x,
       rect.y,
       rect.w,
-      height,
+      rect.h,
       x + sprite.meta.ox,
       y + sprite.meta.oy,
       rect.w / density,
-      height / density,
+      rect.h / density,
     );
   }
 

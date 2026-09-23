@@ -1,0 +1,1925 @@
+root f1 script
+root f1 place d1 char 2 [1, 0, 0, 1, -1.8, -1.6]
+root f1 place d3 char 3 [1, 0, 0, 1, -20.15, -9.1]
+root f1 place d4 char 4 [1, 0, 0, 1, 0, 0]
+root f1 place d5 char 9 [0.757538, 0, 0, 0.757538, 222.75, 109.85]
+root f1 place d27 char 14 [0.314056, 0, 0, 0.314056, 398.1, 247.2]
+root f1 place d29 char 16 "counter_txt" [1, 0, 0, 1, 265.25, 308]
+root f1 place d30 char 18 [1, 0, 0, 1, 509.8, 418.6]
+root f2 script
+root f3 remove d1
+root f3 remove d3
+root f3 remove d4
+root f3 remove d5
+root f3 remove d27
+root f3 remove d29
+root f3 script
+root f4 place d31 char 487 [1, 0, 0, 1, 297.95, 192]
+root f5 remove d31
+root f5 place d1 char 429 [1, 0, 0, 1, 0, 0]
+root f5 place d3 char 488 [1, 0, 0, 1, 151, 306]
+root f5 sound 484
+root f6 remove d1
+root f6 remove d3
+root f6 remove d30
+root f6 script
+root f6 place d1 char 489 [1, 0, 0, 1, 0, 0]
+root f6 place d2 char 145 "background_mc" [1, 0, 0, 1, 0, 0]
+root f6 place d168 char 235 "game_mc" [0.999847, 0, 0, 0.999954, 0, -600]
+root f6 place d198 char 402 "launchMeter" [1, 0, 0, 1, 78.05, 3]
+root f6 place d203 char 272 "gravMeter" [1, 0, 0, 1, 560, 0]
+root f6 place d212 char 490 "skate_icon" [1, 0, 0, 1, 522.3, 3.25]
+root f6 place d214 char 491 "shotDistance1_txt" [1.00034, 0, 0, 1.00053, 39, 12]
+root f6 place d215 char 492 "distanceTotal_txt" [1, 0, 0, 1, 18.4, 110.1]
+root f6 place d216 char 395 "shotStatus1_mc" [1, 0, 0, 1, 16.05, 10.35]
+root f6 place d222 char 493 "shotDistance2_txt" [1.00067, 0, 0, 1.00383, 39, 32]
+root f6 place d223 char 494 "shotDistance3_txt" [1.00034, 0, 0, 1.00053, 39, 51.95]
+root f6 place d224 char 495 "shotDistance4_txt" [1.00067, 0, 0, 1.00383, 39, 72]
+root f6 place d225 char 496 "shotDistance5_txt" [1.00067, 0, 0, 1.00383, 39, 92]
+root f6 place d226 char 395 "shotStatus2_mc" [1, 0, 0, 1, 16.2, 30.3]
+root f6 place d232 char 395 "shotStatus3_mc" [1, 0, 0, 1, 16.2, 50.25]
+root f6 place d238 char 395 "shotStatus4_mc" [1, 0, 0, 1, 16.2, 70.2]
+root f6 place d244 char 395 "shotStatus5_mc" [1, 0, 0, 1, 16.2, 90.15]
+root f6 place d250 char 501 "muteMC" [1, 0, 0, 1, 571.85, 371.75]
+root f6 place d255 char 434 "musicBtn" [0.60527, 0, 0, 0.60527, 571.65, 371.4]
+root f6 place d259 char 198 "chalkboard_mc" [1, 0, 0, 1, 0, 0]
+root f6 place d278 char 194 [0.446594, 0, 0, 1.05304, 72.85, 92.35]
+root f6 place d279 char 502 [1, 0, 0, 1, 86.4, 63.4]
+root f6 place d280 char 412 [0.419708, 0, 0, 0.418823, 93.9, 277.95]
+root f6 place d283 char 379 [0.339996, 0, 0, 0.339996, 231.65, 289.75]
+root f6 place d284 char 215 [0.340332, 0, 0, 0.340317, 174.15, 281.45]
+root f6 place d287 char 219 [0.340332, 0, 0, 0.340317, 176.25, 281.55]
+root f6 place d289 char 294 [0, 1.09239, -1.09239, 0, 163.25, 303.85]
+root f6 place d291 char 503 [1, 0, 0, 1, 331, 306]
+root f6 place d294 char 462 [1, 0, 0, 1, 348.85, 289.05]
+root f6 place d301 char 382 [0.353638, 0, 0, 0.353638, 273.9, 289.85]
+root f6 place d306 char 387 [0.353638, 0, 0, 0.353638, 273.9, 289.85]
+root f6 place d307 char 259 "gameOver_mc" [1.00009, 0, 0, 0.999832, 134.95, 79.45]
+root f6 place d325 char 504 [1, 0, 0, 1, 509.8, 418.6]
+root f7 remove d278
+root f7 remove d279
+root f7 remove d280
+root f7 remove d281
+root f7 remove d283
+root f7 remove d284
+root f7 remove d287
+root f7 remove d289
+root f7 remove d291
+root f7 remove d294
+root f7 remove d301
+root f7 remove d306
+root f7 script
+root f7 place d257 char 505 [1, 0, 0, 1, 567.55, 413]
+sprite 2 f1 place d1 char 1 [1, 0, 0, 1, 0, 0]
+sprite 9 f1 place d19 char 5 [1, 0, 0, 1, 0, 0]
+sprite 9 f1 place d20 char 6 [1, 0, 0, 1, 0, 0]
+sprite 9 f2 place d20 char 7 move
+sprite 9 f3 remove d20
+sprite 9 f3 place d21 char 8 [1, 0, 0, 1, 0, 0]
+sprite 14 f1 place d1 char 10 [1, 0, 0, 1, 0, 0]
+sprite 14 f2 place d1 char 11 move
+sprite 14 f3 place d1 char 12 move
+sprite 14 f4 place d1 char 13 move
+sprite 21 f1 place d1 char 20 [1, 0, 0, 1, 0, 0]
+sprite 42 f1 place d1 char 41 [1, 0, 0, 1, 0, 0]
+sprite 45 f1 place d1 char 44 [1, 0, 0, 1, 0, 0]
+sprite 51 f1 place d1 char 46 [1, 0, 0, 1, 0, 0]
+sprite 51 f1 sound 47
+sprite 51 f2 place d1 char 48 move
+sprite 51 f3 place d1 char 49 move
+sprite 51 f4 script
+sprite 51 f4 place d1 char 50 move
+sprite 51 f5 remove d1
+sprite 52 f1 script
+sprite 52 f1 label stand
+sprite 52 f1 place d1 char 21 [0.645233, 0, 0, 1, 3.25, 31.8]
+sprite 52 f1 place d3 char 29 [1, 0, 0, 1, -11.75, -14.05]
+sprite 52 f1 place d4 char 30 [1, 0, 0, 1, 0, 0]
+sprite 52 f1 place d5 char 31 [1, 0, 0, 1, 0, 0]
+sprite 52 f2 label jump
+sprite 52 f6 place d5 char 32 move
+sprite 52 f7 place d5 char 33 move
+sprite 52 f9 remove d4
+sprite 52 f9 place d5 char 34 move
+sprite 52 f10 place d4 char 35 [1, 0, 0, 1, 0, 0]
+sprite 52 f10 place d5 char 36 move
+sprite 52 f12 place d5 char 37 move
+sprite 52 f13 place d5 char 38 move
+sprite 52 f20 remove d4
+sprite 52 f20 remove d5
+sprite 52 f20 place d3 char 39 [1, 0, 0, 1, -14.15, -6.85] move
+sprite 52 f21 place d1 [0.787842, 0, 0, 1.12987, 3.25, 31.8] move
+sprite 52 f21 place d3 char 40 [1, 0, 0, 1, -18.5, -5.45] move
+sprite 52 f23 remove d3
+sprite 52 f23 script
+sprite 52 f23 place d1 [0.572754, 0, 0, 1, 3.25, 31.8] move
+sprite 52 f23 place d3 char 42 [1, 0, 0, 1, -7.55, -37.65]
+sprite 52 f24 place d1 [0.355499, 0, 0, 0.805191, 3.25, 31.8] move
+sprite 52 f24 place d3 [1, 0, 0, 1, -8.05, -63.3] move
+sprite 52 f25 remove d1
+sprite 52 f25 place d3 [1, 0, 0, 1, -8.55, -88.9] move
+sprite 52 f26 place d3 [1, 0, 0, 1, -9.05, -114.55] move
+sprite 52 f27 remove d3
+sprite 52 f27 place d1 char 43 [1, 0, 0, 1, 0, 0]
+sprite 52 f28 remove d1
+sprite 52 f28 script
+sprite 52 f28 place d1 char 45 "core" [1.71666, 0, 0, 1.71666, -11.8, -7.55]
+sprite 52 f28 place d3 char 51 [1, 0, 0, 1, -0.1, 5.55]
+sprite 52 f35 label testFrame
+sprite 52 f36 remove d1
+sprite 52 f36 remove d3
+sprite 52 f36 script
+sprite 53 f1 script
+sprite 53 f1 place d1 char 21 [0.645233, 0, 0, 1, 44.65, 70.55]
+sprite 53 f1 place d3 char 22 [1, 0, 0, 1, 26.6, 21.45]
+sprite 53 f2 place d1 [0.645233, 0, 0, 1, 49.65, 70.55] move
+sprite 53 f2 place d3 char 23 [1, 0, 0, 1, 34.65, 21.7] move
+sprite 53 f3 place d1 [0.645233, 0, 0, 1, 59.65, 70.55] move
+sprite 53 f3 place d3 char 24 [1, 0, 0, 1, 42.15, 21.4] move
+sprite 53 f4 place d1 [0.645233, 0, 0, 1, 68.4, 70.55] move
+sprite 53 f4 place d3 char 25 [1, 0, 0, 1, 50.65, 21.4] move
+sprite 53 f5 place d1 [0.645233, 0, 0, 1, 73.15, 70.55] move
+sprite 53 f5 place d3 char 26 [1, 0, 0, 1, 55.9, 23.45] move
+sprite 53 f6 place d1 [0.645233, 0, 0, 1, 81.4, 70.3] move
+sprite 53 f6 place d3 char 27 [1, 0, 0, 1, 64.9, 24.25] move
+sprite 53 f7 place d1 [0.645233, 0, 0, 1, 89.9, 70.05] move
+sprite 53 f7 place d3 char 28 [1, 0, 0, 1, 73.65, 21.4] move
+sprite 53 f8 place d1 [0.645233, 0, 0, 1, 95.4, 69.8] move
+sprite 53 f8 place d3 char 23 [1, 0, 0, 1, 79.85, 21.7] move
+sprite 53 f9 place d1 [0.645233, 0, 0, 1, 105.4, 69.55] move
+sprite 53 f9 place d3 char 24 [1, 0, 0, 1, 87.15, 21.4] move
+sprite 53 f10 place d1 [0.645233, 0, 0, 1, 112.4, 69.3] move
+sprite 53 f10 place d3 char 25 [1, 0, 0, 1, 95.65, 21.4] move
+sprite 53 f11 place d1 [0.645233, 0, 0, 1, 117.65, 69.05] move
+sprite 53 f11 place d3 char 26 [1, 0, 0, 1, 100.9, 23.45] move
+sprite 53 f12 place d1 [0.645233, 0, 0, 1, 125.4, 68.8] move
+sprite 53 f12 place d3 char 27 [1, 0, 0, 1, 109.9, 24.25] move
+sprite 53 f13 place d1 [0.645233, 0, 0, 1, 127.9, 67.8] move
+sprite 53 f13 place d3 char 28 [1, 0, 0, 1, 111.45, 21.4] move
+sprite 53 f15 remove d1
+sprite 53 f15 remove d3
+sprite 53 f15 script
+sprite 53 f15 place d1 char 52 "hamster" [1.0007, 0, 0, 1, 125, 35.2]
+sprite 53 f20 remove d1
+sprite 53 f20 label walkUp
+sprite 53 f20 place d1 char 22 [1, 0, 0, 1, 26.6, 21.45]
+sprite 53 f22 place d1 char 24 [1, 0, 0, 1, 31.35, 21.4] move
+sprite 53 f24 place d1 char 26 [1, 0, 0, 1, 33.5, 23.45] move
+sprite 53 f26 script
+sprite 53 f26 place d1 char 22 [1, 0, 0, 1, 34, 21.45] move
+sprite 54 f1 script
+sprite 54 f15 script
+sprite 71 f1 place d1 char 55 [1, 0, 0, 1, 0, 0]
+sprite 71 f2 place d1 char 56 move
+sprite 71 f3 place d1 char 57 move
+sprite 71 f4 place d1 char 58 move
+sprite 71 f5 place d1 char 59 move
+sprite 71 f6 place d1 char 60 move
+sprite 71 f7 place d1 char 61 move
+sprite 71 f8 place d1 char 62 move
+sprite 71 f9 place d1 char 63 move
+sprite 71 f10 place d1 char 64 move
+sprite 71 f11 place d1 char 65 move
+sprite 71 f12 place d1 char 66 move
+sprite 71 f13 place d1 char 67 move
+sprite 71 f14 place d1 char 68 move
+sprite 71 f15 place d1 char 69 move
+sprite 71 f16 place d1 char 70 move
+sprite 74 f1 place d1 char 73 [1, 0, 0, 1, 0, 0]
+sprite 77 f1 place d1 char 76 [1, 0, 0, 1, 0, 0]
+sprite 80 f1 place d1 char 79 [1, 0, 0, 1, 0, 0]
+sprite 81 f1 script
+sprite 84 f1 place d1 char 83 [1, 0, 0, 1, 0, 0]
+sprite 87 f1 place d82 char 86 [1, 0, 0, 1, 0, 0]
+sprite 88 f1 place d3 char 85 [1, 0, 0, 1, 0, 0]
+sprite 90 f1 place d1 char 89 [1, 0, 0, 1, 0, 0]
+sprite 98 f1 place d1 char 97 [1, 0, 0, 1, 0, 0]
+sprite 109 f1 place d2 char 108 [1, 0, 0, 1, 0, 0]
+sprite 111 f1 place d2 char 103 [0.929062, -0.366882, 0.366882, 0.929062, -61.7, -4.4]
+sprite 111 f1 place d3 char 104 [0.805817, -0.587097, 0.587097, 0.805817, 37.9, -30.55]
+sprite 111 f1 place d4 char 61 [1, 0, 0, 1, 40.85, 10.1]
+sprite 111 f1 place d5 char 105 [0.968201, -0.246811, 0.246811, 0.968201, 15.75, 35.05]
+sprite 111 f1 place d6 char 61 [1, 0, 0, 1, -34.95, 22.45]
+sprite 111 f1 place d7 char 106 [0.889603, -0.449722, 0.449722, 0.889603, 33.2, -29.9]
+sprite 111 f1 place d8 char 107 [0.996399, -0.0167542, 0.0167542, 0.996399, 69.25, -18.2]
+sprite 111 f1 place d9 char 109 [0.967575, -0.247025, 0.247025, 0.967575, 56.55, -21.5]
+sprite 111 f1 place d13 char 110 [0.972382, -0.215912, 0.215912, 0.972382, 61.85, -35.4]
+sprite 111 f1 place d14 char 58 [1, 0, 0, 1, 27.65, 13.9]
+sprite 111 f2 remove d4
+sprite 111 f2 place d1 char 59 [1, 0, 0, 1, -27.55, 16.2]
+sprite 111 f2 place d2 [0.988358, -0.139236, 0.139236, 0.988358, -61.7, -4.4] move
+sprite 111 f2 place d6 char 62 move
+sprite 111 f2 place d14 char 59 move
+sprite 111 f3 place d1 char 60 move
+sprite 111 f3 place d2 [0.997696, 0.00915527, -0.00915527, 0.997696, -61.7, -4.4] move
+sprite 111 f3 place d6 char 58 [0.46225, -0.885239, 0.885239, 0.46225, -34.95, 22.45] move
+sprite 111 f3 place d14 char 60 move
+sprite 111 f4 place d1 char 61 move
+sprite 111 f4 place d2 [0.87767, 0.473541, -0.473541, 0.87767, -61.7, -4.4] move
+sprite 111 f4 place d4 char 58 [1, 0, 0, 1, 40.85, 10.1]
+sprite 111 f4 place d6 [1, 0, 0, 1, -34.95, 22.45] move
+sprite 111 f4 place d14 char 61 move
+sprite 111 f5 remove d1
+sprite 111 f5 place d2 [0.946289, 0.312973, -0.312973, 0.946289, -61.7, -4.4] move
+sprite 111 f5 place d4 char 59 move
+sprite 111 f5 place d6 char 59 move
+sprite 111 f5 place d14 char 62 move
+sprite 111 f6 place d2 [0.988892, -0.116577, 0.116577, 0.988892, -61.7, -4.4] move
+sprite 111 f6 place d4 char 60 move
+sprite 111 f6 place d6 char 60 move
+sprite 111 f6 place d14 char 58 [0.46225, -0.885239, 0.885239, 0.46225, 27.65, 13.9] move
+sprite 114 f1 script
+sprite 114 f1 place d1 char 100 [1, 0, 0, 1, 0, 0]
+sprite 114 f1 place d2 char 101 [1, 0, 0, 1, 0, 0]
+sprite 114 f1 place d3 char 102 [1, 0, 0, 1, 0, 0]
+sprite 114 f1 place d4 char 61 [-0.452835, 0, 0, 0.452835, 53.2, 70.45]
+sprite 114 f1 place d5 char 103 [-0.420715, -0.166138, -0.166138, 0.420715, 69.65, 59.85]
+sprite 114 f1 place d6 char 104 [-0.364899, -0.265854, -0.265854, 0.364899, 24.55, 48]
+sprite 114 f1 place d7 char 59 [-0.452835, 0, 0, 0.452835, 23.2, 66.4]
+sprite 114 f1 place d8 char 105 [-0.438431, -0.111771, -0.111771, 0.438431, 34.55, 77.7]
+sprite 114 f1 place d9 char 61 [-0.452835, 0, 0, 0.452835, 57.55, 72]
+sprite 114 f1 place d10 char 106 [-0.402847, -0.203644, -0.203644, 0.402847, 26.65, 48.3]
+sprite 114 f1 place d11 char 107 [-0.451202, -0.00758362, -0.00758362, 0.451202, 10.35, 53.6]
+sprite 114 f1 place d12 char 109 [-0.438156, -0.111862, -0.111862, 0.438156, 16.1, 52.1]
+sprite 114 f1 place d16 char 110 [-0.440323, -0.0977783, -0.0977783, 0.440323, 13.7, 45.8]
+sprite 114 f1 place d17 char 59 [-0.452835, 0, 0, 0.452835, 29.2, 68.15]
+sprite 114 f2 remove d4
+sprite 114 f2 remove d5
+sprite 114 f2 remove d6
+sprite 114 f2 remove d7
+sprite 114 f2 remove d8
+sprite 114 f2 remove d9
+sprite 114 f2 remove d10
+sprite 114 f2 remove d11
+sprite 114 f2 remove d12
+sprite 114 f2 remove d16
+sprite 114 f2 remove d17
+sprite 114 f2 place d4 char 111 [-0.449783, 0, 0, 0.449783, 41.45, 61.65]
+sprite 114 f3 place d2 char 112 move
+sprite 114 f4 place d2 char 113 move
+sprite 114 f5 place d2 char 101 move
+sprite 114 f6 place d2 char 112 move
+sprite 114 f7 place d2 char 113 move
+sprite 114 f8 place d2 char 101 move
+sprite 114 f9 place d2 char 112 move
+sprite 114 f10 place d2 char 113 move
+sprite 114 f12 place d2 char 101 move
+sprite 114 f14 place d2 char 112 move
+sprite 114 f15 place d2 char 113 move
+sprite 114 f16 place d2 char 101 move
+sprite 114 f17 place d2 char 112 move
+sprite 114 f18 place d2 char 113 move
+sprite 114 f19 place d2 char 101 move
+sprite 114 f20 place d2 char 112 move
+sprite 114 f21 place d2 char 113 move
+sprite 114 f23 place d2 char 101 move
+sprite 114 f25 place d2 char 112 move
+sprite 114 f26 place d2 char 113 move
+sprite 114 f27 place d2 char 101 move
+sprite 114 f28 place d2 char 112 move
+sprite 114 f29 place d2 char 113 move
+sprite 114 f30 place d2 char 101 move
+sprite 114 f31 place d2 char 112 move
+sprite 114 f32 place d2 char 113 move
+sprite 114 f33 script
+sprite 116 f1 script
+sprite 116 f1 place d1 char 100 [1, 0, 0, 1, 0, 0]
+sprite 116 f1 place d2 char 113 [1, 0, 0, 1, 0, 0]
+sprite 116 f1 place d3 char 102 [1, 0, 0, 1, 0, 0]
+sprite 116 f1 place d4 char 61 [0.452835, 0, 0, 0.452835, 34.2, 70.95]
+sprite 116 f1 place d5 char 103 [0.420715, -0.166138, 0.166138, 0.420715, 17.75, 60.35]
+sprite 116 f1 place d6 char 104 [0.364899, -0.265854, 0.265854, 0.364899, 62.85, 48.5]
+sprite 116 f1 place d7 char 59 [0.452835, 0, 0, 0.452835, 64.2, 66.9]
+sprite 116 f1 place d8 char 105 [0.438431, -0.111771, 0.111771, 0.438431, 52.85, 78.2]
+sprite 116 f1 place d9 char 61 [0.452835, 0, 0, 0.452835, 29.85, 72.5]
+sprite 116 f1 place d10 char 106 [0.402847, -0.203644, 0.203644, 0.402847, 60.75, 48.8]
+sprite 116 f1 place d11 char 107 [0.451202, -0.00758362, 0.00758362, 0.451202, 77.05, 54.1]
+sprite 116 f1 place d12 char 109 [0.438156, -0.111862, 0.111862, 0.438156, 71.3, 52.6]
+sprite 116 f1 place d16 char 110 [0.440323, -0.0977783, 0.0977783, 0.440323, 73.7, 46.3]
+sprite 116 f1 place d17 char 59 [0.452835, 0, 0, 0.452835, 58.2, 68.65]
+sprite 116 f2 remove d4
+sprite 116 f2 remove d5
+sprite 116 f2 remove d6
+sprite 116 f2 remove d7
+sprite 116 f2 remove d8
+sprite 116 f2 remove d9
+sprite 116 f2 remove d10
+sprite 116 f2 remove d11
+sprite 116 f2 remove d12
+sprite 116 f2 remove d16
+sprite 116 f2 remove d17
+sprite 116 f2 place d4 char 111 [0.449783, 0, 0, 0.449783, 45.95, 62.15]
+sprite 116 f2 sound 115
+sprite 116 f4 place d2 char 112 move
+sprite 116 f5 place d2 char 101 move
+sprite 116 f6 place d2 char 113 move
+sprite 116 f7 place d2 char 112 move
+sprite 116 f8 place d2 char 101 move
+sprite 116 f9 place d2 char 113 move
+sprite 116 f10 place d2 char 112 move
+sprite 116 f11 place d2 char 101 move
+sprite 116 f13 place d2 char 112 move
+sprite 116 f14 place d2 char 101 move
+sprite 116 f15 place d2 char 113 move
+sprite 116 f16 place d2 char 112 move
+sprite 116 f17 place d2 char 101 move
+sprite 116 f18 place d2 char 113 move
+sprite 116 f19 place d2 char 112 move
+sprite 116 f20 place d2 char 101 move
+sprite 116 f22 place d2 char 112 move
+sprite 116 f23 place d2 char 101 move
+sprite 116 f24 place d2 char 113 move
+sprite 116 f25 place d2 char 112 move
+sprite 116 f26 place d2 char 101 move
+sprite 116 f27 place d2 char 113 move
+sprite 116 f28 place d2 char 112 move
+sprite 116 f29 place d2 char 101 move
+sprite 116 f30 script
+sprite 145 f1 script
+sprite 145 f1 label jump
+sprite 145 f1 place d1 char 82 [0.144348, 0, 0, 3.11923, 161.75, 129.9]
+sprite 145 f1 place d8 char 88 "spaceBG" [1.00008, 0, 0, 0.999878, 0.2, 500.35]
+sprite 145 f1 place d96 char 90 [0.999924, 0, 0, 1.00012, 79.85, 54.3]
+sprite 145 f1 place d98 char 91 [0.999924, 0, 0, 1.00012, 336.25, 273.75]
+sprite 145 f1 place d99 char 92 [0.999924, 0, 0, 1.00012, 375.3, 284.95]
+sprite 145 f1 place d100 char 91 [0.999924, 0, 0, 1.00012, 56.35, 277.45]
+sprite 145 f1 place d102 char 93 [0.242981, 0, 0, 0.242981, 45.3, 123.65]
+sprite 145 f1 place d104 char 94 [1, 0, 0, 1, 0, 0]
+sprite 145 f1 place d107 char 95 [1, 0, 0, 1, 0, 0]
+sprite 145 f1 place d115 char 96 [1, 0, 0, 1, 0, 0]
+sprite 145 f1 place d144 char 99 [1, 0, 0, 1, 0, 0]
+sprite 145 f1 place d145 char 114 "hamsterWheel1" [0.616074, 0, 0, 0.638702, 84.35, 250.75]
+sprite 145 f1 place d165 char 116 "hamsterWheel2" [0.63768, 0, 0, 0.63768, 159.75, 252.6]
+sprite 145 f4 remove d115
+sprite 145 f4 script
+sprite 145 f4 place d104 char 117 move
+sprite 145 f4 place d108 char 118 [1, 0, 0, 1, 0, 0]
+sprite 145 f4 place d110 char 119 [1, 0, 0, 1, 0, 0]
+sprite 145 f4 place d116 char 120 [1, 0, 0, 1, 0, 0]
+sprite 145 f4 place d144 char 121 move
+sprite 145 f5 remove d104
+sprite 145 f5 remove d107
+sprite 145 f5 remove d110
+sprite 145 f5 script
+sprite 145 f5 label launch
+sprite 145 f5 place d101 char 122 [1, 0, 0, 1, 0, 0]
+sprite 145 f5 place d102 char 123 [1, 0, 0, 1, 0, 0] move
+sprite 145 f5 place d111 char 124 [1, 0, 0, 1, 0, 0]
+sprite 145 f5 place d117 char 125 [1, 0, 0, 1, 85.55, -1.65]
+sprite 145 f6 place d117 [1, 0, 0, 1, 71.6, 0.6] move
+sprite 145 f7 script
+sprite 145 f7 place d117 [1, 0, 0, 1, 57.65, 2.85] move
+sprite 145 f10 label miss
+sprite 145 f10 place d117 [1, 0, 0, 1, 112.7, 5.4] move
+sprite 145 f11 place d117 [1, 0, 0, 1, 114.2, 5.4] move
+sprite 145 f12 place d117 [1, 0, 0, 1, 115.1, 5.4] move
+sprite 145 f13 place d117 char 126 [0.0433502, 0.998016, -0.998016, 0.0433502, 181.55, 146.2] move
+sprite 145 f14 place d117 [0.0433502, 0.998016, -0.998016, 0.0433502, 182.45, 146.2] move
+sprite 145 f15 place d117 [0.0433502, 0.998016, -0.998016, 0.0433502, 183.35, 146.2] move
+sprite 145 f16 place d117 [0.0433502, 0.998016, -0.998016, 0.0433502, 182.15, 146.2] move
+sprite 145 f17 place d117 [0.0433502, 0.998016, -0.998016, 0.0433502, 179.75, 146.2] move
+sprite 145 f18 place d117 char 125 [1, 0, 0, 1, 95.9, 5.4] move
+sprite 145 f19 place d117 [1, 0, 0, 1, 57.25, 2.1] move
+sprite 145 f20 remove d102
+sprite 145 f20 remove d111
+sprite 145 f20 remove d117
+sprite 145 f20 place d103 char 127 [1, 0, 0, 1, 0, 0]
+sprite 145 f20 place d104 char 125 [1, 0, 0, 1, 22.8, 0.3]
+sprite 145 f20 place d110 char 128 [1, 0, 0, 1, 0, 0]
+sprite 145 f21 place d104 [1, 0, 0, 1, 3.9, 0] move
+sprite 145 f21 place d110 char 129 move
+sprite 145 f22 place d101 char 130 move
+sprite 145 f22 place d104 [1, 0, 0, 1, -0.3, 0] move
+sprite 145 f22 place d110 char 131 move
+sprite 145 f22 sound 132
+sprite 145 f23 place d101 char 133 move
+sprite 145 f23 place d104 [1, 0, 0, 1, -1.5, 0] move
+sprite 145 f23 place d110 char 134 move
+sprite 145 f24 place d101 char 135 move
+sprite 145 f24 place d104 [1, 0, 0, 1, -2.7, 0] move
+sprite 145 f24 place d110 char 136 move
+sprite 145 f25 place d101 char 137 move
+sprite 145 f25 place d104 [1, 0, 0, 1, -1.5, 0] move
+sprite 145 f25 place d110 char 138 move
+sprite 145 f26 place d101 char 139 move
+sprite 145 f26 place d104 [1, 0, 0, 1, 0, 0] move
+sprite 145 f26 place d110 char 140 move
+sprite 145 f46 place d101 char 141 move
+sprite 145 f47 place d101 char 142 move
+sprite 145 f48 place d101 char 143 move
+sprite 145 f49 script
+sprite 145 f49 place d101 char 144 move
+sprite 149 f1 place d12 char 146 [1, 0, 0, 1, -50.5, -43.35]
+sprite 149 f2 place d12 char 147 [1, 0, 0, 1, -76.9, -58.75] move
+sprite 149 f3 place d12 char 148 [1, 0, 0, 1, -93.05, -70] move
+sprite 149 f4 remove d12
+sprite 149 f4 script
+sprite 153 f1 place d12 char 150 [1, 0, 0, 1, 0, 0]
+sprite 153 f2 place d12 char 151 move
+sprite 153 f3 place d12 char 152 move
+sprite 153 f4 remove d12
+sprite 153 f4 script
+sprite 161 f1 script
+sprite 161 f1 place d1 char 158 [1, 0, 0, 1, 7.1, 2.8]
+sprite 161 f3 place d1 char 159 [1, 0, 0, 1, 5.6, 1.35] move
+sprite 161 f5 place d1 char 160 [1, 0, 0, 1, 4.5, 1.2] move
+sprite 161 f7 place d1 char 158 [1, 0, 0, 1, 7.1, 2.8] move
+sprite 161 f9 place d1 char 159 [1, 0, 0, 1, 5.6, 1.35] move
+sprite 161 f11 place d1 char 160 [1, 0, 0, 1, 4.5, 1.2] move
+sprite 161 f12 script
+sprite 165 f1 place d1 char 164 [1, 0, 0, 1, 0, 0]
+sprite 177 f1 script
+sprite 177 f1 place d1 char 166 [1, 0, 0, 1, 0, 0]
+sprite 177 f2 place d1 char 167 move
+sprite 177 f3 place d1 char 168 move
+sprite 177 f4 place d1 char 169 move
+sprite 177 f5 place d1 char 170 move
+sprite 177 f6 place d1 char 171 move
+sprite 177 f7 place d1 char 172 move
+sprite 177 f8 place d1 char 173 move
+sprite 177 f9 place d1 char 174 move
+sprite 177 f10 place d1 char 175 move
+sprite 177 f11 script
+sprite 177 f11 place d1 char 176 move
+sprite 181 f1 place d1 char 178 [1, 0, 0, 1, 0, 0]
+sprite 181 f2 place d1 char 179 move
+sprite 181 f3 place d1 char 180 move
+sprite 181 f4 remove d1
+sprite 181 f4 script
+sprite 183 f1 place d1 char 182 [1, 0, 0, 1, 0, 0]
+sprite 184 f1 place d1 char 91 [1, 0, 0, 1, 0, 0]
+sprite 185 f1 place d1 char 92 [1, 0, 0, 1, 0, 0]
+sprite 186 f1 place d1 char 184 [1, 0, 0, 1, -0.05, 0]
+sprite 186 f1 place d3 char 185 [1, 0, 0, 1, 23.75, 8.35]
+sprite 187 f1 place d1 char 184 [1, 0, 0, 1, -0.05, 0]
+sprite 187 f1 place d3 char 185 [1, 0, 0, 1, -57.6, 10.35]
+sprite 188 f1 place d1 char 185 [1, 0, 0, 1, 0, 0]
+sprite 188 f1 place d3 char 185 [0.501083, 0, 0, 0.498138, 37.05, -2.95]
+sprite 193 f1 place d1 char 192 [1, 0, 0, 1, 0, 0]
+sprite 198 f1 place d2 char 195 [1, 0, 0, 1, 0, 0]
+sprite 198 f1 place d3 char 196 [0, -0.995056, -0.995056, 0, 550.85, 109]
+sprite 198 f1 place d4 char 196 [0, -0.995056, -0.995056, 0, 552.35, 299.6]
+sprite 198 f1 place d5 char 196 [0, -0.995056, -0.995056, 0, 51, 103.6]
+sprite 198 f1 place d6 char 196 [0.995056, 0, 0, 0.995056, 110, 41.15]
+sprite 198 f1 place d7 char 196 [0.995056, 0, 0, 0.995056, 299.2, 42.5]
+sprite 198 f1 place d8 char 196 [0.995056, 0, 0, 0.995056, 487.65, 43.2]
+sprite 198 f1 place d9 char 196 [0, -0.995056, -0.995056, 0, 52.45, 294]
+sprite 198 f1 place d10 char 196 [0.995056, 0, 0, 0.995056, 116.05, 359.2]
+sprite 198 f1 place d11 char 197 [1.05731, 0, 0, 1.05731, 192.9, 32.9]
+sprite 198 f1 place d12 char 197 [1.05731, 0, 0, 1.05731, 380.4, 31.35]
+sprite 198 f1 place d13 char 197 [0.0149536, 1.05711, -1.05711, 0.0149536, 64.85, 191.5]
+sprite 198 f1 place d14 char 197 [0.0149536, 1.05711, -1.05711, 0.0149536, 561.9, 197.95]
+sprite 198 f1 place d15 char 196 [0.995056, 0, 0, 0.995056, 303, 360.3]
+sprite 198 f1 place d16 char 197 [1.05731, 0, 0, 1.05731, 196.85, 349.5]
+sprite 198 f1 place d17 char 196 [0.995056, 0, 0, 0.995056, 491.5, 361.25]
+sprite 198 f1 place d18 char 197 [1.05731, 0, 0, 1.05731, 384.35, 347.95]
+sprite 201 f1 place d1 char 200 [1, 0, 0, 1, 0, 0]
+sprite 203 f1 place d1 char 202 [1, 0, 0, 1, 0, 0]
+sprite 205 f1 place d1 char 204 [1, 0, 0, 1, 0, 0]
+sprite 208 f1 place d1 char 207 [1, 0, 0, 1, 0, 0]
+sprite 209 f1 place d1 char 208 [1, 0, 0, 1, 7, 0]
+sprite 209 f2 place d1 [1, 0, 0, 1, 7.1, 0] move
+sprite 209 f3 place d1 [1, 0, 0, 1, 7.2, 0] move
+sprite 209 f4 place d1 [1, 0, 0, 1, 7.3, 0] move
+sprite 209 f5 place d1 [1, 0, 0, 1, 7.4, 0] move
+sprite 209 f6 place d1 [1, 0, 0, 1, 7.5, -0.05] move
+sprite 209 f7 place d1 [1, 0, 0, 1, 7.6, -0.05] move
+sprite 209 f8 place d1 [1, 0, 0, 1, 7.7, -0.05] move
+sprite 209 f9 place d1 [1, 0, 0, 1, 7.8, -0.05] move
+sprite 209 f10 place d1 [1, 0, 0, 1, 7.9, -0.05] move
+sprite 209 f11 script
+sprite 209 f11 place d1 [1, 0, 0, 1, 8, -0.05] move
+sprite 213 f1 script
+sprite 213 f1 place d1 char 210 [0.20253, 0, 0, 0.113388, -21.55, -6.85]
+sprite 213 f6 place d1 [1, 0, 0, 0.155914, 0, 54.4] move
+sprite 213 f13 place d1 [1, 0, 0, 0.318924, 0, 43.9] move
+sprite 213 f20 place d1 [1, 0, 0, 0.501419, 0, 32.15] move
+sprite 213 f27 place d1 [1, 0, 0, 0.649536, 0, 22.55] move
+sprite 213 f34 place d1 [1, 0, 0, 0.831329, 0, 10.9] move
+sprite 213 f42 place d1 [1, 0, 0, 1, 0, 0] move
+sprite 213 f50 place d1 char 211 move
+sprite 213 f60 place d1 char 212 move
+sprite 213 f62 script
+sprite 215 f1 place d2 char 214 [1, 0, 0, 1, 0, 0]
+sprite 217 f1 place d1 char 216 [1, 0, 0, 1, 0, 0]
+sprite 219 f1 place d1 char 218 [1, 0, 0, 1, 0, 0]
+sprite 220 f1 place d1 char 215 [1, 0, 0, 1, 12.2, 1.25]
+sprite 220 f1 place d4 char 219 [1, 0, 0, 1, 18.4, 1.65]
+sprite 220 f2 remove d4
+sprite 220 f2 place d1 [1, 0, 0, 1, 12.2, 2.5] move
+sprite 220 f2 place d4 char 217 [1, 0, 0, 1, 30.5, 1.3]
+sprite 220 f3 remove d4
+sprite 220 f3 place d1 [1, 0, 0, 1, 12.2, 3.75] move
+sprite 220 f3 place d4 char 219 [1, 0, 0, 1, 18.4, 1.65]
+sprite 220 f4 remove d4
+sprite 220 f4 place d1 [1, 0, 0, 1, 12.2, 5] move
+sprite 220 f4 place d4 char 217 [1, 0, 0, 1, 30.5, 1.3]
+sprite 220 f5 remove d4
+sprite 220 f5 place d1 [1, 0, 0, 0.999451, 12.2, 6.3] move
+sprite 220 f5 place d4 char 219 [1, 0, 0, 1, 18.4, 1.65]
+sprite 220 f6 remove d4
+sprite 220 f6 place d1 [1, 0, 0, 0.999451, 12.2, 5.2] move
+sprite 220 f6 place d4 char 217 [1, 0, 0, 1, 30.5, 1.3]
+sprite 220 f7 remove d4
+sprite 220 f7 place d1 [1, 0, 0, 0.999451, 12.2, 4.1] move
+sprite 220 f7 place d4 char 219 [1, 0, 0, 1, 18.4, 1.65]
+sprite 220 f8 remove d4
+sprite 220 f8 place d1 [1, 0, 0, 0.999451, 12.2, 3] move
+sprite 220 f8 place d4 char 217 [1, 0, 0, 1, 30.5, 1.3]
+sprite 228 f1 place d1 char 221 [1, 0, 0, 1, 0, 0]
+sprite 228 f2 place d1 char 222 move
+sprite 228 f3 place d1 char 223 move
+sprite 228 f4 place d1 char 224 move
+sprite 228 f5 place d1 char 225 move
+sprite 228 f6 place d1 char 226 move
+sprite 228 f7 place d1 char 227 move
+sprite 232 f1 place d1 char 230 [1, 0, 0, 1, 0, 0]
+sprite 232 f2 place d1 char 231 move
+sprite 232 f3 remove d1
+sprite 234 f1 place d1 char 233 [1, 0, 0, 1, 0, 0]
+sprite 235 f1 script
+sprite 235 f1 place d1 char 19 "bg_mc" [1, 0, 0, 1, 0, 0]
+sprite 235 f1 place d3 char 52 "hamster" [1.0007, 0, 0, 1, 148, 956]
+sprite 235 f1 place d9 char 53 "hWalkOut5" [1, 0, 0, 1, -22, 920.8]
+sprite 235 f1 place d13 char 53 "hWalkOut4" [1, 0, 0, 1, -2.5, 920.8]
+sprite 235 f1 place d17 char 53 "hWalkOut3" [1, 0, 0, 1, 8, 920.8]
+sprite 235 f1 place d21 char 53 "hWalkOut2" [1, 0, 0, 1, 23, 920.8]
+sprite 235 f1 place d25 char 234 "pillow" [1.0007, 0, 0, 1, 117.3, 740.9]
+sprite 235 f1 place d27 char 19 "opp_mc" [1, 0, 0, 1, 0, 0]
+sprite 235 f1 place d29 char 19 "line" [1, 0, 0, 1, 0, 0]
+sprite 251 f1 label dancing
+sprite 251 f1 place d1 char 103 [1, 0, 0, 1, -64.55, -9.2]
+sprite 251 f1 place d2 char 242 [0.980042, 0.197235, -0.195557, 0.988434, 36.6, -121.75]
+sprite 251 f1 place d3 char 243 [1, 0, 0, 1, -14.05, 24]
+sprite 251 f1 place d4 char 221 [0.993103, 0.114014, -0.114014, 0.993103, -46.85, 13.9]
+sprite 251 f1 place d5 char 221 [-0.990921, 0.13118, 0.13118, 0.990921, -15.15, 16.35]
+sprite 251 f1 place d6 char 244 [0.694336, 0.722549, -0.716415, 0.700287, 3, -133.85]
+sprite 251 f1 place d7 char 245 [0.785324, 0.616074, -0.616074, 0.785324, 15.65, -92.5]
+sprite 251 f1 place d9 char 109 [-1, 0, 0, 1, 37.9, -92.55]
+sprite 251 f1 place d12 char 109 [0.814362, 0.577682, -0.577682, 0.814362, 0.7, -107.8]
+sprite 251 f1 place d16 char 246 [0.785324, 0.616074, -0.616074, 0.785324, 24.75, -110.35]
+sprite 251 f1 place d17 char 55 [0.941284, 0.334549, -0.334549, 0.941284, -31.55, -86.35]
+sprite 251 f1 place d18 char 55 [-1, 0, 0, 1, 33.95, -66.4]
+sprite 251 f4 place d1 [1, 0, 0, 1, -52.55, -7.25] move
+sprite 251 f4 place d2 [0.998199, 0.0196686, -0.0165253, 1.00613, 26.8, -127.45] move
+sprite 251 f4 place d3 char 247 move
+sprite 251 f4 place d4 char 224 [0.998688, -0.0304108, 0.0304108, 0.998688, -43.25, 8.2] move
+sprite 251 f4 place d5 char 225 [0.998856, 0.0101624, -0.0101624, 0.998856, 19.65, 3.35] move
+sprite 251 f4 place d6 [0.810776, 0.586685, -0.57962, 0.815521, -11.8, -137.65] move
+sprite 251 f4 place d7 [0.881256, 0.465897, -0.465897, 0.881256, 8, -99.35] move
+sprite 251 f4 place d9 [-0.990326, 0.135468, 0.135468, 0.990326, 29.9, -102.7] move
+sprite 251 f4 place d12 [0.88475, 0.461777, -0.461777, 0.88475, -8.95, -112.8] move
+sprite 251 f4 place d16 [0.881256, 0.465897, -0.465897, 0.881256, 13.75, -118.45] move
+sprite 251 f4 place d17 [0.998856, -0.0396881, 0.0396881, 0.998856, -36, -85.9] move
+sprite 251 f4 place d18 [-0.998856, 0.0396881, 0.0396881, 0.998856, 31.7, -70.95] move
+sprite 251 f6 remove d4
+sprite 251 f6 remove d5
+sprite 251 f6 place d1 char 248 [1, 0, 0, 1, -14.05, 24] move
+sprite 251 f6 place d2 char 221 [0.993103, 0.114014, -0.114014, 0.993103, 20.4, 11] move
+sprite 251 f6 place d3 char 221 [-0.990921, 0.13118, 0.13118, 0.990921, -49.2, 12.95] move
+sprite 251 f6 place d6 [0.922577, 0.388138, -0.380157, 0.925613, -37.8, -119.95] move
+sprite 251 f6 place d7 char 244 [-0.922577, 0.388138, 0.380157, 0.925613, 6.85, -119.5] move
+sprite 251 f6 place d8 char 249 [0.995056, 0.0524597, -0.0524597, 0.995056, -10.75, -92.5]
+sprite 251 f6 place d9 [0.938416, 0.342377, -0.342377, 0.938416, -32.65, -99.15] move
+sprite 251 f6 place d12 [-0.962006, 0.26329, 0.26329, 0.962006, 7.5, -100.75] move
+sprite 251 f6 place d16 char 250 [0.994171, -0.0602875, 0.0602875, 0.994171, -13.2, -110.85] move
+sprite 251 f6 place d17 [0.986465, -0.157043, 0.157043, 0.986465, -53.9, -68.8] move
+sprite 251 f6 place d18 [-0.986465, 0.157043, 0.157043, 0.986465, 24.8, -67.1] move
+sprite 251 f9 remove d8
+sprite 251 f9 place d1 char 103 [-1, 0, 0, 1, 26.55, -7.25] move
+sprite 251 f9 place d2 char 242 [-0.998199, 0.0196686, 0.0165253, 1.00613, -52.8, -127.45] move
+sprite 251 f9 place d3 char 247 [-1, 0, 0, 1, -11.95, 24] move
+sprite 251 f9 place d4 char 224 [-0.998688, -0.0304108, -0.0304108, 0.998688, 17.25, 8.2]
+sprite 251 f9 place d5 char 225 [-0.998856, 0.0101624, 0.0101624, 0.998856, -45.65, 3.35]
+sprite 251 f9 place d6 [-0.810776, 0.586685, 0.57962, 0.815521, -14.2, -137.65] move
+sprite 251 f9 place d7 char 245 [-0.881256, 0.465897, 0.465897, 0.881256, -34, -99.35] move
+sprite 251 f9 place d9 [0.994217, 0.100372, -0.100372, 0.994217, -55.45, -103.2] move
+sprite 251 f9 place d12 [-0.86763, 0.492599, 0.492599, 0.86763, -17, -114.65] move
+sprite 251 f9 place d16 char 246 [-0.881256, 0.465897, 0.465897, 0.881256, -39.75, -118.45] move
+sprite 251 f9 place d17 [-0.998856, -0.0396881, -0.0396881, 0.998856, 10, -85.9] move
+sprite 251 f9 place d18 [0.998856, 0.0396881, -0.0396881, 0.998856, -57.7, -70.95] move
+sprite 251 f11 place d1 [-1, 0, 0, 1, 38.55, -9.2] move
+sprite 251 f11 place d2 [-0.980042, 0.197235, 0.195557, 0.988434, -62.6, -121.75] move
+sprite 251 f11 place d3 char 243 move
+sprite 251 f11 place d4 char 221 [-0.993103, 0.114014, 0.114014, 0.993103, 20.85, 13.9] move
+sprite 251 f11 place d5 char 221 [0.990921, 0.13118, -0.13118, 0.990921, -10.85, 16.35] move
+sprite 251 f11 place d6 [-0.694336, 0.722549, 0.716415, 0.700287, -29, -133.85] move
+sprite 251 f11 place d7 [-0.785324, 0.616074, 0.616074, 0.785324, -41.65, -92.5] move
+sprite 251 f11 place d9 [1, 0, 0, 1, -62.55, -92.55] move
+sprite 251 f11 place d12 [-0.814362, 0.577682, 0.577682, 0.814362, -25.35, -107.8] move
+sprite 251 f11 place d16 [-0.785324, 0.616074, 0.616074, 0.785324, -50.75, -110.35] move
+sprite 251 f11 place d17 [-0.941284, 0.334549, 0.334549, 0.941284, 5.55, -86.35] move
+sprite 251 f11 place d18 [1, 0, 0, 1, -59.95, -66.4] move
+sprite 251 f14 place d1 [-1, 0, 0, 1, 26.55, -7.25] move
+sprite 251 f14 place d2 [-0.998199, 0.0196686, 0.0165253, 1.00613, -52.8, -127.45] move
+sprite 251 f14 place d3 char 247 move
+sprite 251 f14 place d4 char 224 [-0.998688, -0.0304108, -0.0304108, 0.998688, 17.25, 8.2] move
+sprite 251 f14 place d5 char 225 [-0.998856, 0.0101624, 0.0101624, 0.998856, -45.65, 3.35] move
+sprite 251 f14 place d6 [-0.810776, 0.586685, 0.57962, 0.815521, -14.2, -137.65] move
+sprite 251 f14 place d7 [-0.881256, 0.465897, 0.465897, 0.881256, -34, -99.35] move
+sprite 251 f14 place d9 [0.994217, 0.100372, -0.100372, 0.994217, -55.45, -103.2] move
+sprite 251 f14 place d12 [-0.86763, 0.492599, 0.492599, 0.86763, -17, -114.65] move
+sprite 251 f14 place d16 [-0.881256, 0.465897, 0.465897, 0.881256, -39.75, -118.45] move
+sprite 251 f14 place d17 [-0.998856, -0.0396881, -0.0396881, 0.998856, 10, -85.9] move
+sprite 251 f14 place d18 [0.998856, 0.0396881, -0.0396881, 0.998856, -57.7, -70.95] move
+sprite 251 f16 remove d4
+sprite 251 f16 remove d5
+sprite 251 f16 place d1 char 248 [1, 0, 0, 1, -14.05, 24] move
+sprite 251 f16 place d2 char 221 [0.993103, 0.114014, -0.114014, 0.993103, 20.4, 11] move
+sprite 251 f16 place d3 char 221 [-0.990921, 0.13118, 0.13118, 0.990921, -49.2, 12.95] move
+sprite 251 f16 place d6 [0.922577, 0.388138, -0.380157, 0.925613, -37.8, -119.95] move
+sprite 251 f16 place d7 char 244 [-0.922577, 0.388138, 0.380157, 0.925613, 6.85, -119.5] move
+sprite 251 f16 place d8 char 249 [0.995056, 0.0524597, -0.0524597, 0.995056, -10.75, -92.5]
+sprite 251 f16 place d9 [0.938416, 0.342377, -0.342377, 0.938416, -32.65, -99.15] move
+sprite 251 f16 place d12 [-0.962006, 0.26329, 0.26329, 0.962006, 7.5, -100.75] move
+sprite 251 f16 place d16 char 250 [0.994171, -0.0602875, 0.0602875, 0.994171, -13.2, -110.85] move
+sprite 251 f16 place d17 [0.986465, -0.157043, 0.157043, 0.986465, -53.9, -68.8] move
+sprite 251 f16 place d18 [-0.986465, 0.157043, 0.157043, 0.986465, 24.8, -67.1] move
+sprite 251 f19 remove d8
+sprite 251 f19 place d1 char 103 [1, 0, 0, 1, -52.55, -7.25] move
+sprite 251 f19 place d2 char 242 [0.998199, 0.0196686, -0.0165253, 1.00613, 26.8, -127.45] move
+sprite 251 f19 place d3 char 247 [1, 0, 0, 1, -14.05, 24] move
+sprite 251 f19 place d4 char 224 [0.998688, -0.0304108, 0.0304108, 0.998688, -43.25, 8.2]
+sprite 251 f19 place d5 char 225 [0.998856, 0.0101624, -0.0101624, 0.998856, 19.65, 3.35]
+sprite 251 f19 place d6 [0.810776, 0.586685, -0.57962, 0.815521, -11.8, -137.65] move
+sprite 251 f19 place d7 char 245 [0.881256, 0.465897, -0.465897, 0.881256, 8, -99.35] move
+sprite 251 f19 place d9 [-0.990326, 0.135468, 0.135468, 0.990326, 29.9, -102.7] move
+sprite 251 f19 place d12 [0.88475, 0.461777, -0.461777, 0.88475, -8.95, -112.8] move
+sprite 251 f19 place d16 char 246 [0.881256, 0.465897, -0.465897, 0.881256, 13.75, -118.45] move
+sprite 251 f19 place d17 [0.998856, -0.0396881, 0.0396881, 0.998856, -36, -85.9] move
+sprite 251 f19 place d18 [-0.998856, 0.0396881, 0.0396881, 0.998856, 31.7, -70.95] move
+sprite 251 f20 script
+sprite 259 f1 script
+sprite 259 f1 place d1 char 213 "mask_mc" [1, 0, 0, 1, -2.4, 0.4]
+sprite 259 f1 place d3 char 237 "shots_txt" [0.908173, 0, 0, 0.908173, 124.75, 66.65]
+sprite 259 f1 place d4 char 238 "distanceTotal_txt" [1, 0, 0, 1, 195.7, 20]
+sprite 259 f1 place d5 char 239 "rating_txt" [1, 0, 0, 1, 220.65, 77]
+sprite 259 f1 place d13 char 240 [1, 0, 0, 1, 7.2, 21.55]
+sprite 259 f1 place d14 char 194 [1.07236, 0, 0, 1.07236, -0.45, 54.1]
+sprite 259 f1 place d15 char 199 [0.739548, 0, 0, 0.739548, 103.7, 180]
+sprite 259 f1 place d16 char 241 [0.908173, 0, 0, 0.908173, 112.85, 91]
+sprite 259 f7 remove d8
+sprite 259 f14 remove d8
+sprite 259 f21 remove d8
+sprite 259 f28 remove d8
+sprite 259 f35 remove d8
+sprite 259 f43 remove d8
+sprite 259 f51 remove d8
+sprite 259 f60 place d10 char 257 [1, 0, 0, 1, 202, 226]
+sprite 259 f60 sound 258
+sprite 259 f61 remove d8
+sprite 259 f81 script
+sprite 262 f1 place d1 char 261 [1, 0, 0, 1, 0, 0]
+sprite 265 f1 place d1 char 264 [1, 0, 0, 1, 0, 0]
+sprite 272 f1 script
+sprite 272 f1 place d1 char 267 [1, 0, 0, 1, 0, 0]
+sprite 272 f1 place d8 char 268 [9.15527e-05, 0.999374, -1, 9.15527e-05, 34.4, 10]
+sprite 272 f2 place d2 char 269 [1, 0, 0, 1, 0, 0]
+sprite 272 f2 place d3 char 262 [1, 0, 0, 1, 0, 0]
+sprite 272 f3 place d2 move
+sprite 272 f4 place d2 move
+sprite 272 f5 place d2 move
+sprite 272 f5 place d6 char 265 [1, 0, 0, 1, 7, 91.05]
+sprite 272 f6 place d2 move
+sprite 272 f6 place d6 [1, 0, 0, 1, 7, 90.15] move
+sprite 272 f7 place d2 move
+sprite 272 f7 place d6 [1, 0, 0, 1, 7, 89.2] move
+sprite 272 f8 place d2 move
+sprite 272 f8 place d6 [1, 0, 0, 1, 7, 88.3] move
+sprite 272 f9 place d2 move
+sprite 272 f9 place d6 [1, 0, 0, 1, 7, 87.35] move
+sprite 272 f10 place d2 move
+sprite 272 f10 place d6 [1, 0, 0, 1, 7, 86.45] move
+sprite 272 f11 place d2 move
+sprite 272 f11 place d6 [1, 0, 0, 1, 7, 85.5] move
+sprite 272 f12 place d2 move
+sprite 272 f12 place d6 [1, 0, 0, 1, 7, 84.6] move
+sprite 272 f13 place d2 move
+sprite 272 f13 place d6 [1, 0, 0, 1, 7, 83.65] move
+sprite 272 f14 place d2 move
+sprite 272 f14 place d6 [1, 0, 0, 1, 7, 82.75] move
+sprite 272 f15 place d2 move
+sprite 272 f15 place d6 [1, 0, 0, 1, 7, 81.8] move
+sprite 272 f16 place d2 move
+sprite 272 f16 place d6 [1, 0, 0, 1, 7, 80.9] move
+sprite 272 f17 place d2 move
+sprite 272 f17 place d6 [1, 0, 0, 1, 7, 79.95] move
+sprite 272 f18 place d2 move
+sprite 272 f18 place d6 [1, 0, 0, 1, 7, 79.05] move
+sprite 272 f19 place d2 move
+sprite 272 f19 place d6 [1, 0, 0, 1, 7, 78.1] move
+sprite 272 f20 place d2 move
+sprite 272 f20 place d6 [1, 0, 0, 1, 7, 77.2] move
+sprite 272 f21 place d2 move
+sprite 272 f21 place d6 [1, 0, 0, 1, 7, 76.25] move
+sprite 272 f22 place d2 move
+sprite 272 f22 place d6 [1, 0, 0, 1, 7, 75.35] move
+sprite 272 f23 place d2 move
+sprite 272 f23 place d6 [1, 0, 0, 1, 7, 74.4] move
+sprite 272 f24 place d2 move
+sprite 272 f24 place d6 [1, 0, 0, 1, 7, 73.5] move
+sprite 272 f25 place d2 move
+sprite 272 f25 place d6 [1, 0, 0, 1, 7, 72.55] move
+sprite 272 f26 place d2 move
+sprite 272 f26 place d6 [1, 0, 0, 1, 7, 71.65] move
+sprite 272 f27 place d2 move
+sprite 272 f27 place d6 [1, 0, 0, 1, 7, 70.7] move
+sprite 272 f28 place d2 move
+sprite 272 f28 place d6 [1, 0, 0, 1, 7, 69.8] move
+sprite 272 f29 place d2 move
+sprite 272 f29 place d6 [1, 0, 0, 1, 7, 68.85] move
+sprite 272 f30 place d2 move
+sprite 272 f30 place d6 [1, 0, 0, 1, 7, 67.95] move
+sprite 272 f31 place d2 move
+sprite 272 f31 place d6 [1, 0, 0, 1, 7, 67] move
+sprite 272 f32 place d2 move
+sprite 272 f32 place d6 [1, 0, 0, 1, 7, 66.1] move
+sprite 272 f33 place d2 move
+sprite 272 f33 place d6 [1, 0, 0, 1, 7, 65.15] move
+sprite 272 f34 place d2 move
+sprite 272 f34 place d6 [1, 0, 0, 1, 7, 64.25] move
+sprite 272 f35 place d2 move
+sprite 272 f35 place d6 [1, 0, 0, 1, 7, 63.3] move
+sprite 272 f36 place d2 move
+sprite 272 f36 place d6 [1, 0, 0, 1, 7, 62.4] move
+sprite 272 f37 place d2 move
+sprite 272 f37 place d6 [1, 0, 0, 1, 7, 61.45] move
+sprite 272 f38 place d2 move
+sprite 272 f38 place d6 [1, 0, 0, 1, 7, 60.55] move
+sprite 272 f39 place d2 move
+sprite 272 f39 place d6 [1, 0, 0, 1, 7, 59.6] move
+sprite 272 f40 place d2 move
+sprite 272 f40 place d6 [1, 0, 0, 1, 7, 58.7] move
+sprite 272 f41 place d2 move
+sprite 272 f41 place d6 [1, 0, 0, 1, 7, 57.75] move
+sprite 272 f42 place d2 move
+sprite 272 f42 place d6 [1, 0, 0, 1, 7, 56.85] move
+sprite 272 f43 place d2 move
+sprite 272 f43 place d6 [1, 0, 0, 1, 7, 55.9] move
+sprite 272 f44 place d2 move
+sprite 272 f44 place d6 [1, 0, 0, 1, 7, 55] move
+sprite 272 f45 place d2 move
+sprite 272 f45 place d6 [1, 0, 0, 1, 7, 54.05] move
+sprite 272 f46 place d2 move
+sprite 272 f46 place d6 [1, 0, 0, 1, 7, 53.15] move
+sprite 272 f47 place d2 move
+sprite 272 f47 place d6 [1, 0, 0, 1, 7, 52.2] move
+sprite 272 f48 place d2 move
+sprite 272 f48 place d6 [1, 0, 0, 1, 7, 51.3] move
+sprite 272 f49 place d2 move
+sprite 272 f49 place d6 [1, 0, 0, 1, 7, 50.35] move
+sprite 272 f50 place d2 move
+sprite 272 f50 place d6 [1, 0, 0, 1, 7, 49.45] move
+sprite 272 f51 place d2 move
+sprite 272 f51 place d6 [1, 0, 0, 1, 7, 48.55] move
+sprite 272 f52 place d2 move
+sprite 272 f52 place d6 [1, 0, 0, 1, 7, 47.6] move
+sprite 272 f53 place d2 move
+sprite 272 f53 place d6 [1, 0, 0, 1, 7, 46.7] move
+sprite 272 f54 place d2 move
+sprite 272 f54 place d6 [1, 0, 0, 1, 7, 45.75] move
+sprite 272 f55 place d2 move
+sprite 272 f55 place d6 [1, 0, 0, 1, 7, 44.85] move
+sprite 272 f56 place d2 move
+sprite 272 f56 place d6 [1, 0, 0, 1, 7, 43.9] move
+sprite 272 f57 place d2 move
+sprite 272 f57 place d6 [1, 0, 0, 1, 7, 43] move
+sprite 272 f58 place d2 move
+sprite 272 f58 place d6 [1, 0, 0, 1, 7, 42.05] move
+sprite 272 f59 place d2 move
+sprite 272 f59 place d6 [1, 0, 0, 1, 7, 41.15] move
+sprite 272 f60 place d2 move
+sprite 272 f60 place d6 [1, 0, 0, 1, 7, 40.2] move
+sprite 272 f61 place d2 move
+sprite 272 f61 place d6 [1, 0, 0, 1, 7, 39.3] move
+sprite 272 f62 place d2 move
+sprite 272 f62 place d6 [1, 0, 0, 1, 7, 38.35] move
+sprite 272 f63 place d2 move
+sprite 272 f63 place d6 [1, 0, 0, 1, 7, 37.45] move
+sprite 272 f64 place d2 move
+sprite 272 f64 place d6 [1, 0, 0, 1, 7, 36.5] move
+sprite 272 f65 place d2 move
+sprite 272 f65 place d6 [1, 0, 0, 1, 7, 35.6] move
+sprite 272 f66 place d2 move
+sprite 272 f66 place d6 [1, 0, 0, 1, 7, 34.65] move
+sprite 272 f67 place d2 move
+sprite 272 f67 place d6 [1, 0, 0, 1, 7, 33.75] move
+sprite 272 f68 place d2 move
+sprite 272 f68 place d6 [1, 0, 0, 1, 7, 32.8] move
+sprite 272 f69 place d2 move
+sprite 272 f69 place d6 [1, 0, 0, 1, 7, 31.9] move
+sprite 272 f70 place d2 move
+sprite 272 f70 place d6 [1, 0, 0, 1, 7, 30.95] move
+sprite 272 f71 place d2 move
+sprite 272 f71 place d6 [1, 0, 0, 1, 7, 30.05] move
+sprite 272 f72 place d2 move
+sprite 272 f72 place d6 [1, 0, 0, 1, 7, 29.1] move
+sprite 272 f73 place d2 move
+sprite 272 f73 place d6 [1, 0, 0, 1, 7, 28.2] move
+sprite 272 f74 place d2 move
+sprite 272 f74 place d6 [1, 0, 0, 1, 7, 27.25] move
+sprite 272 f75 place d2 move
+sprite 272 f75 place d6 [1, 0, 0, 1, 7, 26.35] move
+sprite 272 f76 place d2 move
+sprite 272 f76 place d6 [1, 0, 0, 1, 7, 25.4] move
+sprite 272 f77 place d2 move
+sprite 272 f77 place d6 [1, 0, 0, 1, 7, 24.5] move
+sprite 272 f78 place d2 move
+sprite 272 f78 place d6 [1, 0, 0, 1, 7, 23.55] move
+sprite 272 f79 place d2 move
+sprite 272 f79 place d6 [1, 0, 0, 1, 7, 22.65] move
+sprite 272 f80 place d2 move
+sprite 272 f80 place d6 [1, 0, 0, 1, 7, 21.7] move
+sprite 272 f81 place d2 move
+sprite 272 f81 place d6 [1, 0, 0, 1, 7, 20.8] move
+sprite 272 f82 place d2 move
+sprite 272 f82 place d6 [1, 0, 0, 1, 7, 19.85] move
+sprite 272 f83 place d2 move
+sprite 272 f83 place d6 [1, 0, 0, 1, 7, 18.95] move
+sprite 272 f84 place d2 move
+sprite 272 f84 place d6 [1, 0, 0, 1, 7, 18] move
+sprite 272 f85 place d2 move
+sprite 272 f85 place d6 [1, 0, 0, 1, 7, 17.1] move
+sprite 272 f86 place d2 move
+sprite 272 f86 place d6 [1, 0, 0, 1, 7, 16.15] move
+sprite 272 f87 place d2 move
+sprite 272 f87 place d6 [1, 0, 0, 1, 7, 15.25] move
+sprite 272 f88 place d2 move
+sprite 272 f88 place d6 [1, 0, 0, 1, 7, 14.3] move
+sprite 272 f89 place d2 move
+sprite 272 f89 place d6 [1, 0, 0, 1, 7, 13.4] move
+sprite 272 f90 place d2 move
+sprite 272 f90 place d6 [1, 0, 0, 1, 7, 12.45] move
+sprite 272 f91 place d2 move
+sprite 272 f91 place d6 [1, 0, 0, 1, 7, 11.55] move
+sprite 272 f92 place d2 move
+sprite 272 f92 place d6 [1, 0, 0, 1, 7, 10.6] move
+sprite 272 f93 place d2 move
+sprite 272 f93 place d6 [1, 0, 0, 1, 7, 9.7] move
+sprite 272 f94 place d2 move
+sprite 272 f94 place d6 [1, 0, 0, 1, 7, 8.75] move
+sprite 272 f95 place d2 move
+sprite 272 f95 place d6 [1, 0, 0, 1, 7, 7.85] move
+sprite 272 f96 place d2 move
+sprite 272 f96 place d6 [1, 0, 0, 1, 7, 6.9] move
+sprite 272 f97 remove d2
+sprite 272 f97 remove d3
+sprite 272 f97 place d2 char 270 [1, 0, 0, 1, 0, 0]
+sprite 272 f97 place d3 char 262 [1, 0, 0, 1, 0, 0]
+sprite 272 f97 place d6 [1, 0, 0, 1, 7, 6] move
+sprite 272 f98 remove d6
+sprite 272 f98 place d2 move
+sprite 272 f99 place d2 move
+sprite 272 f100 place d2 move
+sprite 272 f101 remove d2
+sprite 272 f101 remove d3
+sprite 272 f101 place d2 char 271 [0.416412, 0, 0, 5.62462, 7.8, 8.65]
+sprite 272 f101 place d3 char 262 [1, 0, 0, 1, 0, 0]
+sprite 273 f1 place d1 char 82 [1, 0, 0, 1, 0, 0]
+sprite 279 f1 script
+sprite 279 f1 place d1 char 226 [0.364075, -0.0692444, -0.0692444, -0.364075, -33.8, -8.05]
+sprite 279 f1 place d2 char 103 [0.343842, 0.137695, -0.137695, 0.343842, -39.8, -4.4]
+sprite 279 f1 place d3 char 69 [0.0437927, 0.368057, 0.368057, -0.0437927, -8.05, -7.5]
+sprite 279 f1 place d4 char 274 [0, -0.370819, 0.370819, 0, 15.3, 0.1]
+sprite 279 f1 place d19 char 231 [-0.0484772, -0.998657, -0.998657, 0.0484772, -15.9, 6.2]
+sprite 279 f1 place d20 char 230 [0.135406, -0.990021, -0.990021, -0.135406, -20.95, 0.2]
+sprite 279 f1 place d21 char 230 [0.271576, -0.961212, -0.961212, -0.271576, -29.6, 5.55]
+sprite 279 f1 place d22 char 231 [0.108551, -0.993408, -0.993408, -0.108551, -29.45, -8.85]
+sprite 279 f1 place d23 char 230 [0.151779, -0.987595, -0.987595, -0.151779, -16.95, -6.7]
+sprite 279 f1 place d24 char 226 [0.364075, 0.0692444, -0.0692444, 0.364075, -36.2, 6.35]
+sprite 279 f1 place d25 char 106 [0.220596, -0.297211, 0.297211, 0.220596, -3.65, 0.55]
+sprite 279 f1 place d26 char 104 [0.0178223, -0.369965, 0.369965, 0.0178223, -4.8, -12.5]
+sprite 279 f1 place d27 char 109 [0.143433, -0.212051, -0.253387, -0.171356, 9.2, -0.45]
+sprite 279 f1 place d30 char 275 [0.0132141, -0.370529, 0.370529, 0.0132141, -2.55, -7.45]
+sprite 279 f1 place d31 char 69 [0, -0.370819, 0.370819, 0, -5.65, 8.35]
+sprite 279 f2 remove d21
+sprite 279 f2 remove d23
+sprite 279 f2 place d16 char 230 [0.135406, -0.990021, -0.990021, -0.135406, -19.65, 2.55]
+sprite 279 f2 place d19 [0.271576, -0.961212, -0.961212, -0.271576, -29.6, 5.55] move
+sprite 279 f2 place d20 [0.108551, -0.993408, -0.993408, -0.108551, -29.45, -8.85] move
+sprite 279 f2 place d22 [0.151779, -0.987595, -0.987595, -0.151779, -13, -5.25] move
+sprite 279 f3 place d2 [0.365524, 0.0580292, -0.0580292, 0.365524, -39.8, -4.4] move
+sprite 279 f3 place d3 char 63 [-0.257568, 0.265518, 0.265518, 0.257568, -4.7, -8.35] move
+sprite 279 f3 place d16 [-0.0484772, -0.998657, -0.998657, 0.0484772, -15.65, 4] move
+sprite 279 f3 place d20 [0.108551, -0.993408, -0.993408, -0.108551, -30, -7] move
+sprite 279 f3 place d22 [0.151779, -0.987595, -0.987595, -0.151779, -16.95, -6.7] move
+sprite 279 f3 place d25 [0.256271, -0.266861, 0.266861, 0.256271, -3.65, 0.55] move
+sprite 279 f3 place d26 [0.0548706, -0.366196, 0.366196, 0.0548706, -4.8, -12.5] move
+sprite 279 f3 place d31 char 63 [-0.264587, -0.258926, 0.258926, -0.264587, -2.5, 9.4] move
+sprite 279 f4 remove d22
+sprite 279 f4 place d2 [0.343842, 0.137695, -0.137695, 0.343842, -39.8, -4.4] move
+sprite 279 f4 place d3 char 69 [0.0437927, 0.368057, 0.368057, -0.0437927, -8.05, -7.5] move
+sprite 279 f4 place d15 char 231 [-0.0484772, -0.998657, -0.998657, 0.0484772, -15.9, 6.2]
+sprite 279 f4 place d16 [0.135406, -0.990021, -0.990021, -0.135406, -20.95, 0.2] move
+sprite 279 f4 place d18 char 230 [0.271576, -0.961212, -0.961212, -0.271576, -29.6, 5.55]
+sprite 279 f4 place d19 [0.108551, -0.993408, -0.993408, -0.108551, -29.45, -8.85] move
+sprite 279 f4 place d20 [0.151779, -0.987595, -0.987595, -0.151779, -16.95, -6.7] move
+sprite 279 f4 place d25 [0.292038, -0.226898, 0.226898, 0.292038, -3.65, 0.55] move
+sprite 279 f4 place d26 [0.108643, -0.353806, 0.353806, 0.108643, -4.8, -12.5] move
+sprite 279 f4 place d31 char 69 [0, -0.370819, 0.370819, 0, -5.65, 8.35] move
+sprite 279 f5 place d2 [0.369934, -0.00456238, 0.00456238, 0.369934, -39.8, -4.4] move
+sprite 279 f5 place d3 char 63 [-0.363541, -0.0705566, -0.0705566, 0.363541, -8.05, -7.5] move
+sprite 279 f5 place d25 [0.259979, -0.263229, 0.263229, 0.259979, -3.65, 0.55] move
+sprite 279 f5 place d26 [0.0548706, -0.366196, 0.366196, 0.0548706, -4.8, -12.5] move
+sprite 279 f5 place d31 char 63 [-0.370636, 0.00971985, -0.00971985, -0.370636, -2.5, 10.2] move
+sprite 279 f6 remove d19
+sprite 279 f6 remove d20
+sprite 279 f6 remove d30
+sprite 279 f6 place d1 char 227 [0.291367, -0.228226, -0.228226, -0.291367, -31.25, 0.45] move
+sprite 279 f6 place d2 [0.369476, -0.0178528, 0.0178528, 0.369476, -32.65, -9.55] move
+sprite 279 f6 place d3 char 70 [-0.0739746, 0.362823, 0.362823, 0.0739746, -6.3, -6.1] move
+sprite 279 f6 place d4 char 276 move
+sprite 279 f6 place d15 [0.187088, -0.981415, -0.981415, -0.187088, -14.05, 9.9] move
+sprite 279 f6 place d16 [-0.22377, 0.971237, -0.971237, -0.22377, -23.5, -0.95] move
+sprite 279 f6 place d17 char 231 [-0.191254, 0.979889, -0.979889, -0.191254, -23, -10.3]
+sprite 279 f6 place d18 [-0.619812, 0.781631, -0.781631, -0.619812, -16.95, -6.7] move
+sprite 279 f6 place d24 [0.353241, 0.111557, -0.111557, 0.353241, -30.3, 4.55] move
+sprite 279 f6 place d25 [0.277451, -0.244614, 0.244614, 0.277451, -1.7, -4.3] move
+sprite 279 f6 place d26 [0.0832825, -0.360291, 0.360291, 0.0832825, -3.4, -11.3] move
+sprite 279 f6 place d27 [0.361343, -0.082016, 0.082016, 0.361343, 5.75, 1.15] move
+sprite 279 f6 place d31 char 277 [0.0132141, -0.370529, 0.370529, 0.0132141, 5.5, -11] move
+sprite 279 f6 place d32 char 70 [-0.0565796, -0.366272, 0.366272, -0.0565796, -7, 8.35]
+sprite 279 f7 remove d18
+sprite 279 f7 place d2 [0.359818, -0.0850525, 0.0850525, 0.359818, -32.65, -9.55] move
+sprite 279 f7 place d3 char 64 [-0.0739746, 0.362823, 0.362823, 0.0739746, -7.5, -4.3] move
+sprite 279 f7 place d12 char 230 [0.187088, -0.981415, -0.981415, -0.187088, -14.05, 9.9]
+sprite 279 f7 place d15 [-0.22377, 0.971237, -0.971237, -0.22377, -23.5, -0.95] move
+sprite 279 f7 place d16 [-0.191254, 0.979889, -0.979889, -0.191254, -26, -10.3] move
+sprite 279 f7 place d17 [-0.619812, 0.781631, -0.781631, -0.619812, -15.35, -5.5] move
+sprite 279 f7 place d25 [0.297775, -0.219238, 0.219238, 0.297775, -1.7, -4.3] move
+sprite 279 f7 place d26 [0.11467, -0.35144, 0.35144, 0.11467, -3.4, -11.3] move
+sprite 279 f7 place d32 char 64 move
+sprite 279 f8 remove d16
+sprite 279 f8 remove d17
+sprite 279 f8 place d2 [0.369476, -0.0178528, 0.0178528, 0.369476, -32.65, -9.55] move
+sprite 279 f8 place d3 char 70 [-0.0739746, 0.362823, 0.362823, 0.0739746, -6.3, -6.1] move
+sprite 279 f8 place d11 char 231 [0.187088, -0.981415, -0.981415, -0.187088, -20.35, 7.95]
+sprite 279 f8 place d12 [-0.22377, 0.971237, -0.971237, -0.22377, -14.3, 2.6] move
+sprite 279 f8 place d14 char 230 [-0.191254, 0.979889, -0.979889, -0.191254, -25.75, -10.3]
+sprite 279 f8 place d15 [-0.619812, 0.781631, -0.781631, -0.619812, -15, -3.25] move
+sprite 279 f8 place d25 [0.318085, -0.188339, 0.188339, 0.318085, -1.7, -4.3] move
+sprite 279 f8 place d26 [0.132614, -0.345032, 0.345032, 0.132614, -3.4, -11.3] move
+sprite 279 f8 place d32 char 70 move
+sprite 279 f9 remove d15
+sprite 279 f9 place d2 [0.343643, -0.135956, 0.135956, 0.343643, -32.65, -9.55] move
+sprite 279 f9 place d3 char 65 move
+sprite 279 f9 place d11 [0.187088, -0.981415, -0.981415, -0.187088, -14.05, 9.9] move
+sprite 279 f9 place d12 [-0.22377, 0.971237, -0.971237, -0.22377, -23.5, -0.95] move
+sprite 279 f9 place d13 char 231 [-0.191254, 0.979889, -0.979889, -0.191254, -23, -10.3]
+sprite 279 f9 place d14 [-0.619812, 0.781631, -0.781631, -0.619812, -16.95, -6.7] move
+sprite 279 f9 place d25 [0.297775, -0.219238, 0.219238, 0.297775, -1.7, -4.3] move
+sprite 279 f9 place d26 [0.123718, -0.348343, 0.348343, 0.123718, -3.4, -11.3] move
+sprite 279 f9 place d32 char 65 move
+sprite 279 f10 remove d1
+sprite 279 f10 remove d24
+sprite 279 f10 remove d25
+sprite 279 f10 remove d26
+sprite 279 f10 remove d31
+sprite 279 f10 remove d32
+sprite 279 f10 place d2 [0.369476, 0.0178528, 0.0178528, -0.369476, -38.55, -4] move
+sprite 279 f10 place d3 char 69 [-0.00779724, 0.369995, 0.369995, 0.00779724, -6.3, -6.85] move
+sprite 279 f10 place d4 char 278 move
+sprite 279 f10 place d11 [0.187088, -0.981415, -0.981415, -0.187088, -14.3, 8.1] move
+sprite 279 f10 place d12 [-0.22377, 0.971237, -0.971237, -0.22377, -22.55, -6.25] move
+sprite 279 f10 place d13 [-0.187775, 0.962067, -0.979889, -0.191254, -18.35, -10.05] move
+sprite 279 f10 place d14 [-0.225708, 0.970367, -0.970367, -0.225708, -6.1, -6.3] move
+sprite 279 f10 place d15 char 230 [0.187088, -0.981415, -0.981415, -0.187088, -30.2, 3.05]
+sprite 279 f10 place d16 char 227 [0.332626, 0.162674, -0.162674, 0.332626, -34.05, 8.9]
+sprite 279 f10 place d17 char 227 [0.318512, -0.187881, -0.187881, -0.318512, -32.1, -12.15]
+sprite 279 f10 place d27 [0, -0.370819, 0.370819, 0, 12.8, 8.65] move
+sprite 279 f10 place d30 char 109 [0, 0.370819, 0.370819, 0, 12.8, -7.35]
+sprite 279 f10 place d33 char 69 [-0.0565796, -0.366272, 0.366272, -0.0565796, -7.35, 12.5]
+sprite 279 f11 remove d15
+sprite 279 f11 place d2 [0.360123, -0.0832367, -0.0832367, -0.360123, -38.55, -4] move
+sprite 279 f11 place d3 char 63 [-0.208221, 0.305252, 0.305252, 0.208221, -6.3, -6.85] move
+sprite 279 f11 place d10 char 230 [0.187088, -0.981415, -0.981415, -0.187088, -14.3, 8.1]
+sprite 279 f11 place d11 [-0.22377, 0.971237, -0.971237, -0.22377, -22.55, -6.25] move
+sprite 279 f11 place d12 [-0.187775, 0.962067, -0.979889, -0.191254, -18.35, -10.05] move
+sprite 279 f11 place d13 [-0.225708, 0.970367, -0.970367, -0.225708, -6.1, -6.3] move
+sprite 279 f11 place d14 char 231 [0.187088, -0.981415, -0.981415, -0.187088, -30.2, 3.05] move
+sprite 279 f11 place d33 char 63 [-0.175674, -0.325912, 0.325912, -0.175674, -6.3, 13] move
+sprite 279 f12 place d2 [0.369476, 0.0178528, 0.0178528, -0.369476, -38.55, -4] move
+sprite 279 f12 place d3 char 69 [-0.00779724, 0.369995, 0.369995, 0.00779724, -6.3, -6.85] move
+sprite 279 f12 place d9 char 231 [0.187088, -0.981415, -0.981415, -0.187088, -9.45, 8.6]
+sprite 279 f12 place d10 [-0.22377, 0.971237, -0.971237, -0.22377, -21.75, -2.75] move
+sprite 279 f12 place d11 [-0.187775, 0.962067, -0.979889, -0.191254, -22.55, -10.15] move
+sprite 279 f12 place d12 [-0.225708, 0.970367, -0.970367, -0.225708, -9.15, -7.6] move
+sprite 279 f12 place d13 char 230 [0.187088, -0.981415, -0.981415, -0.187088, -32.4, 3.7] move
+sprite 279 f12 place d14 char 230 [0.187088, -0.981415, -0.981415, -0.187088, -8.1, 4.4] move
+sprite 279 f12 place d33 char 69 [-0.0565796, -0.366272, 0.366272, -0.0565796, -7.35, 12.5] move
+sprite 279 f13 remove d14
+sprite 279 f13 place d2 [0.357025, 0.0959473, 0.0959473, -0.357025, -38.55, -4] move
+sprite 279 f13 place d3 char 65 [0.13472, 0.344238, 0.344238, -0.13472, -6.3, -6.85] move
+sprite 279 f13 place d9 [0.187088, -0.981415, -0.981415, -0.187088, -14.3, 8.1] move
+sprite 279 f13 place d10 [-0.22377, 0.971237, -0.971237, -0.22377, -22.55, -6.25] move
+sprite 279 f13 place d11 [-0.187775, 0.962067, -0.979889, -0.191254, -18.35, -10.05] move
+sprite 279 f13 place d12 [-0.225708, 0.970367, -0.970367, -0.225708, -6.1, -6.3] move
+sprite 279 f13 place d13 [0.187088, -0.981415, -0.981415, -0.187088, -30.2, 3.05] move
+sprite 279 f13 place d33 char 65 [0.113266, -0.352386, 0.352386, 0.113266, -7.35, 12.5] move
+sprite 279 f14 remove d16
+sprite 279 f14 remove d17
+sprite 279 f14 remove d30
+sprite 279 f14 remove d33
+sprite 279 f14 place d1 char 227 [0.291367, 0.228226, -0.228226, 0.291367, -31.25, 0.8]
+sprite 279 f14 place d2 [0.369476, 0.0178528, 0.0178528, -0.369476, -32.65, 10.7] move
+sprite 279 f14 place d3 char 70 [-0.0739746, -0.362823, 0.362823, -0.0739746, -6.3, 7.35] move
+sprite 279 f14 place d4 char 276 [0, 0.370819, 0.370819, 0, 15.3, 1.15] move
+sprite 279 f14 place d9 [0.187088, 0.981415, -0.981415, 0.187088, -13.65, -10.9] move
+sprite 279 f14 place d10 [-0.22377, -0.971237, -0.971237, 0.22377, -23.1, -0.05] move
+sprite 279 f14 place d11 [-0.191254, -0.979889, -0.979889, 0.191254, -22.6, 9.3] move
+sprite 279 f14 place d12 [-0.619812, -0.781631, -0.781631, 0.619812, -16.55, 5.7] move
+sprite 279 f14 place d13 char 226 [0.353241, -0.111557, -0.111557, -0.353241, -30.3, -3.35] move
+sprite 279 f14 place d14 char 106 [0.277451, 0.244614, 0.244614, -0.277451, -1.7, 5.5]
+sprite 279 f14 place d15 char 104 [0.0832825, 0.360291, 0.360291, -0.0832825, -3.4, 12.45]
+sprite 279 f14 place d27 [0.313644, 0.196655, -0.196655, 0.313644, 6.95, 1.15] move
+sprite 279 f14 place d31 char 277 [0.0132141, 0.370529, 0.370529, -0.0132141, 5.5, 12.25]
+sprite 279 f14 place d32 char 70 [-0.0565796, 0.366272, 0.366272, 0.0565796, -7, -7.1]
+sprite 279 f15 remove d12
+sprite 279 f15 place d2 [0.359818, 0.0850525, 0.0850525, -0.359818, -32.65, 10.7] move
+sprite 279 f15 place d3 char 64 [-0.0739746, -0.362823, 0.362823, -0.0739746, -7.5, 5.5] move
+sprite 279 f15 place d6 char 230 [0.187088, 0.981415, -0.981415, 0.187088, -13.65, -10.9]
+sprite 279 f15 place d9 [-0.22377, -0.971237, -0.971237, 0.22377, -23.1, -0.05] move
+sprite 279 f15 place d10 [-0.191254, -0.979889, -0.979889, 0.191254, -25.6, 9.3] move
+sprite 279 f15 place d11 [-0.619812, -0.781631, -0.781631, 0.619812, -14.95, 4.5] move
+sprite 279 f15 place d14 [0.297775, 0.219238, 0.219238, -0.297775, -1.7, 5.5] move
+sprite 279 f15 place d15 [0.11467, 0.35144, 0.35144, -0.11467, -3.4, 12.45] move
+sprite 279 f15 place d32 char 64 move
+sprite 279 f16 remove d10
+sprite 279 f16 remove d11
+sprite 279 f16 place d2 [0.369476, 0.0178528, 0.0178528, -0.369476, -32.65, 10.7] move
+sprite 279 f16 place d3 char 70 [-0.0739746, -0.362823, 0.362823, -0.0739746, -6.3, 7.35] move
+sprite 279 f16 place d5 char 231 [0.187088, 0.981415, -0.981415, 0.187088, -19.95, -8.95]
+sprite 279 f16 place d6 [-0.22377, -0.971237, -0.971237, 0.22377, -13.9, -3.6] move
+sprite 279 f16 place d8 char 230 [-0.191254, -0.979889, -0.979889, 0.191254, -25.35, 9.3]
+sprite 279 f16 place d9 [-0.619812, -0.781631, -0.781631, 0.619812, -14.6, 2.25] move
+sprite 279 f16 place d14 [0.318085, 0.188339, 0.188339, -0.318085, -1.7, 5.5] move
+sprite 279 f16 place d15 [0.132614, 0.345032, 0.345032, -0.132614, -3.4, 12.45] move
+sprite 279 f16 place d32 char 70 move
+sprite 279 f17 remove d9
+sprite 279 f17 script
+sprite 279 f17 place d2 [0.343643, 0.135956, 0.135956, -0.343643, -32.65, 10.7] move
+sprite 279 f17 place d3 char 65 move
+sprite 279 f17 place d5 [0.187088, 0.981415, -0.981415, 0.187088, -13.65, -10.9] move
+sprite 279 f17 place d6 [-0.22377, -0.971237, -0.971237, 0.22377, -23.1, -0.05] move
+sprite 279 f17 place d7 char 231 [-0.191254, -0.979889, -0.979889, 0.191254, -22.6, 9.3]
+sprite 279 f17 place d8 [-0.619812, -0.781631, -0.781631, 0.619812, -16.55, 5.7] move
+sprite 279 f17 place d14 [0.297775, 0.219238, 0.219238, -0.297775, -1.7, 5.5] move
+sprite 279 f17 place d15 [0.123718, 0.348343, 0.348343, -0.123718, -3.4, 12.45] move
+sprite 279 f17 place d32 char 65 move
+sprite 291 f1 script
+sprite 291 f1 place d1 char 227 [-0.0440369, -0.399567, 0.399567, -0.0440369, 9.8, 19.3]
+sprite 291 f1 place d2 char 103 [-0.0687256, -0.396973, 0.396973, -0.0687256, -7.3, 28.7]
+sprite 291 f1 place d3 char 63 [0, 0.40419, 0.40419, 0, 8.65, -2.8]
+sprite 291 f1 place d4 char 105 [0, -0.40419, 0.40419, 0, 16.4, 3.25]
+sprite 291 f1 place d6 char 226 [-0.0071106, -0.402969, 0.402969, -0.0071106, 7.65, 22.7]
+sprite 291 f1 place d7 char 230 [-1, 0, 0, 1, -3, 6.95]
+sprite 291 f1 place d8 char 230 [-0.941284, -0.334518, -0.334518, 0.941284, -8.2, 18.95]
+sprite 291 f1 place d9 char 230 [-1, 0, 0, 1, 9, 1.55]
+sprite 291 f1 place d10 char 231 [-1, 0, 0, 1, 2.6, 14.3]
+sprite 291 f1 place d11 char 106 [-0.181778, -0.359558, 0.359558, -0.181778, -5.35, -13.05]
+sprite 291 f1 place d12 char 107 [0.172195, -0.36348, 0.36348, 0.172195, 3.6, -22.1]
+sprite 291 f1 place d13 char 109 [-0.0998383, -0.391083, 0.391083, -0.0998383, 0.55, -16.5]
+sprite 291 f1 place d16 char 288 [0.0144043, -0.40387, 0.40387, 0.0144043, -8.7, -25.45]
+sprite 291 f1 place d17 char 63 [0, -0.40419, 0.40419, 0, 8.65, -4.25]
+sprite 291 f2 remove d8
+sprite 291 f2 remove d10
+sprite 291 f2 place d7 char 231 [-1, 0, 0, 1, -4.6, 7.45] move
+sprite 291 f2 place d9 [-1, 0, 0, 1, 9.9, 6.3] move
+sprite 291 f3 remove d3
+sprite 291 f3 remove d9
+sprite 291 f3 place d7 [-1, 0, 0, 1, 9.9, 6.3] move
+sprite 291 f3 place d8 char 230 [-1, 0, 0, 1, 2.85, 14.3]
+sprite 291 f3 place d17 char 64 move
+sprite 291 f4 place d1 [0.151047, -0.373138, 0.373138, 0.151047, 10.7, 20.7] move
+sprite 291 f4 place d2 [0.157532, -0.370605, 0.370605, 0.157532, -0.9, 30.45] move
+sprite 291 f4 place d3 char 104 [-0.0508881, -0.400314, 0.400314, -0.0508881, -5.05, -11.25]
+sprite 291 f4 place d4 char 65 [0, 0.40419, 0.40419, 0, 8.65, -2.8] move
+sprite 291 f4 place d5 char 289 [0, -0.40419, 0.40419, 0, 16.4, 3.25]
+sprite 291 f4 place d6 [0.0995483, -0.391403, 0.391403, 0.0995483, 7.65, 23.3] move
+sprite 291 f4 place d7 char 230 [-1, 0, 0, 1, -4.6, -1.65] move
+sprite 291 f4 place d8 [-1, 0, 0, 1, 7.05, 7.55] move
+sprite 291 f4 place d9 char 231 [-1, 0, 0, 1, -0.9, 15.1]
+sprite 291 f4 place d11 [0.199173, -0.351044, 0.351044, 0.199173, -1.6, -15.95] move
+sprite 291 f4 place d12 [0.336639, -0.219009, 0.219009, 0.336639, 11.8, -19.95] move
+sprite 291 f4 place d13 [0.187973, -0.356155, 0.356155, 0.187973, 5.8, -16.65] move
+sprite 291 f4 place d16 [0.169464, -0.366364, 0.366364, 0.169464, 3.15, -28.95] move
+sprite 291 f4 place d17 char 65 move
+sprite 291 f5 remove d4
+sprite 291 f5 place d1 [0.114212, -0.385544, 0.385544, 0.114212, 9.25, 20.3] move
+sprite 291 f5 place d2 [0.284866, -0.284027, 0.284027, 0.284866, -1.1, 29.85] move
+sprite 291 f5 place d3 char 66 [0, 0.40419, 0.40419, 0, 8.65, -2.8] move
+sprite 291 f5 place d5 char 290 move
+sprite 291 f5 place d6 [0.17836, -0.360992, 0.360992, 0.17836, 8.05, 21.55] move
+sprite 291 f5 place d7 char 231 [0.908722, 0.410583, -0.410583, 0.908722, -9.4, -3.25] move
+sprite 291 f5 place d8 char 231 [0.985947, 0.156586, -0.156586, 0.985947, 5.1, 5.75] move
+sprite 291 f5 place d9 char 230 [0.929398, -0.362259, 0.362259, 0.929398, -4.4, 18.55] move
+sprite 291 f5 place d11 [0.320435, -0.242889, 0.242889, 0.320435, -1.6, -15.95] move
+sprite 291 f5 place d12 [0.342087, -0.210388, 0.210388, 0.342087, 14.25, -16.8] move
+sprite 291 f5 place d13 [0.305832, -0.262512, 0.262512, 0.305832, 8.1, -15.5] move
+sprite 291 f5 place d16 [0.249283, -0.317291, 0.317291, 0.249283, 5.9, -27.2] move
+sprite 291 f5 place d17 char 66 move
+sprite 291 f6 place d3 char 104 [-0.0508881, -0.400314, 0.400314, -0.0508881, -5.05, -11.25] move
+sprite 291 f6 place d4 char 67 [0, 0.40419, 0.40419, 0, 8.65, -2.8]
+sprite 291 f6 place d7 char 230 [0.932068, 0.354385, -0.354385, 0.932068, -7.8, -4.55] move
+sprite 291 f6 place d8 char 230 [0.991928, -0.112885, 0.112885, 0.991928, -10.25, 10.25] move
+sprite 291 f6 place d9 [1, 0, 0, 1, 5.6, 4.45] move
+sprite 291 f6 place d10 char 231 [0.969559, -0.233749, 0.233749, 0.969559, -0.95, 15.1]
+sprite 291 f6 place d11 [0.0106506, -0.402328, 0.402328, 0.0106506, -1.6, -15.95] move
+sprite 291 f6 place d17 char 67 move
+sprite 291 f7 remove d4
+sprite 291 f7 remove d5
+sprite 291 f7 remove d8
+sprite 291 f7 script
+sprite 291 f7 place d1 [0.121033, -0.383804, 0.383804, 0.121033, 9.6, 21.65] move
+sprite 291 f7 place d2 [-0.0807953, -0.394653, 0.394653, -0.0807953, -0.9, 30.45] move
+sprite 291 f7 place d3 char 289 [0, -0.40419, 0.40419, 0, 16.4, 3.25] move
+sprite 291 f7 place d6 [0.0995483, -0.391403, 0.391403, 0.0995483, 7.65, 23.3] move
+sprite 291 f7 place d7 char 231 [-1, 0, 0, 1, -7, 4.8] move
+sprite 291 f7 place d9 [-1, 0, 0, 1, 8.5, 2.6] move
+sprite 291 f7 place d10 char 230 [-1, 0, 0, 1, 0.2, 17.25] move
+sprite 291 f7 place d11 [-0.263504, -0.304199, 0.304199, -0.263504, -1.6, -15.95] move
+sprite 291 f7 place d12 [0.336639, -0.219009, 0.219009, 0.336639, 11.8, -19.95] move
+sprite 291 f7 place d13 [0.187973, -0.356155, 0.356155, 0.187973, 6.4, -17.1] move
+sprite 291 f7 place d16 [0.169464, -0.366364, 0.366364, 0.169464, 3.15, -28.95] move
+sprite 291 f7 place d17 char 68 move
+sprite 294 f1 place d1 char 293 [1, 0, 0, 1, 0, 0]
+sprite 296 f1 place d1 char 295 [1, 0, 0, 1, 0, 0]
+sprite 305 f1 script
+sprite 305 f1 place d1 char 301 [1, 0, 0, 1, 0, 0]
+sprite 305 f1 place d2 char 302 [1, 0, 0, 1, 0, 0]
+sprite 305 f3 place d1 char 303 move
+sprite 305 f5 script
+sprite 305 f5 place d1 char 304 move
+sprite 305 f6 remove d1
+sprite 305 f6 remove d2
+sprite 306 f1 place d1 char 285 [1, 0, 0, 1, -25.3, -16.2]
+sprite 306 f3 remove d1
+sprite 306 f3 place d2 char 286 [1, 0, 0, 1, -24.85, -16.2]
+sprite 306 f5 remove d2
+sprite 306 f5 place d1 char 287 [1, 0, 0, 1, -25.25, -16.25]
+sprite 306 f7 remove d1
+sprite 306 f7 place d2 char 286 [1, 0, 0, 1, -24.85, -16.2]
+sprite 306 f8 script
+sprite 312 f1 script
+sprite 312 f1 place d2 char 294 [1, 0, 0, 1, -1.85, -3.15]
+sprite 312 f1 place d4 char 307 [1, 0, 0, 1, 0, 0]
+sprite 312 f1 place d5 char 296 [1, 0, 0, 1, -22.4, 1.7]
+sprite 312 f2 script
+sprite 312 f2 place d1 char 308 [1, 0, 0, 1, 0, 0]
+sprite 312 f4 place d1 char 309 move
+sprite 312 f4 place d2 [1, 0, 0, 1, -1.65, -3.15] move
+sprite 312 f4 place d4 char 310 move
+sprite 312 f4 place d5 [1, 0, 0, 1, -21.8, 1.7] move
+sprite 312 f6 remove d4
+sprite 312 f6 place d1 char 311 move
+sprite 312 f6 place d2 [1, 0, 0, 1, -1.85, -3.15] move
+sprite 312 f6 place d5 [1, 0, 0, 1, -22.2, 1.7] move
+sprite 312 f7 script
+sprite 318 f1 place d1 char 313 [1, 0, 0, 1, 0, 0]
+sprite 318 f1 place d2 char 314 [1, 0, 0, 1, 0, 0]
+sprite 318 f2 place d2 char 315 move
+sprite 318 f3 place d2 char 316 move
+sprite 318 f4 place d2 char 317 move
+sprite 330 f1 script
+sprite 330 f1 place d1 char 319 [1, 0, 0, 1, 0, 0]
+sprite 330 f2 remove d1
+sprite 330 f2 place d6 char 320 [1, 0, 0, 1, 0, 0]
+sprite 330 f3 place d6 char 321 move
+sprite 330 f4 remove d6
+sprite 330 f4 place d1 char 322 [1, 0, 0, 1, 0, 0]
+sprite 330 f5 place d1 char 323 move
+sprite 330 f6 place d1 char 324 move
+sprite 330 f7 place d1 char 325 move
+sprite 330 f8 place d1 char 326 move
+sprite 330 f9 place d1 char 327 move
+sprite 330 f10 place d1 char 328 move
+sprite 330 f11 script
+sprite 330 f11 place d1 char 329 move
+sprite 331 f1 script
+sprite 331 f1 place d1 char 306 "flying_mc" [9.15527e-05, -1, 1, 9.15527e-05, -0.95, 4.05]
+sprite 331 f1 place d4 char 291 "glide" [0.899994, 0, 0, 0.899994, -0.55, -2.55]
+sprite 331 f1 place d22 char 279 "drop" [0, -1, 1, 0, 4.25, -8.75]
+sprite 331 f1 place d56 char 305 "wind" [1, 0, 0, 1, -22.15, -27.9]
+sprite 331 f1 place d59 char 161 "blur" [1, 0, 0, 1, -18.05, -31.8]
+sprite 331 f1 place d61 char 205 "core" [1.08005, 0, 0, 1.08063, -18.9, -31.25]
+sprite 331 f1 place d63 char 312 "slide" [1, 0, 0, 1, -0.35, -29.6]
+sprite 331 f1 place d69 char 318 "skid" [1, 0, 0, 1, -0.35, -29.6]
+sprite 331 f1 place d72 char 177 "ball" [1, 0, 0, 1, 0, 0]
+sprite 331 f1 place d74 char 330 "superball" [0, 0.709579, -0.709579, 0, 33.8, -40.25]
+sprite 333 f1 place d1 char 332 [1, 0, 0, 1, 0, 0]
+sprite 351 f1 script
+sprite 351 f1 place d1 char 21 [0, -0.740265, 0.740265, 0, 13.3, 1.9]
+sprite 351 f1 place d3 char 162 [3.05176e-05, -0.269318, 0.269318, 3.05176e-05, -35.75, 19.9]
+sprite 351 f1 place d5 char 334 [1, 0, 0, 1, 0, 0]
+sprite 351 f3 place d3 [3.05176e-05, -0.295105, 0.228867, 3.05176e-05, -28.35, 22.45] move
+sprite 351 f3 place d5 char 335 move
+sprite 351 f4 remove d3
+sprite 351 f4 place d5 char 163 [3.05176e-05, -0.244781, 0.302689, 3.05176e-05, -42, 18.35] move
+sprite 351 f4 place d6 char 336 [1, 0, 0, 1, 0, 0]
+sprite 351 f5 place d5 [1.52588e-05, -0.265564, 0.275711, 0, -36.95, 19.75] move
+sprite 351 f5 place d6 [1, 0, 0, 1, 3.8, 0] move
+sprite 351 f5 sound 337
+sprite 351 f6 place d5 [3.05176e-05, -0.286331, 0.248718, 3.05176e-05, -31.95, 21.1] move
+sprite 351 f6 place d6 char 338 [1, 0, 0, 1, 0, 0] move
+sprite 351 f7 place d5 [1.52588e-05, -0.277832, 0.259018, 1.52588e-05, -33.85, 20.45] move
+sprite 351 f7 place d6 [1, 0, 0, 1, -1.15, 0] move
+sprite 351 f8 place d5 [3.05176e-05, -0.269318, 0.269318, 3.05176e-05, -35.85, 19.9] move
+sprite 351 f8 place d6 char 339 [1, 0, 0, 1, 0, 0] move
+sprite 351 f9 remove d6
+sprite 351 f9 script
+sprite 351 f9 place d7 char 340 [1, 0, 0, 1, 0, 0]
+sprite 351 f24 remove d7
+sprite 351 f24 place d5 char 341 [1, 0, 0, 1, 0, 0] move
+sprite 351 f25 remove d5
+sprite 351 f25 place d4 char 342 [1, 0, 0, 1, 0, 0]
+sprite 351 f26 place d4 char 343 move
+sprite 351 f27 script
+sprite 351 f27 place d3 char 206 [3.05176e-05, -0.244781, 0.302689, 3.05176e-05, -41.85, 18.35]
+sprite 351 f27 place d4 char 344 move
+sprite 351 f27 place d6 char 345 "distance1_txt" [-0.153168, -0.987686, 0.987686, -0.153168, -1.7, 18.85]
+sprite 351 f27 place d7 char 346 "distance_txt" [-0.153168, -0.987686, 0.987686, -0.153168, -2.7, 18.15]
+sprite 351 f27 sound 347
+sprite 351 f28 place d3 [1.52588e-05, -0.265564, 0.275711, 0, -36.75, 19.8] move
+sprite 351 f28 place d4 [1, -7.62939e-05, 7.62939e-05, 1, 4.05, 0.05] move
+sprite 351 f29 place d3 [3.05176e-05, -0.286331, 0.248718, 3.05176e-05, -31.75, 21.15] move
+sprite 351 f29 place d4 char 348 [1, 0, 0, 1, 0, 0] move
+sprite 351 f30 place d3 [1.52588e-05, -0.277832, 0.259018, 1.52588e-05, -33.65, 20.5] move
+sprite 351 f30 place d4 [1, -7.62939e-05, 7.62939e-05, 1, -1.55, 0] move
+sprite 351 f31 place d3 [3.05176e-05, -0.269318, 0.269318, 3.05176e-05, -35.6, 19.9] move
+sprite 351 f31 place d4 char 349 [1, 0, 0, 1, 0, 0] move
+sprite 351 f32 remove d4
+sprite 351 f32 place d5 char 350 [1, 0, 0, 1, 0, 0]
+sprite 351 f50 script
+sprite 360 f1 place d1 char 245 [1, 0, 0, 1, 0, 0]
+sprite 360 f2 place d1 char 249 move
+sprite 360 f3 place d1 char 107 move
+sprite 365 f1 script
+sprite 365 f1 place d1 char 352 [1, 0, 0, 1, 0, 0]
+sprite 365 f1 place d2 char 353 [1, 0, 0, 1, 0, 0]
+sprite 365 f1 sound 354
+sprite 365 f2 place d2 char 355 move
+sprite 365 f3 place d2 char 356 move
+sprite 365 f4 place d2 char 357 move
+sprite 365 f5 place d2 char 358 move
+sprite 365 f6 remove d2
+sprite 365 f9 script
+sprite 365 f17 place d4 char 359 [1, 0, 0, 1, 0, 0]
+sprite 365 f17 place d5 char 63 [0.00804138, -0.265137, 0.265137, 0.00804138, 25.35, 7.65]
+sprite 365 f18 place d5 [0.00804138, -0.265137, 0.265137, 0.00804138, 22.55, 8.35] move
+sprite 365 f19 place d5 char 68 [0.00804138, -0.265137, 0.265137, 0.00804138, 16.75, 8.85] move
+sprite 365 f20 remove d5
+sprite 365 f22 place d5 char 104 [-0.171829, 0.202133, -0.202133, -0.171829, 10.35, 8.15]
+sprite 365 f22 place d6 char 104 [-0.238098, -0.11525, -0.11525, 0.238098, 7, -7.3]
+sprite 365 f22 place d7 char 243 [0, 0.265961, 0.265961, 0, 46.55, -7.15]
+sprite 365 f22 place d8 char 360 [0.144913, 0.222473, 0.222473, -0.144913, 12, 0.65]
+sprite 365 f22 place d10 char 275 [0.0599823, 0.258911, 0.258911, -0.0599823, 2.1, 2.1]
+sprite 365 f23 place d5 [-0.171829, 0.202133, -0.202133, -0.171829, 5.15, 9.75] move
+sprite 365 f23 place d6 [-0.238098, -0.11525, -0.11525, 0.238098, 1.8, -5.75] move
+sprite 365 f23 place d7 [0, 0.265961, 0.265961, 0, 41.45, -5.5] move
+sprite 365 f23 place d8 [0.144913, 0.222473, 0.222473, -0.144913, 6.85, 2.25] move
+sprite 365 f23 place d10 [0.0599823, 0.258911, 0.258911, -0.0599823, -3.05, 3.65] move
+sprite 365 f24 remove d8
+sprite 365 f24 place d5 [-0.171829, 0.202133, -0.202133, -0.171829, 4.25, 10] move
+sprite 365 f24 place d6 [-0.238098, -0.11525, -0.11525, 0.238098, 0.9, -5.45] move
+sprite 365 f24 place d7 [0, 0.265961, 0.265961, 0, 40.5, -5.25] move
+sprite 365 f24 place d8 char 245 [0.144913, 0.222473, 0.222473, -0.144913, 5.95, 2.5]
+sprite 365 f24 place d10 [0.0599823, 0.258911, 0.258911, -0.0599823, -3.95, 3.9] move
+sprite 365 f26 place d2 char 63 [-0.259659, 0.0540619, 0.0540619, 0.259659, 9.5, -8.45]
+sprite 365 f26 place d3 char 361 [1, 0, 0, 1, 0, 0]
+sprite 365 f27 script
+sprite 365 f27 place d2 [-0.106201, 0.243484, 0.243484, 0.106201, 9.4, -9.3] move
+sprite 365 f27 place d3 char 362 move
+sprite 365 f27 place d12 char 363 "distance1_txt" [0.361206, -0.931946, 0.931946, 0.361206, -26.25, -2.4]
+sprite 365 f27 place d13 char 364 "distance_txt" [0.361206, -0.931946, 0.931946, 0.361206, -26.8, -3.5]
+sprite 365 f28 sound 258
+sprite 365 f50 script
+sprite 372 f1 script
+sprite 372 f1 place d1 char 21 [0, -0.605667, 0.605667, 0, 8.15, -4.6]
+sprite 372 f1 place d3 char 280 [1, 0, 0, 1, -49.75, -19.2]
+sprite 372 f2 place d3 char 281 [1, 0, 0, 1, -37.5, -21.9] move
+sprite 372 f3 place d3 char 282 [1, 0, 0, 1, -34.6, -25.75] move
+sprite 372 f6 place d1 [0, -0.840469, 0.840469, 0, 8.2, 0.15] move
+sprite 372 f6 place d3 char 283 [1, 0, 0, 1, -37.3, -25.75] move
+sprite 372 f7 place d3 char 366 [1, 0, 0, 1, 0, 0] move
+sprite 372 f7 place d5 char 284 [3.05176e-05, -0.382675, 0.289154, 3.05176e-05, -13.75, 37]
+sprite 372 f7 place d6 char 367 [1, 0, 0, 1, 0, 0]
+sprite 372 f8 place d5 [0, -0.353058, 0.339767, 1.52588e-05, -17.35, 34.5] move
+sprite 372 f9 place d3 char 368 move
+sprite 372 f9 place d5 [3.05176e-05, -0.323425, 0.390366, 3.05176e-05, -20.9, 31.95] move
+sprite 372 f9 place d6 char 369 move
+sprite 372 f10 place d5 [1.52588e-05, -0.336716, 0.370178, 0, -19.45, 33.05] move
+sprite 372 f11 remove d6
+sprite 372 f11 place d1 [0, -1.0269, 0.840469, 0, 8.2, 5.15] move
+sprite 372 f11 place d3 char 370 move
+sprite 372 f11 place d5 [3.05176e-05, -0.349991, 0.349991, 3.05176e-05, -18.1, 34.2] move
+sprite 372 f13 place d3 char 371 move
+sprite 372 f14 remove d3
+sprite 372 f20 script
+sprite 378 f1 place d1 char 21 [0, -0.605667, 0.605667, 0, 8.15, -4.6]
+sprite 378 f1 place d3 char 280 [1, 0, 0, 1, -49.75, -19.2]
+sprite 378 f2 place d1 [0, -0.686859, 0.605667, 0, 8.15, -3.85] move
+sprite 378 f2 place d3 char 281 [1, 0, 0, 1, -37.5, -21.9] move
+sprite 378 f3 place d3 char 282 [1, 0, 0, 1, -34.6, -25.75] move
+sprite 378 f6 place d1 [0, -0.840469, 0.840469, 0, 8.2, 0.15] move
+sprite 378 f6 place d3 char 283 [1, 0, 0, 1, -37.3, -25.75] move
+sprite 378 f7 place d3 char 373 [1, 0, 0, 1, 0, 0] move
+sprite 378 f7 place d5 char 284 [3.05176e-05, -0.382675, 0.289154, 3.05176e-05, -13.75, 37]
+sprite 378 f7 place d6 char 374 [1, 0, 0, 1, 0, 0]
+sprite 378 f8 place d5 [0, -0.353058, 0.339767, 1.52588e-05, -17.35, 34.5] move
+sprite 378 f9 place d3 char 375 move
+sprite 378 f9 place d5 [3.05176e-05, -0.323425, 0.390366, 3.05176e-05, -20.9, 31.95] move
+sprite 378 f9 place d6 char 376 move
+sprite 378 f10 place d5 [1.52588e-05, -0.336716, 0.370178, 0, -19.45, 33.05] move
+sprite 378 f11 remove d6
+sprite 378 f11 place d1 [0, -1.0269, 0.840469, 0, 8.2, 5.15] move
+sprite 378 f11 place d3 char 377 move
+sprite 378 f11 place d5 [3.05176e-05, -0.349991, 0.349991, 3.05176e-05, -18.1, 34.2] move
+sprite 378 f13 remove d3
+sprite 378 f18 remove d5
+sprite 378 f18 place d4 char 284 [3.05176e-05, -0.349991, 0.349991, 3.05176e-05, -18.1, 34.2]
+sprite 378 f21 remove d4
+sprite 378 f21 place d1 [0, -0.635056, 0.51976, 0, 9.4, -1.6] move
+sprite 378 f21 place d3 char 22 [9.15527e-05, -1, 1, 9.15527e-05, -37.2, 16]
+sprite 378 f22 place d1 [0, -0.635056, 0.51976, 0, 9.4, -8.1] move
+sprite 378 f22 place d3 char 23 [9.15527e-05, -1, 1, 9.15527e-05, -36.95, 7.95] move
+sprite 378 f23 place d1 [0, -0.635056, 0.51976, 0, 9.4, -16.1] move
+sprite 378 f23 place d3 char 24 [9.15527e-05, -1, 1, 9.15527e-05, -37.25, 0.45] move
+sprite 378 f24 place d1 [0, -0.635056, 0.51976, 0, 9.4, -24.6] move
+sprite 378 f24 place d3 char 25 [9.15527e-05, -1, 1, 9.15527e-05, -37.25, -8.05] move
+sprite 378 f25 place d1 [0, -0.635056, 0.51976, 0, 9.4, -32.35] move
+sprite 378 f25 place d3 char 26 [9.15527e-05, -1, 1, 9.15527e-05, -35.2, -13.3] move
+sprite 378 f26 place d1 [0, -0.635056, 0.51976, 0, 9.4, -39.85] move
+sprite 378 f26 place d3 char 27 [9.15527e-05, -1, 1, 9.15527e-05, -34.4, -22.3] move
+sprite 378 f27 place d1 [0, -0.635056, 0.51976, 0, 9.4, -48.1] move
+sprite 378 f27 place d3 char 28 [9.15527e-05, -1, 1, 9.15527e-05, -37.25, -31.05] move
+sprite 378 f28 place d1 [0, -0.635056, 0.51976, 0, 9.4, -53.6] move
+sprite 378 f28 place d3 char 23 [9.15527e-05, -1, 1, 9.15527e-05, -36.95, -37.25] move
+sprite 378 f29 place d1 [0, -0.635056, 0.51976, 0, 9.4, -60.6] move
+sprite 378 f29 place d3 char 24 [9.15527e-05, -1, 1, 9.15527e-05, -37.25, -44.55] move
+sprite 378 f30 place d1 [0, -0.635056, 0.51976, 0, 9.4, -70.35] move
+sprite 378 f30 place d3 char 25 [9.15527e-05, -1, 1, 9.15527e-05, -37.25, -53.05] move
+sprite 378 f31 place d1 [0, -0.635056, 0.51976, 0, 9.4, -75.85] move
+sprite 378 f31 place d3 char 26 [9.15527e-05, -1, 1, 9.15527e-05, -35.2, -58.3] move
+sprite 378 f32 place d1 [0, -0.635056, 0.51976, 0, 9.4, -85.1] move
+sprite 378 f32 place d3 char 27 [9.15527e-05, -1, 1, 9.15527e-05, -34.4, -67.3] move
+sprite 378 f33 place d1 [0, -0.635056, 0.51976, 0, 9.4, -85.35] move
+sprite 378 f33 place d3 char 28 [9.15527e-05, -1, 1, 9.15527e-05, -37.25, -68.85] move
+sprite 378 f34 place d1 [0, -0.635056, 0.51976, 0, 9.4, -85.6] move
+sprite 378 f35 remove d1
+sprite 378 f35 remove d3
+sprite 378 f35 place d1 char 52 "hamster" [9.15527e-05, -1.0007, 1, 9.15527e-05, -23.3, -82.2]
+sprite 378 f36 script
+sprite 381 f1 place d3 char 379 [1, 0, 0, 1, 0, 0]
+sprite 381 f3 place d3 char 380 move
+sprite 389 f1 place d1 char 382 [1, 0, 0, 1, 0, 0]
+sprite 389 f1 place d6 char 383 [1, 0, 0, 1, 0, 0]
+sprite 389 f4 remove d6
+sprite 389 f4 place d8 char 384 [1, 0, 0, 1, 0, 0]
+sprite 389 f7 place d8 char 385 move
+sprite 389 f10 place d8 char 386 move
+sprite 389 f13 remove d8
+sprite 389 f13 place d6 char 387 [1, 0, 0, 1, 0, 0]
+sprite 389 f16 remove d6
+sprite 389 f16 place d7 char 388 [1, 0, 0, 1, 0, 0]
+sprite 391 f1 place d1 char 390 [1, 0, 0, 1, 0, 0]
+sprite 395 f1 script
+sprite 395 f1 label off
+sprite 395 f1 place d4 char 393 [1, 0, 0, 1, 0, 0]
+sprite 395 f2 remove d4
+sprite 395 f2 label on
+sprite 395 f2 place d5 char 394 [1, 0, 0, 1, 0, 0]
+sprite 398 f1 place d1 char 397 [1, 0, 0, 1, 0, 0]
+sprite 402 f1 script
+sprite 402 f1 place d1 char 400 [1, 0, 0, 1, 0, 0]
+sprite 402 f1 place d2 char 398 "arrow" [1, 0, 0, 1, 15, 92]
+sprite 402 f1 place d4 char 401 [9.15527e-05, 0.999374, -1, 9.15527e-05, 34.4, 10]
+sprite 404 f1 place d1 char 45 "bounce" [1, 0, 0, 1, 808, -47]
+sprite 404 f1 place d3 char 45 "wind" [1, 0, 0, 1, 398, -39]
+sprite 404 f1 place d5 char 45 "bounce1" [1, 0, 0, 1, 1302.5, -157]
+sprite 404 f1 place d7 char 45 "wind1" [1, 0, 0, 1, 1492.5, -42]
+sprite 404 f1 place d9 char 45 "glide" [1, 0, 0, 1, 91, -51]
+sprite 404 f1 place d11 char 45 "slick" [1, 0, 0, 1, 106, -244]
+sprite 404 f1 place d13 char 45 "speed" [1, 0, 0, 1, 390, -132]
+sprite 404 f1 place d15 char 403 [1, 0, 0, 1, 0, 0]
+sprite 407 f1 script
+sprite 407 f1 place d1 char 405 [1, 0, 0, 1, 0, 0]
+sprite 407 f2 script
+sprite 407 f2 place d1 char 406 move
+sprite 417 f1 place d1 char 412 [1, 0, 0, 1, 0, 0]
+sprite 417 f1 place d2 char 413 [1, 0, 0, 1, 0, 0]
+sprite 417 f2 place d2 char 414 move
+sprite 417 f3 place d2 char 415 move
+sprite 417 f4 place d2 char 416 move
+sprite 419 f1 place d1 char 418 [1, 0, 0, 1, 0, 0]
+sprite 420 f1 place d1 char 419 [1, 0, 0, 1, 0, 0]
+sprite 420 f2 place d1 [1, 0, 0, 1, -4.9, 0] move
+sprite 420 f3 place d1 [1, 0, 0, 1, -9.8, 0] move
+sprite 420 f4 place d1 [1, 0, 0, 1, -14.75, 0] move
+sprite 420 f5 place d1 [1, 0, 0, 1, -19.65, 0] move
+sprite 420 f6 place d1 [1, 0, 0, 1, -24.55, 0] move
+sprite 420 f7 place d1 [1, 0, 0, 1, -29.45, 0] move
+sprite 420 f8 place d1 [1, 0, 0, 1, -34.4, 0] move
+sprite 420 f9 place d1 [1, 0, 0, 1, -39.3, 0] move
+sprite 420 f10 place d1 [1, 0, 0, 1, -44.2, 0] move
+sprite 420 f11 place d1 [1, 0, 0, 1, -49.1, 0] move
+sprite 420 f12 place d1 [1, 0, 0, 1, -54, 0] move
+sprite 420 f13 place d1 [1, 0, 0, 1, -58.95, 0] move
+sprite 420 f14 place d1 [1, 0, 0, 1, -63.85, 0] move
+sprite 420 f15 place d1 [1, 0, 0, 1, -68.75, 0] move
+sprite 420 f16 place d1 [1, 0, 0, 1, -73.7, 0] move
+sprite 420 f17 place d1 [1, 0, 0, 1, -78.55, 0] move
+sprite 420 f18 place d1 [1, 0, 0, 1, -83.5, 0] move
+sprite 420 f19 place d1 [1, 0, 0, 1, -88.4, 0] move
+sprite 420 f20 place d1 [1, 0, 0, 1, -93.3, 0] move
+sprite 420 f21 place d1 [1, 0, 0, 1, -98.25, 0] move
+sprite 420 f22 place d1 [1, 0, 0, 1, -103.1, 0] move
+sprite 420 f23 place d1 [1, 0, 0, 1, -108.05, 0] move
+sprite 420 f24 place d1 [1, 0, 0, 1, -112.95, 0] move
+sprite 420 f25 place d1 [1, 0, 0, 1, -117.85, 0] move
+sprite 420 f26 place d1 [1, 0, 0, 1, -122.8, 0] move
+sprite 420 f27 place d1 [1, 0, 0, 1, -127.7, 0] move
+sprite 420 f28 place d1 [1, 0, 0, 1, -132.6, 0] move
+sprite 420 f29 place d1 [1, 0, 0, 1, -137.5, 0] move
+sprite 420 f30 place d1 [1, 0, 0, 1, -142.4, 0] move
+sprite 420 f31 place d1 [1, 0, 0, 1, -147.35, 0] move
+sprite 420 f32 place d1 [1, 0, 0, 1, -152.25, 0] move
+sprite 420 f33 place d1 [1, 0, 0, 1, -157.15, 0] move
+sprite 420 f34 place d1 [1, 0, 0, 1, -162.05, 0] move
+sprite 420 f35 place d1 [1, 0, 0, 1, -166.95, 0] move
+sprite 420 f36 place d1 [1, 0, 0, 1, -171.85, 0] move
+sprite 420 f37 place d1 [1, 0, 0, 1, -176.8, 0] move
+sprite 420 f38 place d1 [1, 0, 0, 1, -181.7, 0] move
+sprite 420 f39 place d1 [1, 0, 0, 1, -186.6, 0] move
+sprite 420 f40 place d1 [1, 0, 0, 1, -191.5, 0] move
+sprite 420 f41 place d1 [1, 0, 0, 1, -196.45, 0] move
+sprite 420 f42 place d1 [1, 0, 0, 1, -201.35, 0] move
+sprite 420 f43 place d1 [1, 0, 0, 1, -206.25, 0] move
+sprite 420 f44 place d1 [1, 0, 0, 1, -211.15, 0] move
+sprite 420 f45 place d1 [1, 0, 0, 1, -216.1, 0] move
+sprite 420 f46 place d1 [1, 0, 0, 1, -221, 0] move
+sprite 420 f47 place d1 [1, 0, 0, 1, -225.9, 0] move
+sprite 420 f48 place d1 [1, 0, 0, 1, -230.85, 0] move
+sprite 420 f49 place d1 [1, 0, 0, 1, -235.7, 0] move
+sprite 420 f50 place d1 [1, 0, 0, 1, -240.65, 0] move
+sprite 420 f51 place d1 [1, 0, 0, 1, -245.55, 0] move
+sprite 420 f52 place d1 [1, 0, 0, 1, -250.45, 0] move
+sprite 420 f53 place d1 [1, 0, 0, 1, -255.35, 0] move
+sprite 420 f54 place d1 [1, 0, 0, 1, -260.3, 0] move
+sprite 420 f55 place d1 [1, 0, 0, 1, -265.2, 0] move
+sprite 420 f56 place d1 [1, 0, 0, 1, -270.1, 0] move
+sprite 420 f57 place d1 [1, 0, 0, 1, -275, 0] move
+sprite 420 f58 place d1 [1, 0, 0, 1, -279.9, 0] move
+sprite 420 f59 place d1 [1, 0, 0, 1, -284.85, 0] move
+sprite 420 f60 place d1 [1, 0, 0, 1, -289.75, 0] move
+sprite 420 f61 place d1 [1, 0, 0, 1, -294.65, 0] move
+sprite 420 f62 place d1 [1, 0, 0, 1, -299.55, 0] move
+sprite 420 f63 place d1 [1, 0, 0, 1, -304.45, 0] move
+sprite 420 f64 place d1 [1, 0, 0, 1, -309.4, 0] move
+sprite 420 f65 place d1 [1, 0, 0, 1, -314.3, 0] move
+sprite 420 f66 place d1 [1, 0, 0, 1, -319.2, 0] move
+sprite 420 f67 place d1 [1, 0, 0, 1, -324.1, 0] move
+sprite 420 f68 place d1 [1, 0, 0, 1, -329, 0] move
+sprite 420 f69 place d1 [1, 0, 0, 1, -333.95, 0] move
+sprite 420 f70 place d1 [1, 0, 0, 1, -338.85, 0] move
+sprite 420 f71 place d1 [1, 0, 0, 1, -343.75, 0] move
+sprite 420 f72 place d1 [1, 0, 0, 1, -348.65, 0] move
+sprite 420 f73 place d1 [1, 0, 0, 1, -353.6, 0] move
+sprite 420 f74 place d1 [1, 0, 0, 1, -358.5, 0] move
+sprite 420 f75 place d1 [1, 0, 0, 1, -363.4, 0] move
+sprite 420 f76 place d1 [1, 0, 0, 1, -368.3, 0] move
+sprite 420 f77 place d1 [1, 0, 0, 1, -373.25, 0] move
+sprite 420 f78 place d1 [1, 0, 0, 1, -378.15, 0] move
+sprite 420 f79 place d1 [1, 0, 0, 1, -383.05, 0] move
+sprite 420 f80 place d1 [1, 0, 0, 1, -387.95, 0] move
+sprite 420 f81 place d1 [1, 0, 0, 1, -392.85, 0] move
+sprite 420 f82 place d1 [1, 0, 0, 1, -397.75, 0] move
+sprite 420 f83 place d1 [1, 0, 0, 1, -402.7, 0] move
+sprite 420 f84 place d1 [1, 0, 0, 1, -407.6, 0] move
+sprite 420 f85 place d1 [1, 0, 0, 1, -412.5, 0] move
+sprite 420 f86 place d1 [1, 0, 0, 1, -417.45, 0] move
+sprite 420 f87 place d1 [1, 0, 0, 1, -422.35, 0] move
+sprite 420 f88 place d1 [1, 0, 0, 1, -427.25, 0] move
+sprite 420 f89 place d1 [1, 0, 0, 1, -432.15, 0] move
+sprite 420 f90 place d1 [1, 0, 0, 1, -437.05, 0] move
+sprite 420 f91 place d1 [1, 0, 0, 1, -442, 0] move
+sprite 420 f92 place d1 [1, 0, 0, 1, -446.9, 0] move
+sprite 420 f93 place d1 [1, 0, 0, 1, -451.8, 0] move
+sprite 420 f94 place d1 [1, 0, 0, 1, -456.7, 0] move
+sprite 420 f95 place d1 [1, 0, 0, 1, -461.6, 0] move
+sprite 420 f96 place d1 [1, 0, 0, 1, -466.5, 0] move
+sprite 420 f97 place d1 [1, 0, 0, 1, -471.45, 0] move
+sprite 420 f98 place d1 [1, 0, 0, 1, -476.35, 0] move
+sprite 420 f99 place d1 [1, 0, 0, 1, -481.25, 0] move
+sprite 420 f100 place d1 [1, 0, 0, 1, -486.15, 0] move
+sprite 420 f101 place d1 [1, 0, 0, 1, -491.1, 0] move
+sprite 420 f102 place d1 [1, 0, 0, 1, -496, 0] move
+sprite 420 f103 place d1 [1, 0, 0, 1, -500.9, 0] move
+sprite 420 f104 place d1 [1, 0, 0, 1, -505.8, 0] move
+sprite 420 f105 place d1 [1, 0, 0, 1, -510.7, 0] move
+sprite 420 f106 place d1 [1, 0, 0, 1, -515.65, 0] move
+sprite 420 f107 place d1 [1, 0, 0, 1, -520.55, 0] move
+sprite 420 f108 place d1 [1, 0, 0, 1, -525.5, 0] move
+sprite 420 f109 place d1 [1, 0, 0, 1, -530.4, 0] move
+sprite 420 f110 place d1 [1, 0, 0, 1, -535.3, 0] move
+sprite 420 f111 place d1 [1, 0, 0, 1, -540.2, 0] move
+sprite 420 f112 place d1 [1, 0, 0, 1, -545.1, 0] move
+sprite 420 f113 place d1 [1, 0, 0, 1, -550, 0] move
+sprite 420 f114 place d1 [1, 0, 0, 1, -554.95, 0] move
+sprite 420 f115 place d1 [1, 0, 0, 1, -559.85, 0] move
+sprite 420 f116 place d1 [1, 0, 0, 1, -564.75, 0] move
+sprite 420 f117 place d1 [1, 0, 0, 1, -569.65, 0] move
+sprite 420 f118 place d1 [1, 0, 0, 1, -574.6, 0] move
+sprite 420 f119 place d1 [1, 0, 0, 1, -579.5, 0] move
+sprite 420 f120 place d1 [1, 0, 0, 1, -584.4, 0] move
+sprite 420 f121 place d1 [1, 0, 0, 1, -589.3, 0] move
+sprite 420 f122 place d1 [1, 0, 0, 1, -594.2, 0] move
+sprite 420 f123 place d1 [1, 0, 0, 1, -599.1, 0] move
+sprite 420 f124 place d1 [1, 0, 0, 1, -604.05, 0] move
+sprite 420 f125 place d1 [1, 0, 0, 1, -608.95, 0] move
+sprite 420 f126 place d1 [1, 0, 0, 1, -613.85, 0] move
+sprite 420 f127 place d1 [1, 0, 0, 1, -618.75, 0] move
+sprite 420 f128 place d1 [1, 0, 0, 1, -623.7, 0] move
+sprite 420 f129 place d1 [1, 0, 0, 1, -628.6, 0] move
+sprite 420 f130 place d1 [1, 0, 0, 1, -633.5, 0] move
+sprite 420 f131 place d1 [1, 0, 0, 1, -638.4, 0] move
+sprite 420 f132 place d1 [1, 0, 0, 1, -643.35, 0] move
+sprite 420 f133 place d1 [1, 0, 0, 1, -648.2, 0] move
+sprite 420 f134 place d1 [1, 0, 0, 1, -653.15, 0] move
+sprite 420 f135 place d1 [1, 0, 0, 1, -658.05, 0] move
+sprite 420 f136 place d1 [1, 0, 0, 1, -662.95, 0] move
+sprite 420 f137 place d1 [1, 0, 0, 1, -667.9, 0] move
+sprite 420 f138 place d1 [1, 0, 0, 1, -672.8, 0] move
+sprite 420 f139 place d1 [1, 0, 0, 1, -677.7, 0] move
+sprite 420 f140 place d1 [1, 0, 0, 1, -682.6, 0] move
+sprite 420 f141 place d1 [1, 0, 0, 1, -687.55, 0] move
+sprite 420 f142 place d1 [1, 0, 0, 1, -692.45, 0] move
+sprite 420 f143 place d1 [1, 0, 0, 1, -697.35, 0] move
+sprite 420 f144 place d1 [1, 0, 0, 1, -702.25, 0] move
+sprite 420 f145 place d1 [1, 0, 0, 1, -707.15, 0] move
+sprite 420 f146 place d1 [1, 0, 0, 1, -712.1, 0] move
+sprite 420 f147 place d1 [1, 0, 0, 1, -717, 0] move
+sprite 420 f148 place d1 [1, 0, 0, 1, -721.9, 0] move
+sprite 420 f149 place d1 [1, 0, 0, 1, -726.8, 0] move
+sprite 420 f150 place d1 [1, 0, 0, 1, -731.7, 0] move
+sprite 420 f151 place d1 [1, 0, 0, 1, -736.65, 0] move
+sprite 420 f152 place d1 [1, 0, 0, 1, -741.55, 0] move
+sprite 420 f153 place d1 [1, 0, 0, 1, -746.45, 0] move
+sprite 420 f154 place d1 [1, 0, 0, 1, -751.35, 0] move
+sprite 420 f155 place d1 [1, 0, 0, 1, -756.25, 0] move
+sprite 420 f156 place d1 [1, 0, 0, 1, -761.2, 0] move
+sprite 420 f157 place d1 [1, 0, 0, 1, -766.1, 0] move
+sprite 420 f158 place d1 [1, 0, 0, 1, -771, 0] move
+sprite 420 f159 place d1 [1, 0, 0, 1, -775.9, 0] move
+sprite 420 f160 place d1 [1, 0, 0, 1, -780.8, 0] move
+sprite 420 f161 place d1 [1, 0, 0, 1, -785.75, 0] move
+sprite 420 f162 place d1 [1, 0, 0, 1, -790.65, 0] move
+sprite 420 f163 place d1 [1, 0, 0, 1, -795.55, 0] move
+sprite 420 f164 place d1 [1, 0, 0, 1, -800.5, 0] move
+sprite 420 f165 place d1 [1, 0, 0, 1, -805.4, 0] move
+sprite 420 f166 place d1 [1, 0, 0, 1, -810.3, 0] move
+sprite 420 f167 place d1 [1, 0, 0, 1, -815.2, 0] move
+sprite 420 f168 place d1 [1, 0, 0, 1, -820.1, 0] move
+sprite 420 f169 place d1 [1, 0, 0, 1, -825, 0] move
+sprite 420 f170 place d1 [1, 0, 0, 1, -829.95, 0] move
+sprite 420 f171 place d1 [1, 0, 0, 1, -834.85, 0] move
+sprite 420 f172 place d1 [1, 0, 0, 1, -839.75, 0] move
+sprite 420 f173 place d1 [1, 0, 0, 1, -844.65, 0] move
+sprite 420 f174 place d1 [1, 0, 0, 1, -849.6, 0] move
+sprite 420 f175 place d1 [1, 0, 0, 1, -854.5, 0] move
+sprite 420 f176 place d1 [1, 0, 0, 1, -859.4, 0] move
+sprite 420 f177 place d1 [1, 0, 0, 1, -864.3, 0] move
+sprite 420 f178 place d1 [1, 0, 0, 1, -869.25, 0] move
+sprite 420 f179 place d1 [1, 0, 0, 1, -874.15, 0] move
+sprite 420 f180 place d1 [1, 0, 0, 1, -879.05, 0] move
+sprite 420 f181 place d1 [1, 0, 0, 1, -883.95, 0] move
+sprite 420 f182 place d1 [1, 0, 0, 1, -888.85, 0] move
+sprite 420 f183 place d1 [1, 0, 0, 1, -893.75, 0] move
+sprite 420 f184 place d1 [1, 0, 0, 1, -898.7, 0] move
+sprite 420 f185 place d1 [1, 0, 0, 1, -903.6, 0] move
+sprite 420 f186 place d1 [1, 0, 0, 1, -908.5, 0] move
+sprite 420 f187 place d1 [1, 0, 0, 1, -913.4, 0] move
+sprite 420 f188 place d1 [1, 0, 0, 1, -918.3, 0] move
+sprite 420 f189 place d1 [1, 0, 0, 1, -923.25, 0] move
+sprite 420 f190 place d1 [1, 0, 0, 1, -928.15, 0] move
+sprite 420 f191 place d1 [1, 0, 0, 1, -933.05, 0] move
+sprite 420 f192 place d1 [1, 0, 0, 1, -938, 0] move
+sprite 420 f193 place d1 [1, 0, 0, 1, -942.9, 0] move
+sprite 420 f194 place d1 [1, 0, 0, 1, -947.8, 0] move
+sprite 420 f195 place d1 [1, 0, 0, 1, -952.7, 0] move
+sprite 420 f196 place d1 [1, 0, 0, 1, -957.6, 0] move
+sprite 420 f197 place d1 [1, 0, 0, 1, -962.55, 0] move
+sprite 420 f198 place d1 [1, 0, 0, 1, -967.45, 0] move
+sprite 420 f199 place d1 [1, 0, 0, 1, -972.35, 0] move
+sprite 420 f200 place d1 [1, 0, 0, 1, -977.25, 0] move
+sprite 420 f201 place d1 [1, 0, 0, 1, -982.2, 0] move
+sprite 420 f202 place d1 [1, 0, 0, 1, -987.1, 0] move
+sprite 420 f203 place d1 [1, 0, 0, 1, -992, 0] move
+sprite 420 f204 place d1 [1, 0, 0, 1, -996.9, 0] move
+sprite 420 f205 place d1 [1, 0, 0, 1, -1001.85, 0] move
+sprite 420 f206 place d1 [1, 0, 0, 1, -1006.75, 0] move
+sprite 420 f207 place d1 [1, 0, 0, 1, -1011.65, 0] move
+sprite 420 f208 place d1 [1, 0, 0, 1, -1016.55, 0] move
+sprite 420 f209 place d1 [1, 0, 0, 1, -1021.45, 0] move
+sprite 420 f210 place d1 [1, 0, 0, 1, -1026.35, 0] move
+sprite 420 f211 place d1 [1, 0, 0, 1, -1031.3, 0] move
+sprite 420 f212 place d1 [1, 0, 0, 1, -1036.2, 0] move
+sprite 420 f213 place d1 [1, 0, 0, 1, -1041.1, 0] move
+sprite 420 f214 place d1 [1, 0, 0, 1, -1046, 0] move
+sprite 420 f215 place d1 [1, 0, 0, 1, -1050.9, 0] move
+sprite 420 f216 place d1 [1, 0, 0, 1, -1055.85, 0] move
+sprite 420 f217 place d1 [1, 0, 0, 1, -1060.75, 0] move
+sprite 420 f218 place d1 [1, 0, 0, 1, -1065.65, 0] move
+sprite 420 f219 place d1 [1, 0, 0, 1, -1070.55, 0] move
+sprite 420 f220 place d1 [1, 0, 0, 1, -1075.5, 0] move
+sprite 420 f221 place d1 [1, 0, 0, 1, -1080.4, 0] move
+sprite 420 f222 place d1 [1, 0, 0, 1, -1085.3, 0] move
+sprite 420 f223 place d1 [1, 0, 0, 1, -1090.2, 0] move
+sprite 420 f224 place d1 [1, 0, 0, 1, -1095.15, 0] move
+sprite 420 f225 place d1 [1, 0, 0, 1, -1100.05, 0] move
+sprite 420 f226 place d1 [1, 0, 0, 1, -1104.95, 0] move
+sprite 420 f227 place d1 [1, 0, 0, 1, -1109.85, 0] move
+sprite 420 f228 place d1 [1, 0, 0, 1, -1114.75, 0] move
+sprite 420 f229 place d1 [1, 0, 0, 1, -1119.7, 0] move
+sprite 420 f230 place d1 [1, 0, 0, 1, -1124.6, 0] move
+sprite 420 f231 place d1 [1, 0, 0, 1, -1129.5, 0] move
+sprite 420 f232 place d1 [1, 0, 0, 1, -1134.4, 0] move
+sprite 420 f233 place d1 [1, 0, 0, 1, -1139.35, 0] move
+sprite 420 f234 place d1 [1, 0, 0, 1, -1144.25, 0] move
+sprite 420 f235 place d1 [1, 0, 0, 1, -1149.15, 0] move
+sprite 420 f236 place d1 [1, 0, 0, 1, -1154.05, 0] move
+sprite 420 f237 place d1 [1, 0, 0, 1, -1158.95, 0] move
+sprite 420 f238 place d1 [1, 0, 0, 1, -1163.9, 0] move
+sprite 420 f239 place d1 [1, 0, 0, 1, -1168.8, 0] move
+sprite 420 f240 place d1 [1, 0, 0, 1, -1173.7, 0] move
+sprite 420 f241 place d1 [1, 0, 0, 1, -1178.6, 0] move
+sprite 420 f242 place d1 [1, 0, 0, 1, -1183.5, 0] move
+sprite 420 f243 place d1 [1, 0, 0, 1, -1188.45, 0] move
+sprite 420 f244 place d1 [1, 0, 0, 1, -1193.35, 0] move
+sprite 420 f245 place d1 [1, 0, 0, 1, -1198.25, 0] move
+sprite 420 f246 place d1 [1, 0, 0, 1, -1203.15, 0] move
+sprite 420 f247 place d1 [1, 0, 0, 1, -1208.05, 0] move
+sprite 420 f248 place d1 [1, 0, 0, 1, -1213, 0] move
+sprite 420 f249 place d1 [1, 0, 0, 1, -1217.9, 0] move
+sprite 420 f250 place d1 [1, 0, 0, 1, -1222.8, 0] move
+sprite 420 f251 place d1 [1, 0, 0, 1, -1227.7, 0] move
+sprite 420 f252 place d1 [1, 0, 0, 1, -1232.6, 0] move
+sprite 420 f253 place d1 [1, 0, 0, 1, -1237.55, 0] move
+sprite 420 f254 place d1 [1, 0, 0, 1, -1242.45, 0] move
+sprite 420 f255 place d1 [1, 0, 0, 1, -1247.35, 0] move
+sprite 420 f256 place d1 [1, 0, 0, 1, -1252.25, 0] move
+sprite 420 f257 place d1 [1, 0, 0, 1, -1257.2, 0] move
+sprite 420 f258 place d1 [1, 0, 0, 1, -1262.1, 0] move
+sprite 420 f259 place d1 [1, 0, 0, 1, -1267, 0] move
+sprite 420 f260 place d1 [1, 0, 0, 1, -1271.9, 0] move
+sprite 420 f261 place d1 [1, 0, 0, 1, -1276.85, 0] move
+sprite 420 f262 place d1 [1, 0, 0, 1, -1281.75, 0] move
+sprite 420 f263 place d1 [1, 0, 0, 1, -1286.65, 0] move
+sprite 420 f264 place d1 [1, 0, 0, 1, -1291.55, 0] move
+sprite 420 f265 place d1 [1, 0, 0, 1, -1296.5, 0] move
+sprite 420 f266 place d1 [1, 0, 0, 1, -1301.4, 0] move
+sprite 420 f267 place d1 [1, 0, 0, 1, -1306.3, 0] move
+sprite 420 f268 place d1 [1, 0, 0, 1, -1311.2, 0] move
+sprite 420 f269 place d1 [1, 0, 0, 1, -1316.1, 0] move
+sprite 420 f270 place d1 [1, 0, 0, 1, -1321, 0] move
+sprite 420 f271 place d1 [1, 0, 0, 1, -1325.95, 0] move
+sprite 420 f272 place d1 [1, 0, 0, 1, -1330.85, 0] move
+sprite 420 f273 place d1 [1, 0, 0, 1, -1335.75, 0] move
+sprite 420 f274 place d1 [1, 0, 0, 1, -1340.65, 0] move
+sprite 420 f275 place d1 [1, 0, 0, 1, -1345.55, 0] move
+sprite 420 f276 place d1 [1, 0, 0, 1, -1350.5, 0] move
+sprite 420 f277 place d1 [1, 0, 0, 1, -1355.4, 0] move
+sprite 420 f278 place d1 [1, 0, 0, 1, -1360.3, 0] move
+sprite 420 f279 place d1 [1, 0, 0, 1, -1365.2, 0] move
+sprite 420 f280 place d1 [1, 0, 0, 1, -1370.1, 0] move
+sprite 420 f281 place d1 [1, 0, 0, 1, -1375.05, 0] move
+sprite 420 f282 place d1 [1, 0, 0, 1, -1379.95, 0] move
+sprite 420 f283 place d1 [1, 0, 0, 1, -1384.85, 0] move
+sprite 420 f284 place d1 [1, 0, 0, 1, -1389.75, 0] move
+sprite 420 f285 place d1 [1, 0, 0, 1, -1394.7, 0] move
+sprite 420 f286 place d1 [1, 0, 0, 1, -1399.6, 0] move
+sprite 420 f287 place d1 [1, 0, 0, 1, -1404.5, 0] move
+sprite 420 f288 place d1 [1, 0, 0, 1, -1409.4, 0] move
+sprite 420 f289 place d1 [1, 0, 0, 1, -1414.35, 0] move
+sprite 420 f290 place d1 [1, 0, 0, 1, -1419.25, 0] move
+sprite 420 f291 place d1 [1, 0, 0, 1, -1424.15, 0] move
+sprite 420 f292 place d1 [1, 0, 0, 1, -1429.05, 0] move
+sprite 420 f293 place d1 [1, 0, 0, 1, -1434, 0] move
+sprite 420 f294 place d1 [1, 0, 0, 1, -1438.9, 0] move
+sprite 420 f295 place d1 [1, 0, 0, 1, -1443.8, 0] move
+sprite 420 f296 place d1 [1, 0, 0, 1, -1448.7, 0] move
+sprite 420 f297 place d1 [1, 0, 0, 1, -1453.6, 0] move
+sprite 420 f298 place d1 [1, 0, 0, 1, -1458.55, 0] move
+sprite 420 f299 place d1 [1, 0, 0, 1, -1463.45, 0] move
+sprite 420 f300 place d1 [1, 0, 0, 1, -1468.35, 0] move
+sprite 423 f1 place d1 char 422 [1, 0, 0, 1, 0, 0]
+sprite 429 f1 place d1 char 428 [1, 0, 0, 1, 0, 0]
+sprite 432 f1 place d1 char 100 [1, 0, 0, 1, 0, 0]
+sprite 432 f1 place d2 char 430 [1, 0, 0, 1, 0, 0]
+sprite 432 f2 place d2 char 112 move
+sprite 432 f3 place d2 char 431 move
+sprite 452 f1 place d1 char 297 [1, 0, 0, 1, 0, 0]
+sprite 453 f1 place d1 char 299 [1, 0, 0, 1, 0, 0]
+sprite 454 f1 script
+sprite 454 f1 place d1 char 45 "core" [1.66669, 0, 0, 1.66669, -5.55, -5.75]
+sprite 454 f1 place d3 char 381 [0.25, 0, 0, 0.25, -7.2, -4.8]
+sprite 454 f2 remove d1
+sprite 454 f3 remove d3
+sprite 454 f5 remove d1
+sprite 454 f7 remove d1
+sprite 454 f7 script
+sprite 462 f1 script
+sprite 462 f1 place d1 char 21 [1, 0, 0, 1, 8, 32.25]
+sprite 462 f1 place d3 char 45 "core" [1.03781, 0, 0, 1.03781, -7.35, -5.35]
+sprite 462 f1 place d6 char 455 [1, 0, 0, 1, 0, 0]
+sprite 462 f2 remove d3
+sprite 462 f3 remove d6
+sprite 462 f3 place d4 char 456 [1, 0, 0, 1, 0, 0]
+sprite 462 f4 sound 457
+sprite 462 f5 place d3 char 458 [1, 0, 0, 1, 0, 0]
+sprite 462 f5 place d4 char 459 move
+sprite 462 f6 place d4 char 460 move
+sprite 462 f7 place d4 char 459 move
+sprite 462 f8 place d4 char 461 move
+sprite 462 f9 remove d3
+sprite 462 f9 remove d4
+sprite 462 f9 script
+sprite 463 f1 script
+sprite 463 f1 place d1 char 45 "core" [1, 0, 0, 1, 0, 0]
+sprite 463 f2 remove d1
+sprite 463 f3 remove d3
+sprite 463 f5 remove d1
+sprite 463 f7 remove d1
+sprite 463 f7 script
+sprite 465 f1 script
+sprite 465 f1 place d1 char 45 "core" [1, 0, 0, 1, 0, 0]
+sprite 465 f1 place d3 char 417 [0.5, 0, 0, 0.5, -39.55, -2.35]
+sprite 465 f2 remove d1
+sprite 465 f2 sound 464
+sprite 465 f3 remove d3
+sprite 465 f3 place d1 char 297 [1, 0, 0, 1, -18.35, -22.25]
+sprite 465 f5 place d1 char 299 [1, 0, 0, 1, -17.9, -22.15] move
+sprite 465 f7 remove d1
+sprite 465 f8 script
+sprite 466 f1 script
+sprite 466 f1 place d1 char 45 "core" [1.66669, 0, 0, 1.66669, -5.55, -5.75]
+sprite 466 f1 place d3 char 389 [0.25, 0, 0, 0.25, -7.2, -4.8]
+sprite 466 f2 remove d1
+sprite 466 f3 remove d3
+sprite 466 f3 place d1 char 297 [1, 0, 0, 1, -28.7, -24.8]
+sprite 466 f5 place d1 char 299 [1, 0, 0, 1, -28.25, -24.7] move
+sprite 466 f7 remove d1
+sprite 466 f7 script
+sprite 467 f1 script
+sprite 467 f1 place d1 char 391 "core" [1.69173, 0, 0, 1.97354, -10.8, -27.5]
+sprite 467 f1 place d3 char 220 [0.25, 0, 0, 0.25, -14.65, 6.65]
+sprite 487 f1 script
+sprite 487 f2 place d1 char 19 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d3 char 53 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d7 char 54 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d9 char 71 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d11 char 81 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d17 char 145 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d183 char 149 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d196 char 153 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d211 char 157 [1, 0, 0, 1, 0, 0]
+sprite 487 f2 place d212 char 161 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d214 char 162 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d217 char 163 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d218 char 165 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d220 char 177 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d222 char 181 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d224 char 183 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d226 char 186 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d230 char 187 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d234 char 188 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d239 char 191 [1, 0, 0, 1, 0, 0]
+sprite 487 f2 place d240 char 193 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d242 char 194 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d243 char 198 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d262 char 199 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d263 char 201 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d265 char 203 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d267 char 205 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d269 char 206 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d270 char 209 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d272 char 213 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d274 char 215 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d277 char 217 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d279 char 219 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d281 char 220 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d286 char 228 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d288 char 229 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d289 char 232 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d291 char 235 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d321 char 259 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d339 char 1 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d340 char 262 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d342 char 265 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d344 char 267 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d345 char 272 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d354 char 273 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d356 char 3 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d357 char 279 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d391 char 280 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d392 char 281 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d393 char 282 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d394 char 283 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d396 char 284 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d397 char 285 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d399 char 286 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d400 char 287 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d401 char 291 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d422 char 292 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d423 char 294 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d425 char 296 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d427 char 297 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d428 char 298 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d429 char 299 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d430 char 300 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d431 char 305 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d434 char 331 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d509 char 333 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d511 char 351 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d519 char 365 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d533 char 372 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d540 char 378 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d547 char 14 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d549 char 381 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d553 char 389 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d562 char 391 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d564 char 392 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d566 char 395 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d572 char 397 [1, 0, 0, 1, -98.25, -618.65]
+sprite 487 f2 place d573 char 398 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d575 char 400 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d576 char 402 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d581 char 404 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d597 char 407 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d599 char 408 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d600 char 410 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d603 char 411 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d604 char 412 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d605 char 417 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d608 char 419 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d610 char 420 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d612 char 21 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d614 char 421 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d615 char 423 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d617 char 425 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d618 char 426 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d619 char 429 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d621 char 432 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d624 char 9 [1, 0, 0, 1, -113.25, -625.65]
+sprite 487 f2 place d646 char 433 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d648 char 434 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d650 char 437 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d652 char 440 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d654 char 441 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d657 char 442 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d660 char 443 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d663 char 447 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d666 char 451 [1, 0, 0, 1, -176.65, -64.65]
+sprite 487 f2 place d669 char 454 [1, 0, 0, 1, -224.85, 113.7]
+sprite 487 f2 place d673 char 462 [1, 0, 0, 1, -224.85, 113.7]
+sprite 487 f2 place d680 char 463 [1, 0, 0, 1, -224.85, 113.7]
+sprite 487 f2 place d684 char 465 [1, 0, 0, 1, -224.85, 113.7]
+sprite 487 f2 place d688 char 466 [1, 0, 0, 1, -224.85, 113.7]
+sprite 487 f2 place d692 char 467 [1, 0, 0, 1, -224.85, 113.7]
+sprite 487 f2 place d696 char 469 [1, 0, 0, 1, -279.15, -251.95]
+sprite 487 f2 sound 470
+sprite 487 f2 sound 471
+sprite 487 f2 sound 132
+sprite 487 f2 sound 354
+sprite 487 f2 sound 472
+sprite 487 f2 sound 473
+sprite 487 f2 sound 115
+sprite 487 f2 sound 474
+sprite 487 f2 sound 475
+sprite 487 f2 sound 347
+sprite 487 f2 sound 476
+sprite 487 f2 sound 477
+sprite 487 f2 sound 478
+sprite 487 f2 sound 479
+sprite 487 f2 sound 480
+sprite 487 f2 sound 481
+sprite 487 f2 sound 464
+sprite 487 f2 sound 482
+sprite 487 f2 sound 483
+sprite 487 f2 sound 484
+sprite 487 f2 sound 485
+sprite 487 f2 sound 486
+sprite 487 f2 sound 337
+sprite 487 f2 sound 258
+sprite 487 f2 sound 479
+sprite 490 f1 place d1 char 469 [1, 0, 0, 1, 0, 0]
+sprite 501 f1 script
+sprite 501 f1 label musicOn
+sprite 501 f1 place d3 char 497 [1, 0, 0, 1, 0, 0]
+sprite 501 f10 remove d3
+sprite 501 f10 label musicOn_RO
+sprite 501 f10 place d2 char 498 [1, 0, 0, 1, 0, 0]
+sprite 501 f20 remove d2
+sprite 501 f20 label musicOff
+sprite 501 f20 place d4 char 499 [1, 0, 0, 1, 0, 0]
+sprite 501 f29 label musicOff_RO
+sprite 501 f29 place d4 char 500 move

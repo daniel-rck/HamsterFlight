@@ -28,6 +28,9 @@ const MISS: LaunchResult = { hit: false, vel: 0, angleDeg: 0, angleRad: 0, y: 0 
  *    degrees, i.e. aimed slightly downwards.
  */
 export function attemptLaunch(jump: JumpState, tuning: Tuning): LaunchResult {
+  // Clip 52 only places its `core` on frame 28, so before the lift there is
+  // nothing for `hamster.core.hitTest(pillow)` to hit.
+  if (jump.windup !== null) return MISS;
   // hamster.core.hitTest(pillow) - note the whole pillow clip, not pillow.core.
   const hits = overlaps(
     C.HAMSTER_X,

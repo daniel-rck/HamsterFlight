@@ -9,9 +9,14 @@ exclude it.
 | Path | What it is |
 |---|---|
 | `as2/Game.as`, `as2/Bullet.as` | Decompiler output (JPEXS ffdec) from the original SWF. The behavioural source of truth for the port. |
+| `as2/timeline/` | The frame scripts ffdec exports next to the classes (`-export script`): the root timeline (`frame_1`-`frame_7`), the four buttons, and every clip frame that carries a `DoAction`. Everything the classes call into or get called back from - the jump clip calling `jump()`, the outcome clips calling `setCamReset()`, the `Play Now!` button - lives here, not in `Game.as`. |
+| `as2/timeline/display-lists.txt` | `tools/dump_timeline.py` output: per clip and frame, every placement (depth, character, instance name, matrix), label, removal and `StartSound`. The half of the timeline the scripts do not show. |
 | `doc/flight-of-the-hamsters-reverse-engineering.md` | The original analysis: container, class structure, timing model, constants, all read from bytecode. |
 | `doc/porting-notes.md` | Where this port diverges from the bytecode, from the document, and from `legacy/sim.js` - and why. **Read this before comparing any numbers.** |
 | `tools/swfparse.py` | Standalone SWF container parser. `python3 reference/tools/swfparse.py <file.swf>` for the tag inventory, `... <file.swf> names` for instance names and positions. |
+| `tools/dump_timeline.py` | `python3 reference/tools/dump_timeline.py <file.swf> [char-id ...]` - display lists, labels and timeline sounds, root and every sprite. Regenerates `as2/timeline/display-lists.txt`. |
+| `tools/build_sounds.py` | The game's 21 sounds as MP3 (no transcoding: every DefineSound here is MP3) into `src/assets/sounds/`, and `src/assets/sounds.generated.ts` with each sound's encoder latency and length. |
+| `tools/build_screens.py` | The INSTRUCTIONS board (root frame 6) and its Play Now! button as WebP overlays into `src/assets/screens/`, from ffdec's frame and shape SVG exports. |
 | `tools/extract_hitboxes.py` | Resolves the `core` subclip bounds into `src/sim/hitboxes.generated.ts`. Closes gap 13.1 of the document. |
 | `legacy/sim.js` | The physics validation script that produced the document's section 12 table. **Kept frozen as a historical artifact.** It diverges from the bytecode in three ways - see `doc/porting-notes.md`. Superseded by `scripts/bench-strategies.ts`. |
 
@@ -46,8 +51,12 @@ measurement and visual reference only.
 `tools/build_sprites.py` and are the original publisher's artwork, not this
 project's. Section 13.4 of the analysis notes that shipping it in a published
 project is a different matter from analysing it privately; that is a deliberate
-choice by the repository owner rather than an oversight. Audio is not extracted
-yet.
+choice by the repository owner rather than an oversight. The same goes for the
+sounds under `src/assets/sounds/`, extracted by `tools/build_sounds.py`:
+
+```sh
+python3 reference/tools/build_sounds.py path/to/OCybCA4ADbpTKT.swf src/assets/sounds
+```
 
 The asset layer is data-driven behind `src/assets/sprites.generated.ts`, so
 swapping in original or licensed art is a data change rather than a rewrite.

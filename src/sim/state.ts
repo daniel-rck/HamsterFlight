@@ -19,6 +19,11 @@ export interface PowerupInstance {
 }
 
 export interface JumpState {
+  /**
+   * Ticks since the click while clip 52 plays its wind-up on the pad; null
+   * once its frame 28 has lifted the clip and called `jump()`.
+   */
+  windup: number | null;
   y: number;
   yvel: number;
   /** The one-shot boost below y = 930 fires once per jump. */
@@ -59,9 +64,10 @@ export interface FlightState {
  * combinations were unreachable only by convention.
  *
  * `settling` has two stages, matching the original's sequence after a shot:
- * the outcome clip plays (`hold`, `Tuning.outcomeHoldTicks`), then its last
- * frame calls `setCamReset()` and the camera quick-pans home (`pan`,
- * `GameCamera.doQuickPanTo`); `onDone()` advances the turn on arrival.
+ * the outcome clip plays (`hold`) - a faceplant or a zero hands over to a
+ * cheer part-way, as their frame scripts do - then the cheer's (or the
+ * hole's) frame 50 calls `setCamReset()` and the camera quick-pans home
+ * (`pan`, `GameCamera.doQuickPanTo`); `onDone()` advances the turn on arrival.
  */
 export type Phase =
   | { readonly kind: "ready" }
@@ -77,8 +83,15 @@ export type Phase =
        * is drawn there, which is why the projectile had to survive
        * `deleteBlt()` in the original.
        */
-      readonly x: number;
+      x: number;
       readonly y: number;
+      /**
+       * The clip showing: the outcome's own, until a faceplant or a zero
+       * attaches the cheer that follows it.
+       */
+      clip: ShotOutcome;
+      /** Ticks since `clip` was attached. */
+      clipTicks: number;
       stage: "hold" | "pan";
       /** Ticks left in the current stage; in `pan` it is the safety cap. */
       ticksLeft: number;
@@ -86,7 +99,12 @@ export type Phase =
       /** `cameraTargetX/Y` - the pan's unquantised accumulator. See `quickPanStep`. */
       readonly pan: CameraState;
     }
-  | { readonly kind: "gameOver"; readonly total: number };
+  | {
+      readonly kind: "gameOver";
+      readonly total: number;
+      /** Ticks since `gameOver()` - `gameOver_mc` only offers PLAY AGAIN on its frame 60. */
+      ticks: number;
+    };
 
 /** The read-only view the renderer gets. It may not hold the Simulation itself. */
 export interface SimSnapshot {
@@ -96,6 +114,11 @@ export interface SimSnapshot {
   readonly paused: boolean;
   /** The jump's one pillow swing has been used, hit or miss. False outside `jumping`. */
   readonly swung: boolean;
+  /**
+   * Ticks into clip 52's wind-up (`JumpState.windup`); null outside `jumping`
+   * and once the clip has called `jump()`.
+   */
+  readonly windup: number | null;
   readonly hamster: {
     readonly x: number;
     readonly y: number;
@@ -113,4 +136,8 @@ export interface SimSnapshot {
   readonly shots: readonly number[];
   readonly feet: number;
   readonly outcome: ShotOutcome | null;
+  /** The outcome clip showing - `outcome`, or the cheer that follows it. Null outside `settling`. */
+  readonly outcomeClip: ShotOutcome | null;
+  /** Game over and PLAY AGAIN is up, so a confirm restarts. */
+  readonly restartable: boolean;
 }

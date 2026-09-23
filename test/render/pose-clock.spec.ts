@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { SPRITES } from "@/assets/sprites.generated.ts";
-import { clipStep, PoseClock } from "@/render/PoseClock.ts";
+import { clipStep, PoseClock, windupFrame } from "@/render/PoseClock.ts";
 import { C } from "@/sim/constants.ts";
 import type { Phase, SimSnapshot } from "@/sim/state.ts";
 import { noEffects, type ShotOutcome } from "@/sim/types.ts";
@@ -19,6 +19,7 @@ const FLY = SPRITES["hamster/fly"];
 interface Setup {
   readonly phase?: Phase["kind"];
   readonly outcome?: ShotOutcome | null;
+  readonly windup?: number | null;
 }
 
 function snap(setup: Setup = {}): SimSnapshot {
@@ -28,6 +29,7 @@ function snap(setup: Setup = {}): SimSnapshot {
     turn: 1,
     paused: false,
     swung: false,
+    windup: setup.windup ?? null,
     hamster: {
       x: C.HAMSTER_X,
       y: C.HAMSTER_START_Y,
@@ -44,6 +46,8 @@ function snap(setup: Setup = {}): SimSnapshot {
     shots: [],
     feet: 0,
     outcome: setup.outcome ?? null,
+    outcomeClip: null,
+    restartable: false,
   };
 }
 
@@ -68,28 +72,32 @@ describe("the hamster clip", () => {
     expect(clock.frame(ready, JUMP, 1_000_000)).toBe(0);
   });
 
-  it("starts the jump on frame 0 at the click, not wherever the clock was", () => {
+  it("follows the simulation's wind-up tick, not the wall clock", () => {
+    // Label `jump` is frame 2 (index 1); the stage rate from there.
     const clock = new PoseClock();
-    // The clip is anchored on the first frame after boot and then waited on -
-    // `ready` and `jumping` are the same pose, so an anchor kept per pose was
-    // never dropped and the click landed twelve seconds into a 1.9 s clip.
     clock.frame(snap(), JUMP, 0);
-    clock.frame(snap(), JUMP, 12_000);
-    const jumping = snap({ phase: "jumping" });
-    expect(clock.frame(jumping, JUMP, 12_000)).toBe(0);
-    expect(clock.frame(jumping, JUMP, 12_000 + mid(1))).toBe(1);
-    expect(clock.frame(jumping, JUMP, 12_000 + mid(5))).toBe(5);
+    expect(clock.frame(snap({ phase: "jumping", windup: 1 }), JUMP, 12_000)).toBe(1);
+    expect(clock.frame(snap({ phase: "jumping", windup: 1 }), JUMP, 99_000)).toBe(1);
+    expect(clock.frame(snap({ phase: "jumping", windup: 10 }), JUMP, 0)).toBe(10);
+    expect(windupFrame(27)).toBe(26);
+    // Never into the ball while the clip is still on the pad.
+    expect(windupFrame(1000)).toBe(26);
   });
 
-  it("holds the jump run on its last frame instead of looping into the takeoff", () => {
+  it("holds frame 28 after the lift and loops the nested ball on it", () => {
     const clock = new PoseClock();
-    const jumping = snap({ phase: "jumping" });
-    clock.frame(jumping, JUMP, 0);
-    expect(clock.frame(jumping, JUMP, mid(18))).toBe(18);
-    // Frame 19 onwards is the crouch, the takeoff that leaves the clip's own
-    // position behind, and a blank frame; a 2.5 s jump must not reach them.
-    expect(clock.frame(jumping, JUMP, mid(19))).toBe(18);
-    expect(clock.frame(jumping, JUMP, mid(JUMP.frames + 3))).toBe(18);
+    const air = snap({ phase: "jumping", windup: null });
+    clock.frame(snap({ phase: "jumping", windup: 27 }), JUMP, 0);
+    // The lift re-anchors: the ball starts on its own frame 1.
+    expect(clock.frame(air, JUMP, 5_000)).toBe(27);
+    expect(clock.frame(air, JUMP, 5_000 + mid(3))).toBe(30);
+    expect(clock.frame(air, JUMP, 5_000 + mid(4))).toBe(27);
+    // The blank frame 36 and the flattened extra ball frames are never shown.
+    for (let f = 0; f < 60; f++) {
+      const i = clock.frame(air, JUMP, 5_000 + mid(f));
+      expect(i).toBeGreaterThanOrEqual(27);
+      expect(i).toBeLessThanOrEqual(30);
+    }
   });
 
   it("plays an outcome clip once and holds its last frame", () => {
@@ -119,10 +127,10 @@ describe("the hamster clip", () => {
 
   it("re-anchors after clear(), so a hidden tab does not skip the clip forward", () => {
     const clock = new PoseClock();
-    const jumping = snap({ phase: "jumping" });
-    clock.frame(jumping, JUMP, 0);
+    const flying = snap({ phase: "flying" });
+    clock.frame(flying, FLY, 0);
     clock.clear();
-    expect(clock.frame(jumping, JUMP, 60_000)).toBe(0);
+    expect(clock.frame(flying, FLY, 60_000)).toBe(0);
   });
 
   it("pins single-frame sprites to 0", () => {

@@ -22,6 +22,9 @@ export function interpolate(
   if (prev === null) return next;
   if (prev.phaseKind !== next.phaseKind || prev.tick !== next.tick - 1) return next;
   if (prev.turn !== next.turn) return next;
+  // Clip 52's frame 28 moves the clip up 117.8 px in one go, with the art
+  // moving back down the same amount - a cut, not a motion.
+  if ((prev.windup === null) !== (next.windup === null)) return next;
   // Clamped at both ends, and alpha 0 is `prev` like every other alpha close to
   // it: returning `next` there drew a frame landing exactly on a tick boundary
   // one tick ahead, and the frame after it jumped back.

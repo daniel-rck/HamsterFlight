@@ -1,4 +1,4 @@
-import type { SpriteId } from "@/assets/sprites.generated.ts";
+import type { SpriteId, SpriteMeta } from "@/assets/sprites.generated.ts";
 import { type Box, rotateBox } from "@/sim/math/aabb.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import type { Tuning } from "@/sim/tuning.ts";
@@ -13,7 +13,7 @@ import type { Tuning } from "@/sim/tuning.ts";
 export function poseFor(s: SimSnapshot): SpriteId {
   if (s.phaseKind === "jumping" || s.phaseKind === "ready") return "hamster/jump";
   if (s.phaseKind === "settling") {
-    switch (s.outcome) {
+    switch (s.outcomeClip ?? s.outcome) {
       case "hole":
         return "hit/hole";
       case "cheer":
@@ -37,8 +37,9 @@ export function poseFor(s: SimSnapshot): SpriteId {
 
 /**
  * `createHitClip(bc._x, bc._y + 3, ...)` for a faceplant, and the unmodified
- * position for every other outcome. Game.as:869, 874, 967. A display rule, like
- * the no-rotate one below, so it lives here rather than in the simulation.
+ * position for every other outcome. Game.as:869, 874, 967. The cheer the
+ * faceplant attaches takes its `this._y`, so it keeps the offset. A display
+ * rule, so it lives here rather than in the simulation.
  */
 export function outcomeOffsetY(s: SimSnapshot): number {
   return s.phaseKind === "settling" && s.outcome === "faceplant" ? 3 : 0;
@@ -61,40 +62,50 @@ export function outcomeOffsetY(s: SimSnapshot): number {
 const OUTCOME_ROTATION = Math.PI / 2;
 
 /**
- * How many stage px to leave off the bottom of the hamster's own clip.
- *
- * `hamster/jump` carries its pad shadow in its own art - the ellipse under the
- * feet, the bottom few px of every standing frame. Char 52 animates a leap
- * that *leaves that ellipse behind* (its takeoff frames lift the hamster out
- * of the box while the ellipse stays at the bottom), so the clip was authored
- * to be played where it stands. `jumpFrame()` moves it instead - `hamster._y
- * += yvel`, Game.as:1082 - and the painted-on shadow rode up into the sky with
- * the hamster, which is the one thing a shadow may never do.
- *
- * Dropping the strip for the length of the jump is a display rule, like the
- * faceplant's `+ 3` and the no-rotate one: the shadow is on the pad while the
- * hamster is on the pad, and gone the moment it leaves. Measured off the
- * frames, the ellipse is the bottom 6 px; the feet end 2 px above that.
+ * Whether the hamster casts the drop shadow. `blt.shadClip._visible = false`
+ * on every arm that ends a shot - Game.as:870, 876, 969 - so the outcome clip
+ * casts none. Nor does the wind-up: clip 52 paints its own ellipse on the pad
+ * for those frames (display-lists.txt, sprite 52, char 21 until frame 25).
  */
-export const JUMP_SHADOW_STRIP = 6;
-
-export function bottomCrop(s: SimSnapshot): number {
-  return s.phaseKind === "jumping" ? JUMP_SHADOW_STRIP : 0;
+export function castsShadow(s: SimSnapshot): boolean {
+  if (s.phaseKind === "settling") return false;
+  return !(s.phaseKind === "jumping" && s.windup !== null);
 }
 
 /**
  * `Bullet.update()` - Bullet.as:42-50. The rule itself (face the velocity,
  * except crawling along the ground or with rotation switched off) lives in
  * the sim, because the pickup test measures the rotated clip; this only reads
- * `_rotation` back. The original adds 90 because the projectile's art is
- * authored pointing up; the exported flight poses face right, so the quarter
- * turn comes off again here. The outcome clips are a different symbol and a
- * different question - see `OUTCOME_ROTATION`.
+ * `_rotation` back. It is the rotation of the arrow clip (331) as a whole -
+ * authored pointing up, hence the original's `+ 90` - and each pose inside it
+ * carries its own placement on top (`posePlacement`). The outcome clips are a
+ * different symbol and a different question - see `OUTCOME_ROTATION`.
  */
 export function hamsterRotation(s: SimSnapshot): number {
   if (s.phaseKind === "settling") return OUTCOME_ROTATION;
   if (s.phaseKind !== "flying") return 0;
-  return ((s.hamster.rotationDeg - 90) * Math.PI) / 180;
+  return (s.hamster.rotationDeg * Math.PI) / 180;
+}
+
+/** `[a, b, c, d, tx, ty]`, Flash's order - the same as canvas `transform()`. */
+export type Affine = readonly [number, number, number, number, number, number];
+
+const IDENTITY: Affine = [1, 0, 0, 1, 0, 0];
+
+/**
+ * Where a pose sits inside the arrow clip, straight off its PlaceObject2
+ * (display-lists.txt, sprite 331). Not every pose is authored the same way
+ * round: `flying_mc` and `drop` are drawn facing right and placed a quarter
+ * turn anticlockwise, `glide` is placed at 0.9 scale, and `wind`, `blur`,
+ * `slide`, `skid` and `ball` are drawn pointing up and placed as they are.
+ *
+ * Subtracting the `+ 90` from every pose, as this used to, was right for
+ * `flying_mc` alone: a skid or a skateboard slide - rotation pinned at 90 on
+ * the ground - drew the hamster standing next to a board on its end instead of
+ * lying on it.
+ */
+export function posePlacement(meta: SpriteMeta): Affine {
+  return meta.placement ?? IDENTITY;
 }
 
 /** The hamster's hit box as the sim tests it: the flight core turns with the clip. */

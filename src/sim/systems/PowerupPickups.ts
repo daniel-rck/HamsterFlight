@@ -11,9 +11,11 @@ import { type EffectFlags, POWERUPS, type PowerupKind } from "../types.ts";
  * The guard asymmetry is real and reproduced deliberately: `bounce`, `slide`,
  * `superbounce` and `rebound` test their own flag before firing, but `speed`
  * (Game.as:719) and `wind` (Game.as:733) do not. So while the boxes overlap,
- * speed keeps adding 20 per tick and wind keeps adding its impulse. How many
- * ticks that is depends on the pickup clip's animation, which is not in the
- * constant table - hence `Tuning.powerupActiveTicks`.
+ * speed keeps adding 20 per tick and wind keeps adding its impulse. For speed
+ * that is short: its `play()` sends the clip to frame 2, which removes the
+ * `core` on the next stage frame (`Tuning.powerupActiveTicks`, since which
+ * tick that lands on depends on the interval's phase against the stage). Wind
+ * never loses its core (`coreStays`), so the overlap alone bounds it.
  *
  * `core.hitTest(this.bc.core)` compares stage-space bounds, and `bc` is the
  * rotated flight clip, so the hamster's box turns with it. In level flight
@@ -23,7 +25,7 @@ export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): vo
   const box = rotateBox(tuning.boxes.hamsterFlightCore, s.p.rotationDeg);
 
   for (const it of s.powerups) {
-    const live = !it.taken || it.activeTicksLeft > 0;
+    const live = !it.taken || it.activeTicksLeft > 0 || POWERUPS[it.kind].coreStays;
     if (live && overlaps(s.p.x, s.p.y, box, it.x, it.y, tuning.boxes.powerups[it.kind])) {
       apply(s, it.kind, out);
       if (!it.taken) {
@@ -31,6 +33,24 @@ export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): vo
         it.activeTicksLeft = tuning.powerupActiveTicks[it.kind];
         out.push({ t: "pickup", kind: it.kind });
         if (POWERUPS[it.kind].sound) out.push({ t: "sfx", id: "pickup", gain: C.SFX_VOLUME });
+        // Two pickups sound through their own clip instead of `playSound`: the
+        // `play()` that sends them off starts a `StartSound` on a later frame.
+        if (it.kind === "speed") {
+          out.push({
+            t: "sfx",
+            id: "speed",
+            gain: C.SFX_VOLUME,
+            delayFrames: C.SPEED_SFX_FRAME - 1,
+          });
+        }
+        if (it.kind === "rebound") {
+          out.push({
+            t: "sfx",
+            id: "rebound",
+            gain: C.SFX_VOLUME,
+            delayFrames: C.REBOUND_SFX_FRAME - 1,
+          });
+        }
       }
     }
     // Counted down whether or not the boxes still overlap, so a taken item

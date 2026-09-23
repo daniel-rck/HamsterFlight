@@ -39,6 +39,7 @@ function recordingCanvas(
     translate: () => undefined,
     scale: () => undefined,
     rotate: () => undefined,
+    transform: () => undefined,
     fillRect: (x: number, y: number) => {
       rects.push({ sx: x, sy: y, alpha: ctx.globalAlpha });
     },
@@ -104,6 +105,7 @@ function snapshot(): SimSnapshot {
     turn: 1,
     paused: false,
     swung: false,
+    windup: null,
     hamster: {
       x: 500,
       y: 700,
@@ -120,6 +122,8 @@ function snapshot(): SimSnapshot {
     shots: [],
     feet: 0,
     outcome: null,
+    outcomeClip: null,
+    restartable: false,
   };
 }
 

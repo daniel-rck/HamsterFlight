@@ -115,16 +115,18 @@ but only the SWF can confirm `core` is not itself placed turned.
 `core` (half-extent 13.73, centre offset +1.07/+5.32) against the whole pillow
 clip at (140, 740.9).
 
-**Not every jump can reach it.** `yvel` starts in -14..-10 and the one-shot boost
-adds -19..-15, so the apex spans roughly 660 (best rolls) to 840 (worst) - the
-document's "apex at about 726" is a mid-range figure, not a bound. Measured over
-1000 seeds, **68% of jumps can reach the pillow**; the rest are unavoidable
-faceplants. That is a consequence of the extracted geometry, not a decision, and
-it is the main open calibration item: `core` sits inside a multi-frame hamster
-sprite and the extractor reads the placement from the first frame it finds. If
-the clip moves its `core` during the jump animation, the window is wider than
-this. `test/golden/reachability.spec.ts` pins the share so recalibration shows
-its effect immediately.
+**Every jump can reach it.** For a long time this said the opposite: 68% of
+rolls, the rest unavoidable faceplants, an apex between 660 and 840. That came
+from starting the physics on the pad. Nothing in `Game.as` calls `jump()` -
+`onMouseDown` only does `hamster.gotoAndPlay("jump")`. Clip 52 calls it, from
+its frame 28 script, after playing a 26-frame wind-up in place, and the line
+before the call is `this._y -= 117.8` (`as2/timeline/DefineSprite_52/frame_28`).
+From y = 838.2 the one-shot boost fires on the first tick, the apex spans 492 to
+642, and all 1000 measured seeds pass through the window on the way up and on
+the way down. `test/golden/reachability.spec.ts` pins that. The `core` is placed
+on frame 28 and no other (`display-lists.txt`, sprite 52), which settles the
+old worry that it might move during the animation - and means a swing during
+the wind-up has nothing to hit.
 
 ## Sprite placement is verified, not trusted
 
@@ -153,11 +155,21 @@ children that animate their own scale, or a rotated placement, whose terms
 geometry; the build prints both boxes so the difference can be read rather than
 guessed at.
 
-One deliberate rendering divergence: the original sets
-`_rotation = radToDeg(atan2(yvel, xvel)) + 90` because its art is authored
-pointing up. The exported poses face right, so the renderer takes the sim's
-`rotationDeg` and subtracts the `+ 90` again; the sprite aligns directly with
-the velocity vector.
+The original sets `_rotation = radToDeg(atan2(yvel, xvel)) + 90` on the arrow
+clip (331), which is authored pointing up. The poses inside it are *not* all
+authored the same way round, and for a long time the port assumed they were:
+it subtracted the `+ 90` from every pose, which is right for `flying_mc` alone.
+Sprite 331's own display list (`as2/timeline/display-lists.txt`) says how each
+one is placed: `flying_mc` and `drop` are drawn facing right and placed with
+`[0, -1, 1, 0]`, a quarter turn back to pointing up; `glide` at 0.9 scale; and
+`wind`, `blur`, `slide`, `skid` and `ball` as they are. `build_sprites.py`
+dropped all but the translation of that matrix. It now writes the whole
+placement into the manifest, the renderers apply it inside the clip's
+rotation, and the rotation is the sim's `rotationDeg` unmodified. The visible
+casualty was the ground: rotation is pinned at 90 while skidding, and the
+skid and skateboard poses stood the hamster next to a board on its end instead
+of lying it on top. `blur`, `wind` and `glide` were a quarter turn off in the
+air too.
 
 ## The pre-launch scene was missing, and why
 
@@ -221,7 +233,7 @@ glued to.
 |---|---|
 | `pi = 3.141593` instead of `Math.PI` | **Reproduced.** Used for every degree/radian conversion; keeps angle maths bit-stable. Also forbids `Math.hypot` in favour of `sqrt(dx*dx + dy*dy)`. |
 | `powerupMark = 650` in `init`/`reset` but `600` in `cleanUpItems` | **Reproduced.** Shifts the first spawn of turns 2-5 by 50 px, which is observable. |
-| `speed` and `wind` have no re-entry guard; `bounce`, `slide`, `superbounce`, `rebound` do | **Reproduced.** A multi-tick overlap really does apply speed repeatedly. |
+| `speed` and `wind` have no re-entry guard; `bounce`, `slide`, `superbounce`, `rebound` do | **Reproduced.** How long each keeps firing comes from its clip: `play()` sends every pickup clip to frame 2, which removes its `core`, so speed fires for about one tick - but `_wind` is never `play()`ed and never loses its core, so wind blows for as long as the boxes overlap. That used to be a guessed 3 ticks. |
 | Faceplant branch also requires `!slide` (Game.as:803) | **Reproduced.** The document's section 10 omits it. |
 | `xvel *= 1 + this.f` for superbounce | **Reproduced as written**, not as the literal 1.6. |
 | Impact angle exactly 70 degrees | **Reproduced.** Falls through to the final `else`, since it is neither `< 70` nor `> 70`. |
@@ -275,13 +287,15 @@ faceplant's `+ 3` y offset is a display rule and lives in
 for every outcome as `blt.shadClip._visible = false` does.
 
 **A missed jump costs no turn.** `jumpFrame()` ends a jump that comes back down
-with `faceplant = true`, `shooting = true` and a zero (Game.as:1090-1096). With
-the hitboxes extracted from the shape records, about a third of the rolls cannot
-reach the launch window at all - see the reachability figure above - so the port
-returns to `ready` with the turn intact and lets the player jump again. Only a
-pillow hit ends a turn, and `ShotOutcome 'zero'` is therefore unreachable at run
-time. The original's one-swing-per-jump rule (`state = "launch"`, Game.as:1029-1037)
-is reproduced, which is what keeps the retry from being solved by mashing.
+with `faceplant = true`, `shooting = true` and a zero (Game.as:1090-1096). The
+port returns to `ready` with the turn intact and lets the player jump again.
+This began as a repair - with the physics wrongly starting on the pad, a third
+of the rolls could not reach the pillow - and stays as a deliberate leniency
+now that every roll can: a mistimed click, or one spent during the wind-up,
+puts the hamster back on the pad. Only a pillow hit ends a turn, and
+`ShotOutcome 'zero'` is therefore unreachable at run time. The original's
+one-swing-per-jump rule (`state = "launch"`, Game.as:1029-1037) is reproduced,
+which is what keeps the retry from being solved by mashing.
 
 **No clip is indexed off a free-running clock.** That used to be the default -
 one `animFrame(meta, elapsed)` for everything - and it was wrong for every clip
@@ -315,30 +329,23 @@ What is left looping is genuinely looping and event-gated: the launcher wheels
 turn only while the hamster is jumping (`PreLaunchScene`), and the `fx/*`
 impacts run once from their cue and are pruned (`Effects`).
 
-**The jump clip was authored for a clip nobody moves.** Char 52 is one timeline
-of four runs: five identical frames of the hamster standing (frame 1, what
-`gotoAndStop(1)` holds), seven of it pulling the goggles down, seven holding
-that pose - then a crouch, a five-frame takeoff, a tumbling ball and one blank
-frame. Two things in it only make sense for a clip that stays put:
+**The jump clip moves itself, once.** Char 52's frame scripts
+(`as2/timeline/DefineSprite_52`) say how it is played: label `jump` on frame 2;
+frames 2-27 on the pad - goggles down, crouch, and a leap that lifts the art
+115 px inside the clip; `snd_jump` on frame 23; and on frame 28
+`this._y -= 117.8; hamsterShoot.jump(); stop()`. The clip jumps up to where the
+art already is and draws the tumbling ball - nested clip 51, which loops four
+frames on its own - back on its registration point, so the hand-over to
+`jumpFrame()` is seamless. Frames 29-36 are never shown.
 
-- the takeoff lifts the art ~100 px out of its own box while the shadow stays
-  at the bottom, and
-- the shadow is *in the art* - the ellipse under the feet, the bottom 6 px of
-  every standing frame. There is no `shadow` sprite in the manifest at all;
-  `Bullet`'s `shadClip` was never exported, so the flight casts none.
-
-`jumpFrame()` does move the clip (`hamster._y += yvel`, Game.as:1082). Playing
-the takeoff on top of that drew the hamster a hundred px above the `core` that
-tests against the pillow and then snapped it back, and the blank frame blinked
-it out mid-jump; the standing frames carried their painted-on shadow up into
-the sky with it. So the port bounds the run at the held goggles pose
-(`JUMP_RUN_LAST`, the frame the original itself repeats seven times) and drops
-the shadow strip for the length of the jump (`bottomCrop`, `JUMP_SHADOW_STRIP`
-- both renderers leave that much off the bottom of the frame). Two display
-rules, next to the faceplant's `+ 3`. Where the `"jump"`
-label and the clip's `stop()` actually sit is not recoverable from the exported
-art - only the frame scripts would say - but which frames may be drawn while
-the code owns the position is, and that is what these bound.
+The port used to read the takeoff frames as art authored "for a clip nobody
+moves", start the physics on the pad at the click, hold the goggles frame for
+the whole jump and crop the painted-on pad shadow off the bottom. All of that
+is gone. The simulation plays the wind-up (`JumpState.windup`,
+`JUMP_WINDUP_FRAMES`, 28 ticks) and performs the lift; `PoseClock` draws the
+wind-up frame for the simulation's tick, so art and lift cannot drift apart,
+then loops the ball; interpolation cuts at the lift instead of smearing it; and
+the drop shadow stays off while the clip's own ellipse is on the pad.
 
 **Every outcome clip is turned a quarter, whatever the shot did.**
 `createHitClip(x, y, rot, type)` takes a rotation and ignores it:
@@ -425,19 +432,31 @@ the source it cites. Each has a test in `test/sim/` that fails on the old code.
   prelude would not have come back after a restart. `sfxStop` carries
   `fade: true` where the original calls `fadeOutSound`. `sndEnding` is not
   stopped on restart: `reset()` itself never touches it, only `resetBtn()`'s
-  `stopAllSounds()` (Game.as:326) does, and which of the two the game-over
-  button calls lives in the timeline code, which is not in the reference.
+  `stopAllSounds()` (Game.as:326) does - and the timeline settles which one
+  the game over offers. PLAY AGAIN is button 257, placed on `gameOver_mc`'s
+  frame 60, and it calls `reset()`. Button 505, the one wired to
+  `resetBtn()`, is a debug "reset" placed off the bottom of the stage at
+  (567.55, 413), where no player can click it.
 - **`falling = false` is an event.** Every arm of `checkCollision` ends with
   it, and the arming pickups do it too. The port emitted the `glide` off-cue
   two lines earlier and swallowed this one.
 
 Two things that were half-present are now whole:
 
-- **The camera pans home.** After a shot the outcome clip plays
-  (`Tuning.outcomeHoldTicks`), then its last frame calls `setCamReset()` and
-  `GameCamera.doQuickPanTo` converges on (300, 800); `onDone()` advances the
-  turn on arrival. `settling` has the two stages, `quickPanStep` has a caller,
-  and `camera.maxPanTicks` is the soft-lock cap it was described as.
+- **The camera pans home.** After a shot the outcome clip plays, then a
+  frame script calls `setCamReset()` and `GameCamera.doQuickPanTo` converges
+  on (300, 800); `onDone()` advances the turn on arrival. `settling` has the
+  two stages, `quickPanStep` has a caller, and `camera.maxPanTicks` is the
+  soft-lock cap it was described as. How long the clip plays was a guess in
+  `Tuning.outcomeHoldTicks` (24 ticks for a cheer, 20 for a faceplant) until
+  the frame scripts turned up: `hit_cheer` and `hit_hole` call `setCamReset()`
+  on frame 50, 52 ticks; `hit_faceplant` never does - its frame 20 attaches a
+  `hit_cheer` in its place, so a faceplant is 20 ticks of faceplant and then
+  the whole cheer; `hit_zero` does the same on frame 36 after moving itself to
+  x = 220. Those are constants now (`OUTCOME_CAM_RESET_FRAME`,
+  `FACEPLANT_CHEER_FRAME`, `ZERO_CHEER_FRAME`) and `settling.clip` says which
+  clip is showing. Still not reproduced: the cheer's frame 9 `setScore()` and
+  frame 27 distance caption - the port's HUD records the shot when it lands.
 - **The no-rotate rule.** `Bullet.update` (Bullet.as:46) stops turning the
   clip below y = 940 while `xvel < 7` - the signed value, as written, and
   tested on the pre-move y. It first lived in `src/render/scene/pose.ts` as a
@@ -448,6 +467,66 @@ And two ordering details in the port itself: commands are applied in the order
 given, so `[press, togglePause]` no longer drops the press; and the shot driver
 in `src/sim/drive.ts` is the single one behind the golden tests and the bench,
 which used to disagree on their tick budgets.
+
+## The instructions board
+
+Root frame 6 lays the INSTRUCTIONS board over the whole scene: `chalkboard_mc`
+(a half-transparent green sheet in a frame of planks), the text - DefineText
+502 in an embedded font - the six pickup icons, and Play Now!, button 503,
+whose `on(release)` hides the board and goes to frame 7, where the `Game` is
+built. The port had skipped straight to frame 7. `tools/build_screens.py`
+rasterises exactly those placements out of ffdec's frame export into a
+transparent stage-size overlay, and the button's two states from its shapes;
+the page shows them over a still of the scene until Play Now! starts the loop.
+Space and Enter press the button rather than jump past it. It shows once per
+page load, as it did; `?profile` (the smoke test and the bench) and
+`?instructions=0` skip it.
+
+Frame 5 before it - the title with its own music (sound 484) and a Start!
+button - is deliberately not reproduced.
+
+## Sound
+
+There was none. The simulation had emitted its cues all along - `sfx`,
+`sfxStop`, `sfxGain` - and nothing consumed them; no MP3 had been extracted.
+
+- **The files** come straight out of the DefineSound tags
+  (`tools/build_sounds.py`): every sound in this SWF is MP3, so the tag body
+  after its SeekSamples is a playable file, byte-identical to ffdec's export.
+  SeekSamples - the encoder latency, 1670-1695 samples, about 76 ms at
+  22 kHz - and the sample count go into `sounds.generated.ts`, and the player
+  plays and loops each sound on that extent rather than on the decoder's
+  padding, which is what Flash did.
+- **The player** (`src/audio/AudioPlayer.ts`) follows `Sound` semantics: one
+  object per id, `setVolume` for all its instances, `start()` adding one,
+  `stop()` stopping all, `fadeOutSound` as a single 50 ms interval taking 3
+  off, which a second fade abandons half-way, as the original's shared
+  `sndFadeInterval` does. Volumes above 100 - `flyGain` reaches them at speed
+  - are clamped, since Flash documents 0-100 and the port will not guess at
+  amplification.
+- **`jump` is `snd_jump`**, not `snd_hit`: clip 52 plays it on frame 23 of the
+  wind-up, and `hit_cheer` again on frame 27 as the distance caption appears.
+- **Timeline sounds.** Seven more sounds are started by `StartSound` tags on
+  clip frames, never by `Game`: the tumbling ball (clip 51, every pass of its
+  four-frame loop), the launcher wheel's squeak (twice, from its `LoopCount`),
+  the pillow's thump into the frame on a whiff (`background_mc` frame 22,
+  reusing `snd_bump`), the cheer and the caption tick, the hole and its
+  fanfare, the rebound and speed pickups, and the game-over fanfare with
+  PLAY AGAIN on `gameOver_mc` frame 60. The simulation emits them with
+  `delayFrames` - stage frames after the tick that attached the clip - and
+  their envelope levels as gains; out points and the speed pickup's fade-out
+  envelope are in the player. So speed and rebound do have a sound; `Game`
+  just never plays one for them.
+- **Unlocking.** Browsers only start audio from a gesture. Until then the
+  player remembers which loops ought to be playing - the prelude, from
+  `init()`'s first step - and starts them once the first press has created
+  the context and the files have loaded.
+- **The music button** is `toggleMusic()`: music only, back at 60 rather than
+  80 when unmuted, not remembered (`initSO` stores scores only). `M` is its
+  key.
+- **Not reproduced:** the title music (sound 484, root frame 5) - there is no
+  title screen - and panning: envelope levels are averaged over the two
+  channels.
 
 ## Presentation departures, recorded
 

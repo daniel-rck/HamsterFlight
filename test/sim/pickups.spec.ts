@@ -32,6 +32,19 @@ describe("pickup sounds", () => {
       expect(POWERUPS[kind].sound).toBe(expected[kind]);
     }
   });
+
+  it("sounds speed and rebound through their own clips", () => {
+    // `_speed` starts sound 464 on frame 2, the frame `play()` sends it to;
+    // `_rebound` starts 457 on frame 4 (display-lists.txt, sprites 465/462).
+    const heard = (kind: PowerupKind) => {
+      const s = makeFlight({ y: 600, xvel: 10, powerups: [centredOn(kind, C.HAMSTER_X, 600)] });
+      return tick(s).events.filter((e) => e.t === "sfx" && e.id === kind);
+    };
+    expect(heard("speed")).toEqual([{ t: "sfx", id: "speed", gain: C.SFX_VOLUME, delayFrames: 1 }]);
+    expect(heard("rebound")).toEqual([
+      { t: "sfx", id: "rebound", gain: C.SFX_VOLUME, delayFrames: 3 },
+    ]);
+  });
 });
 
 describe("rebound pickup", () => {
@@ -108,7 +121,6 @@ describe("shared tables", () => {
   it("are frozen all the way down", () => {
     expect(Object.isFrozen(DEFAULT_TUNING.powerupActiveTicks)).toBe(true);
     expect(Object.isFrozen(DEFAULT_TUNING.boxes.powerups.wind)).toBe(true);
-    expect(Object.isFrozen(DEFAULT_TUNING.outcomeHoldTicks)).toBe(true);
     expect(Object.isFrozen(POWERUPS.speed)).toBe(true);
   });
 });
@@ -124,6 +136,37 @@ describe("the wind cue", () => {
       played.push(sfxIds(tick(s).events).includes("wind"));
     }
     expect(played).toEqual([true, false, true]);
+  });
+});
+
+describe("the wind pickup", () => {
+  it("keeps blowing for as long as the boxes overlap", () => {
+    // `_wind` never loses its core and is never sent to frame 2 (display-lists
+    // sprite 467; Game.as:732-745), unlike every other pickup clip. Held in
+    // place, the hamster is blown on every tick, not for a fixed few.
+    const s = makeFlight({ y: 600, xvel: 1, powerups: [centredOn("wind", C.HAMSTER_X, 600)] });
+    const blown: number[] = [];
+    for (let i = 0; i < 8; i++) {
+      s.p.x = C.HAMSTER_X;
+      s.p.y = 600;
+      s.p.yvel = 0;
+      tick(s);
+      blown.push(s.p.yvel);
+    }
+    expect(blown.every((yvel) => yvel <= C.WIND_YVEL + 1)).toBe(true);
+  });
+
+  it("stops the speed pickup after its clip's frame 2", () => {
+    const s = makeFlight({ y: 600, xvel: 1, powerups: [centredOn("speed", C.HAMSTER_X, 600)] });
+    const boosted: boolean[] = [];
+    for (let i = 0; i < 4; i++) {
+      s.p.x = C.HAMSTER_X;
+      s.p.y = 600;
+      s.p.xvel = 1;
+      tick(s);
+      boosted.push(s.p.xvel > 5);
+    }
+    expect(boosted).toEqual([true, false, false, false]);
   });
 });
 

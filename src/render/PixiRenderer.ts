@@ -14,6 +14,7 @@ import type { Effects } from "@/render/effects/Effects.ts";
 import {
   hideFrom,
   place,
+  placeInParent,
   poolAt,
   slab,
   solidRect,
@@ -42,7 +43,7 @@ import {
 } from "@/render/scene/decor.ts";
 import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
 import {
-  bottomCrop,
+  castsShadow,
   hamsterBox,
   hamsterRotation,
   outcomeOffsetY,
@@ -399,9 +400,7 @@ export class PixiRenderer implements Renderer {
       return;
     }
 
-    // `blt.shadClip._visible = false` on every arm that ends a shot -
-    // Game.as:870, 876, 969 - so the outcome clip casts none.
-    const scale = s.phaseKind === "settling" ? 0 : shadowScale(h.y);
+    const scale = castsShadow(s) ? shadowScale(h.y) : 0;
     const showShadow = this.#assets.get("shadow") !== undefined && scale > SHADOW_MIN_SCALE;
     this.#shadowPivot.visible = showShadow;
     if (showShadow) {
@@ -414,11 +413,7 @@ export class PixiRenderer implements Renderer {
     const texture =
       asset === undefined
         ? undefined
-        : this.#textures.get(
-            asset,
-            this.#effects.poses.frame(s, asset.meta, this.#elapsed),
-            bottomCrop(s),
-          );
+        : this.#textures.get(asset, this.#effects.poses.frame(s, asset.meta, this.#elapsed));
     if (asset === undefined || texture === undefined) {
       this.#hamsterPivot.visible = false;
       return;
@@ -437,7 +432,7 @@ export class PixiRenderer implements Renderer {
           : this.#textures.get(inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed));
       if (inside !== undefined && insideTexture !== undefined) {
         this.#hamsterInner.texture = insideTexture;
-        place(this.#hamsterInner, inside, 0, 0);
+        placeInParent(this.#hamsterInner, inside);
       } else {
         this.#hamsterInner.visible = false;
       }
@@ -447,7 +442,7 @@ export class PixiRenderer implements Renderer {
     this.#hamsterPivot.position.set(h.x, h.y + outcomeOffsetY(s));
     this.#hamsterPivot.rotation = hamsterRotation(s);
     this.#hamster.texture = texture;
-    place(this.#hamster, asset, 0, 0);
+    placeInParent(this.#hamster, asset);
   }
 
   #drawHitboxes(s: SimSnapshot): void {

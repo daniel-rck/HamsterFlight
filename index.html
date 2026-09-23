@@ -104,8 +104,76 @@
         cursor: pointer;
         touch-action: manipulation;
       }
-      #pause[hidden] {
+      #pause[hidden],
+      #music[hidden] {
         display: none;
+      }
+      /* The original's music button sits in the same corner, left of where
+         the port put pause. Music only, as there: the effects stay on. */
+      #music {
+        position: absolute;
+        right: calc(8px + clamp(28px, 6.5%, 40px) + 6px);
+        bottom: 8px;
+        width: clamp(28px, 6.5%, 40px);
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: rgb(12 20 30 / 55%);
+        color: #eaf6ff;
+        font:
+          bold 17px/1 system-ui,
+          sans-serif;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      /* Root frame 6: the INSTRUCTIONS board over the scene, its Play Now!
+         button at (331, 306) of the 600x400 stage - hanging off the bottom
+         edge, as it does in the original. */
+      #instructions {
+        position: absolute;
+        inset: 0;
+      }
+      #instructions[hidden] {
+        display: none;
+      }
+      #instructions > img {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #play-now {
+        position: absolute;
+        left: calc(331 / 600 * 100%);
+        top: calc(306 / 400 * 100%);
+        width: calc(280 / 600 * 100%);
+        height: calc(100 / 400 * 100%);
+        padding: 0;
+        border: 0;
+        background: none;
+        cursor: pointer;
+        /* The lit plank is the focus indicator, as it is the hover one. */
+        outline: none;
+      }
+      #play-now img {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      #play-now .over,
+      #play-now:hover .up,
+      #play-now:focus-visible .up {
+        display: none;
+      }
+      #play-now:hover .over,
+      #play-now:focus-visible .over {
+        display: block;
+      }
+      #music[aria-pressed="true"] {
+        color: rgb(234 246 255 / 45%);
+        text-decoration: line-through;
       }
       /* A landscape phone has ~340 px of height; reserving 10rem of it for the
          credits left a stage the size of a stamp. */
@@ -200,6 +268,24 @@
         aria-describedby="how-to"
       ></canvas>
       <button id="pause" type="button" tabindex="-1" aria-label="Pause" hidden>II</button>
+      <button
+        id="music"
+        type="button"
+        tabindex="-1"
+        aria-label="Mute music"
+        aria-pressed="false"
+        hidden
+      >
+        &#x266A;
+      </button>
+      <div id="instructions" hidden>
+        <img
+          alt="Instructions. Powering the Kids Next Door Treehouse is hard work! Help the hamsters enjoy their time off with the new extreme sport of hamster launching! Click your mouse button to start the hamster in motion. When the hamster lines up with the pillow, click again to launch the hamster. While flying, click and hold your mouse button to use Glide Power! The Glide Meter refills slowly when not in use. Grab Items to keep the hamster in the air for as long as possible."
+        />
+        <button id="play-now" type="button">
+          <img class="up" alt="Play Now!" /><img class="over" alt="" />
+        </button>
+      </div>
       <div id="boot" role="status" aria-live="polite">loading…</div>
       <noscript>This game needs JavaScript to run.</noscript>
     </div>
@@ -208,7 +294,7 @@
       <span id="how-to"
         >Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide. One
         swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner button
-        pauses; a click resumes.</span
+        pauses; a click resumes. <kbd>M</kbd> or the note mutes the music.</span
       >
       Physics runs at a fixed 20&nbsp;Hz, as the original did.
       <br />
