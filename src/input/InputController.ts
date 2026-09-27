@@ -11,6 +11,8 @@ export interface InputOptions {
   readonly onToggleHitboxes?: () => void;
   /** `M` - the music button's key; audio is not a simulation command either. */
   readonly onToggleMusic?: () => void;
+  /** `S` - the effects, the port's own switch. */
+  readonly onToggleSfx?: () => void;
   readonly targets?: InputTargets;
 }
 
@@ -31,6 +33,10 @@ export class InputController {
   /** The pointer that owns the current press, or null when nothing is held. */
   #pointerId: number | null = null;
   #keyDown = false;
+  /** The gamepad's button is holding the press. */
+  #padDown = false;
+  /** Each button as the last poll saw it, so a poll acts on edges only. */
+  #padLast = { button: false, start: false };
   #detach: Array<() => void> = [];
 
   attach(canvas: HTMLElement, options: InputOptions = {}): void {
@@ -52,7 +58,7 @@ export class InputController {
       ev.preventDefault();
       canvas.focus({ preventScroll: true });
       // A second finger neither presses again nor, when lifted, releases the first.
-      if (this.#pointerId !== null || this.#keyDown) return;
+      if (this.held) return;
       this.#pointerId = ev.pointerId;
       // Capture, so the hold survives the pointer drifting off the stage: the
       // release arrives here wherever it happens. Guarded, because a test
@@ -84,7 +90,7 @@ export class InputController {
         // keydowns too, and each one let through scrolled the page.
         ev.preventDefault();
         if (ev.repeat) return;
-        if (this.#keyDown || this.#pointerId !== null) return;
+        if (this.held) return;
         this.#keyDown = true;
         this.#press();
       } else if (ev.repeat) {
@@ -95,6 +101,8 @@ export class InputController {
         options.onToggleHitboxes?.();
       } else if (ev.key === "m" || ev.key === "M") {
         options.onToggleMusic?.();
+      } else if (ev.key === "s" || ev.key === "S") {
+        options.onToggleSfx?.();
       }
     });
     on<KeyboardEvent>(targets.keys, "keyup", (ev) => {
@@ -116,9 +124,9 @@ export class InputController {
     this.#detach = [];
   }
 
-  /** Whether a press is currently held, by pointer or key. */
+  /** Whether a press is currently held, by pointer, key or gamepad. */
   get held(): boolean {
-    return this.#pointerId !== null || this.#keyDown;
+    return this.#pointerId !== null || this.#keyDown || this.#padDown;
   }
 
   /** Let go of whatever is held - the window went away, so the keyup will not arrive. */
@@ -126,7 +134,39 @@ export class InputController {
     if (!this.held) return;
     this.#pointerId = null;
     this.#keyDown = false;
+    // A pad button still down stays ignored until it comes up and goes down again.
+    this.#padDown = false;
     this.#release();
+  }
+
+  /**
+   * The Gamepad API has no events for buttons, so the page polls it - every
+   * animation frame, not every tick, or a quick tap could fall between two
+   * 50 ms ticks and never be seen. Any pad's bottom face button (`A`, cross)
+   * is the button, as Space is; `Start` pauses.
+   */
+  pollGamepads(pads: readonly (Gamepad | null)[]): void {
+    let button = false;
+    let start = false;
+    for (const pad of pads) {
+      if (pad === null || !pad.connected) continue;
+      button ||= pad.buttons[0]?.pressed === true;
+      start ||= pad.buttons[9]?.pressed === true;
+    }
+    if (button && !this.#padLast.button && !this.held) {
+      this.#padDown = true;
+      this.#press();
+    } else if (!button && this.#padDown) {
+      this.#padDown = false;
+      this.#release();
+    }
+    if (start && !this.#padLast.start) this.#queue.push({ kind: "togglePause" });
+    this.#padLast = { button, start };
+  }
+
+  /** PLAY AGAIN from a button on the page rather than a click on the stage. */
+  confirm(): void {
+    this.#queue.push({ kind: "confirm" });
   }
 
   #press(): void {

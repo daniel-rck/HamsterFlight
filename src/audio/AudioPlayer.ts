@@ -63,6 +63,8 @@ const SHAPING: Partial<
 };
 
 interface Channel {
+  /** Which bus it plays through: the music button's, or the effects'. */
+  readonly music: boolean;
   /** Null until there is a context to make one in. */
   gain: GainNode | null;
   /** The Flash volume, 0-100. */
@@ -94,6 +96,14 @@ export class AudioPlayer {
   #musicMuted = false;
   /** `MUSIC_VOL` once the button has set it; until then, the cue's own. */
   #musicVol: number | null = null;
+  /**
+   * Master volume, and the effects mute: the port's, not the original's. They
+   * sit after every `Sound`'s own gain, so the Flash volumes stay what the
+   * simulation set and the music button keeps its exact semantics.
+   */
+  #volume = 1;
+  #sfxMuted = false;
+  #buses: { master: GainNode; music: GainNode; sfx: GainNode } | null = null;
   /** `sndFadeInterval` - there is one, so a new fade abandons the old one. */
   #fade: { id: SoundId; timer: ReturnType<typeof setInterval> } | null = null;
 
@@ -111,6 +121,22 @@ export class AudioPlayer {
 
   get musicMuted(): boolean {
     return this.#musicMuted;
+  }
+
+  get sfxMuted(): boolean {
+    return this.#sfxMuted;
+  }
+
+  /** Everything, music and effects, 0 to 1. */
+  setVolume(volume: number): void {
+    this.#volume = Math.min(1, Math.max(0, volume));
+    if (this.#buses !== null) this.#buses.master.gain.value = this.#volume;
+  }
+
+  /** The effects only; the music is the music button's. */
+  setSfxMuted(muted: boolean): void {
+    this.#sfxMuted = muted;
+    if (this.#buses !== null) this.#buses.sfx.gain.value = muted ? 0 : 1;
   }
 
   /** From a user gesture: create or resume the context, and start loading. */
@@ -182,7 +208,13 @@ export class AudioPlayer {
   #channel(id: SoundId): Channel {
     let channel = this.#channels.get(id);
     if (channel === undefined) {
-      channel = { gain: null, volume: 100, voices: new Set(), loopWanted: false };
+      channel = {
+        music: MUSIC.has(id),
+        gain: null,
+        volume: 100,
+        voices: new Set(),
+        loopWanted: false,
+      };
       if (this.#ctx !== null) this.#connect(this.#ctx, channel);
       this.#channels.set(id, channel);
     }
@@ -190,10 +222,25 @@ export class AudioPlayer {
   }
 
   #connect(ctx: AudioContext, channel: Channel): void {
+    const buses = this.#busesFor(ctx);
     const gain = ctx.createGain();
     gain.gain.value = channel.volume / 100;
-    gain.connect(ctx.destination);
+    gain.connect(channel.music ? buses.music : buses.sfx);
     channel.gain = gain;
+  }
+
+  #busesFor(ctx: AudioContext): { master: GainNode; music: GainNode; sfx: GainNode } {
+    if (this.#buses !== null) return this.#buses;
+    const master = ctx.createGain();
+    master.gain.value = this.#volume;
+    master.connect(ctx.destination);
+    const music = ctx.createGain();
+    music.connect(master);
+    const sfx = ctx.createGain();
+    sfx.gain.value = this.#sfxMuted ? 0 : 1;
+    sfx.connect(master);
+    this.#buses = { master, music, sfx };
+    return this.#buses;
   }
 
   #setVolume(channel: Channel, volume: number): void {
