@@ -193,30 +193,25 @@ function watchStageSize(
 }
 
 /**
- * Size the stage from what the page really has around it, not from an
- * estimate: the footer wraps to a different number of lines at every width.
- * `--chrome` is everything on the page that is not the stage; index.html
- * derives the stage's width from what it leaves of the viewport height.
+ * The help and credits, over the stage from the corner button. Wired before
+ * anything loads, so they open even on a page whose game failed to start.
+ * `onOpen` lets the game pause itself once it exists.
  */
-function fitStageToPage(signal: AbortSignal): void {
-  if (typeof ResizeObserver !== "function") return;
-  const around = [...document.body.children].filter(
-    (el): el is HTMLElement =>
-      el instanceof HTMLElement && !el.classList.contains("stage") && el.tagName !== "SCRIPT",
-  );
-  const measure = (): void => {
-    const body = getComputedStyle(document.body);
-    const padding = Number.parseFloat(body.paddingTop) + Number.parseFloat(body.paddingBottom);
-    const gap = Number.parseFloat(body.rowGap) || 0;
-    // A hidden row (the footer on a landscape phone) takes no gap either.
-    let chrome = padding;
-    for (const el of around) if (el.offsetHeight > 0) chrome += gap + el.offsetHeight;
-    document.documentElement.style.setProperty("--chrome", `${Math.ceil(chrome)}px`);
+function wireAbout(canvas: HTMLCanvasElement, signal: AbortSignal): { onOpen: () => void } {
+  const hooks = { onOpen: (): void => {} };
+  const button = document.querySelector<HTMLButtonElement>("#info");
+  const about = document.querySelector<HTMLElement>("#about");
+  if (button === null || about === null) return hooks;
+  const show = (open: boolean): void => {
+    about.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open) hooks.onOpen();
+    else canvas.focus({ preventScroll: true });
   };
-  measure();
-  const observer = new ResizeObserver(measure);
-  for (const el of around) observer.observe(el);
-  signal.addEventListener("abort", () => observer.disconnect());
+  button.addEventListener("click", () => show(about.hasAttribute("hidden")), { signal });
+  // Anywhere on the overlay closes it; it is information, not a dialog.
+  about.addEventListener("click", () => show(false), { signal });
+  return hooks;
 }
 
 async function boot(): Promise<void> {
@@ -227,8 +222,7 @@ async function boot(): Promise<void> {
   const teardown = new AbortController();
   const { signal } = teardown;
 
-  // Before the stage is measured below: the atlas density depends on its width.
-  fitStageToPage(signal);
+  const about = wireAbout(canvas, signal);
 
   const params = new URLSearchParams(window.location.search);
   const seed = seedFromUrl(params);
@@ -403,6 +397,7 @@ async function boot(): Promise<void> {
     if (current.phaseKind === "ready" || current.phaseKind === "gameOver") return;
     input.pause();
   };
+  about.onOpen = pauseIfMoving;
   window.addEventListener("blur", pauseIfMoving, { signal });
   document.addEventListener(
     "visibilitychange",
