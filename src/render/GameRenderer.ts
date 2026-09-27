@@ -33,12 +33,24 @@ import {
   ballBadge,
   debugLines,
   FONTS,
+  EN_HUD,
   glideFill,
   HUD,
   HUD_COLOURS,
+  type HudStrings,
   panelLines,
   promptFor,
 } from "@/render/scene/hud.ts";
+import {
+  FLAG,
+  flagGeometry,
+  GHOST_ALPHA,
+  type GhostPose,
+  labelOffsets,
+  NO_OVERLAY,
+  type Overlay,
+  visibleFlags,
+} from "@/render/scene/overlay.ts";
 import {
   castsShadow,
   hamsterBox,
@@ -95,6 +107,7 @@ export class GameRenderer implements Renderer {
   #dpr = 1;
   #showHitboxes: boolean;
   readonly #touch: boolean;
+  #strings: HudStrings;
   /** Wall-clock milliseconds, for animations that are not physics. */
   #elapsed = 0;
   #lastFrameTime = 0;
@@ -114,6 +127,7 @@ export class GameRenderer implements Renderer {
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#touch = options.touch ?? false;
+    this.#strings = options.strings ?? EN_HUD;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.#stars = starField(this.#stress);
     this.resize();
@@ -134,10 +148,14 @@ export class GameRenderer implements Renderer {
     this.#showHitboxes = !this.#showHitboxes;
   }
 
+  setStrings(strings: HudStrings): void {
+    this.#strings = strings;
+  }
+
   /** Immediate mode holds no GPU objects, so there is nothing to release. */
   destroy(): void {}
 
-  draw(s: SimSnapshot, now: number): void {
+  draw(s: SimSnapshot, now: number, overlay: Overlay = NO_OVERLAY): void {
     if (this.#lastFrameTime !== 0) this.#elapsed += now - this.#lastFrameTime;
     this.#lastFrameTime = now;
 
@@ -154,9 +172,11 @@ export class GameRenderer implements Renderer {
     ctx.setTransform(d, 0, 0, d, (s.camera.x + shake.x) * d, (s.camera.y + shake.y) * d);
     const scene = this.#effects.scene.layout(s, now);
     this.#ground(ctx, s, scene);
+    this.#flags(ctx, s, overlay);
     this.#powerups(ctx, s);
     this.#fx(ctx, now);
     this.#particles(ctx, now);
+    if (overlay.ghost !== null) this.#ghost(ctx, overlay.ghost);
     this.#hamster(ctx, s);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
@@ -225,6 +245,48 @@ export class GameRenderer implements Renderer {
     ctx.font = FONTS.marker;
     for (const x of marks.ticks) ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
     for (const label of marks.labels) ctx.fillText(label.text, label.x + 3, C.GROUND_Y - 10);
+  }
+
+  /** The record and the ghost's shot, planted where they came down. */
+  #flags(ctx: CanvasRenderingContext2D, s: SimSnapshot, overlay: Overlay): void {
+    const flags = visibleFlags(overlay.flags, s.camera.x);
+    if (flags.length === 0) return;
+    const lifts = labelOffsets(flags);
+    ctx.save();
+    ctx.font = FLAG.font;
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 3;
+    for (const [i, flag] of flags.entries()) {
+      const { pole, cloth } = flagGeometry(flag.x);
+      ctx.fillStyle = "#e8eef5";
+      ctx.fillRect(...pole);
+      ctx.fillStyle = hex(FLAG.colour[flag.kind]);
+      ctx.beginPath();
+      ctx.moveTo(cloth[0], cloth[1]);
+      ctx.lineTo(cloth[2], cloth[3]);
+      ctx.lineTo(cloth[4], cloth[5]);
+      ctx.closePath();
+      ctx.fill();
+      const y = C.GROUND_Y - FLAG.labelDy - (lifts[i] ?? 0);
+      ctx.strokeStyle = FLAG.stroke;
+      ctx.strokeText(flag.label, flag.x + FLAG.labelDx, y);
+      ctx.fillStyle = FLAG.ink;
+      ctx.fillText(flag.label, flag.x + FLAG.labelDx, y);
+    }
+    ctx.restore();
+  }
+
+  /** The ghost: the pose it was in, first frame, see-through. */
+  #ghost(ctx: CanvasRenderingContext2D, ghost: GhostPose): void {
+    const sprite = this.#assets.get(ghost.pose);
+    if (sprite === undefined) return;
+    ctx.save();
+    ctx.translate(ghost.x, ghost.y);
+    ctx.rotate((ghost.rotationDeg * Math.PI) / 180);
+    ctx.globalAlpha = GHOST_ALPHA * poseAlpha(sprite.meta);
+    ctx.transform(...posePlacement(sprite.meta));
+    this.#blit(ctx, sprite, 0, 0, 0);
+    ctx.restore();
   }
 
   /** Impact clips, behind the hamster so it stays readable through them. */
@@ -396,7 +458,7 @@ export class GameRenderer implements Renderer {
     ctx.fillStyle = CHROME;
     ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
     ctx.fillStyle = HUD_COLOURS.ink;
-    for (const [i, line] of panelLines(s).entries()) {
+    for (const [i, line] of panelLines(s, this.#strings).entries()) {
       ctx.fillText(line, panel.textX, panel.baseline + i * panel.lineHeight);
     }
 
@@ -405,7 +467,7 @@ export class GameRenderer implements Renderer {
     const glide = HUD.glide;
     const fill = glideFill(s);
     ctx.fillStyle = HUD_COLOURS.ink;
-    const label = "glide";
+    const label = this.#strings.glide;
     ctx.fillText(
       label,
       glide.x - ctx.measureText(label).width - glide.labelGap,
@@ -426,7 +488,7 @@ export class GameRenderer implements Renderer {
       }
     }
 
-    const prompt = promptFor(s, this.#touch);
+    const prompt = promptFor(s, this.#touch, this.#strings);
     if (prompt !== null) {
       const box = HUD.prompt;
       ctx.font = FONTS.prompt;

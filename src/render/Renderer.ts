@@ -1,5 +1,7 @@
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
+import type { HudStrings } from "@/render/scene/hud.ts";
+import type { Overlay } from "@/render/scene/overlay.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import type { Tuning } from "@/sim/tuning.ts";
 
@@ -23,6 +25,8 @@ export interface RendererOptions {
   readonly stress?: number;
   /** The primary pointer is a finger: the prompts say "tap", not "click". */
   readonly touch?: boolean;
+  /** The words on the canvas. English when not given. */
+  readonly strings?: HudStrings;
 }
 
 /**
@@ -32,11 +36,18 @@ export interface RendererOptions {
  * an implementation receives a `SimSnapshot` and cannot reach the simulation.
  */
 export interface Renderer {
-  draw(s: SimSnapshot, now: number): void;
+  /**
+   * `overlay` is what the page adds over the original's picture - the record
+   * flag, the ghost. It comes from outside the snapshot because the
+   * simulation knows nothing of either.
+   */
+  draw(s: SimSnapshot, now: number, overlay?: Overlay): void;
   resize(): void;
   /** The tab was hidden: do not count the time away as animation time. */
   resync(): void;
   toggleHitboxes(): void;
+  /** The language changed. */
+  setStrings(strings: HudStrings): void;
   destroy(): void;
 }
 

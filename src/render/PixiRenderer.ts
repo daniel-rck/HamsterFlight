@@ -54,7 +54,18 @@ import {
   starField,
   starOffset,
 } from "@/render/scene/decor.ts";
-import { BALL_BADGE, ballBadge, FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
+import { BALL_BADGE, ballBadge, FONTS, HUD_COLOURS, type HudStrings } from "@/render/scene/hud.ts";
+import {
+  FLAG,
+  type FlagKind,
+  flagGeometry,
+  GHOST_ALPHA,
+  type GhostPose,
+  labelOffsets,
+  NO_OVERLAY,
+  type Overlay,
+  visibleFlags,
+} from "@/render/scene/overlay.ts";
 import {
   castsShadow,
   hamsterBox,
@@ -155,6 +166,19 @@ export class PixiRenderer implements Renderer {
   readonly #launcherPool: Sprite[] = [];
   readonly #ascentMono10: number;
 
+  // The page's overlay: the flags and the ghost.
+  readonly #flags = new Container();
+  readonly #flagPoles: Sprite[] = [];
+  readonly #flagCloths: Graphics[] = [];
+  readonly #flagLabels: Text[] = [];
+  readonly #clothShapes: Record<FlagKind, GraphicsContext> = {
+    record: bakeCloth(FLAG.colour.record),
+    ghost: bakeCloth(FLAG.colour.ghost),
+  };
+  readonly #flagAscent: number;
+  readonly #ghostPivot = new Container();
+  readonly #ghost = new Sprite();
+
   private constructor(
     app: Application,
     canvas: HTMLCanvasElement,
@@ -169,9 +193,10 @@ export class PixiRenderer implements Renderer {
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
-    this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false);
+    this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false, options.strings);
     this.#ascentMono10 = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
     this.#signAscent = CanvasTextMetrics.measureFont(SIGN_TEXT.font).ascent;
+    this.#flagAscent = CanvasTextMetrics.measureFont(FLAG.font).ascent;
 
     this.#skyFade = verticalFadeTexture();
     this.#skyTop = this.#skyFade === null ? solidRect() : new Sprite(this.#skyFade);
@@ -257,15 +282,20 @@ export class PixiRenderer implements Renderer {
       this.#signs.push(text);
     }
     this.#hamsterPivot.addChild(this.#hamsterInner, this.#hamster, ...this.#signs);
+    this.#ghostPivot.addChild(this.#ghost);
+    this.#ghostPivot.alpha = GHOST_ALPHA;
+    this.#ghostPivot.visible = false;
     this.#world.addChild(
       ground,
       this.#bushes,
       this.#launcher,
       this.#markers,
+      this.#flags,
       this.#powerups,
       this.#fxLayer,
       this.#particleLayer,
       this.#shadowPivot,
+      this.#ghostPivot,
       this.#hamsterPivot,
       this.#ballBadge,
     );
@@ -326,6 +356,10 @@ export class PixiRenderer implements Renderer {
     this.#showHitboxes = !this.#showHitboxes;
   }
 
+  setStrings(strings: HudStrings): void {
+    this.#hud.setStrings(strings);
+  }
+
   destroy(): void {
     if (this.#destroyed) return;
     this.#destroyed = true;
@@ -333,12 +367,14 @@ export class PixiRenderer implements Renderer {
     this.#textures.destroy();
     this.#skyFade?.destroy(true);
     for (const shape of this.#cloudShapes) shape.destroy();
+    this.#clothShapes.record.destroy();
+    this.#clothShapes.ghost.destroy();
     this.#app.destroy({ removeView: false }, { children: true });
   }
 
   // -- frame -----------------------------------------------------------------
 
-  draw(s: SimSnapshot, now: number): void {
+  draw(s: SimSnapshot, now: number, overlay: Overlay = NO_OVERLAY): void {
     if (this.#destroyed) return;
     if (this.#lastFrameTime !== 0) this.#elapsed += now - this.#lastFrameTime;
     this.#lastFrameTime = now;
@@ -352,6 +388,8 @@ export class PixiRenderer implements Renderer {
     this.#overlay.position.set(offsetX, offsetY);
     const scene = this.#effects.scene.layout(s, now);
     this.#ground(s);
+    this.#drawFlags(s, overlay);
+    this.#drawGhost(overlay.ghost);
     this.#drawScene(scene);
     this.#drawPowerups(s);
     this.#drawFx(now);
@@ -426,6 +464,52 @@ export class PixiRenderer implements Renderer {
       text.visible = true;
     }
     hideFrom(this.#markerLabels, marks.labels.length);
+  }
+
+  /** The record and the ghost's shot, planted where they came down. */
+  #drawFlags(s: SimSnapshot, overlay: Overlay): void {
+    const flags = visibleFlags(overlay.flags, s.camera.x);
+    const lifts = labelOffsets(flags);
+    for (const [i, flag] of flags.entries()) {
+      const { pole } = flagGeometry(flag.x);
+      const stick = poolAt(this.#flagPoles, i, this.#flags, solidRect);
+      stick.tint = 0xe8eef5;
+      stick.position.set(pole[0], pole[1]);
+      stick.width = pole[2];
+      stick.height = pole[3];
+      stick.visible = true;
+      const cloth = poolAt(this.#flagCloths, i, this.#flags, () => new Graphics());
+      const shape = this.#clothShapes[flag.kind];
+      if (cloth.context !== shape) cloth.context = shape;
+      cloth.position.set(flag.x + FLAG.poleW / 2, pole[1]);
+      cloth.visible = true;
+      const label = poolAt(this.#flagLabels, i, this.#flags, flagText);
+      if (label.text !== flag.label) label.text = flag.label;
+      label.position.set(
+        flag.x + FLAG.labelDx,
+        C.GROUND_Y - FLAG.labelDy - (lifts[i] ?? 0) - this.#flagAscent,
+      );
+      label.visible = true;
+    }
+    hideFrom(this.#flagPoles, flags.length);
+    hideFrom(this.#flagCloths, flags.length);
+    hideFrom(this.#flagLabels, flags.length);
+  }
+
+  /** The ghost: the pose it was in, first frame, see-through. */
+  #drawGhost(ghost: GhostPose | null): void {
+    const asset = ghost === null ? undefined : this.#assets.get(ghost.pose);
+    const texture = asset === undefined ? undefined : this.#textures.get(asset, 0);
+    if (ghost === null || asset === undefined || texture === undefined) {
+      this.#ghostPivot.visible = false;
+      return;
+    }
+    this.#ghostPivot.visible = true;
+    this.#ghostPivot.position.set(ghost.x, ghost.y);
+    this.#ghostPivot.rotation = (ghost.rotationDeg * Math.PI) / 180;
+    this.#ghost.texture = texture;
+    this.#ghost.alpha = poseAlpha(asset.meta);
+    placeInParent(this.#ghost, asset);
   }
 
   #drawPowerups(s: SimSnapshot): void {
@@ -617,6 +701,26 @@ export class PixiRenderer implements Renderer {
       return label;
     });
   }
+}
+
+/** A flag's cloth, its pole-side edge at the origin. */
+function bakeCloth(colour: number): GraphicsContext {
+  return new GraphicsContext()
+    .poly([0, 0, FLAG.clothW, FLAG.clothH / 2, 0, FLAG.clothH])
+    .fill(colour);
+}
+
+function flagText(): Text {
+  return new Text({
+    text: "",
+    style: new TextStyle({
+      fontFamily: FONTS.mono,
+      fontSize: FLAG.fontSize,
+      fontWeight: "bold",
+      fill: FLAG.ink,
+      stroke: { color: FLAG.stroke, width: 3, join: "round" },
+    }),
+  });
 }
 
 /** A cloud outline as reusable geometry: the shaded underside, then the lit top over it. */
