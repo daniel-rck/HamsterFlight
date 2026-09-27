@@ -20,6 +20,7 @@ import {
   hamsterRotation,
   outcomeOffsetY,
   poseFor,
+  poseAlpha,
   posePlacement,
 } from "@/render/scene/pose.ts";
 import { C } from "@/sim/constants.ts";
@@ -51,6 +52,7 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     powerups: [],
     glidePoints: 60,
     flags: noEffects(),
+    balls: [],
     shots: [120, 45],
     feet: 8,
     outcome: null,
@@ -70,7 +72,8 @@ describe("pose", () => {
     expect(with_({ glide: true, speed: true })).toBe("hamster/glide");
     expect(with_({ falling: true, glide: true })).toBe("hamster/drop");
     expect(with_({ bounce: true, falling: true })).toBe("hamster/ball");
-    expect(with_({ superbounce: true })).toBe("hamster/ball");
+    expect(with_({ superbounce: true })).toBe("hamster/superball");
+    expect(with_({ superbounce: true, falling: true })).toBe("hamster/superball");
     expect(with_({ skidding: true, bounce: true })).toBe("hamster/skid");
     expect(with_({ skidding: true, slide: true })).toBe("hamster/slide");
     expect(with_({ slide: true })).toBe("hamster/fly"); // slide alone is not a pose
@@ -119,6 +122,11 @@ describe("pose", () => {
     ] as const) {
       expect(posePlacement(SPRITES[id]).slice(0, 4), id).toEqual([1, 0, 0, 1]);
     }
+    // The gold ball alone is turned and shrunk - and faded, by its placement's
+    // colour transform (179/256 alpha). Nothing else carries one.
+    expect(posePlacement(SPRITES["hamster/superball"]).slice(0, 4)).toEqual([0, 0.71, -0.71, 0]);
+    expect(poseAlpha(SPRITES["hamster/superball"])).toBeCloseTo(179 / 256, 5);
+    expect(poseAlpha(SPRITES["hamster/ball"])).toBe(1);
     // Everything outside the arrow clip is placed as exported.
     expect(posePlacement(SPRITES["hit/cheer"])).toEqual([1, 0, 0, 1, 0, 0]);
   });

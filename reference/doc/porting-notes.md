@@ -297,6 +297,22 @@ puts the hamster back on the pad. Only a pillow hit ends a turn, and
 one-swing-per-jump rule (`state = "launch"`, Game.as:1029-1037) is reproduced,
 which is what keeps the retry from being solved by mashing.
 
+**Bounce balls stack.** The original holds one ball at most: a ball of the
+kind already armed is ignored, and the other kind replaces it (Game.as:689-712,
+`!this.bounce` / `!this.superbounce` and the paired `= false`). With
+`Tuning.stackBalls` - on by default - every ball joins a queue in pickup order
+(`FlightState.balls`) and each ground contact bursts the one at its head, so
+two pink and a gold picked up in that order are three powered bounces, pink,
+pink, gold. `flags.bounce`/`flags.superbounce` mirror the head of the queue
+(`syncBallFlags`), so the ground cascade, the fall test (Game.as:608) and the
+pose read exactly what they read before, and `FAITHFUL_TUNING` (`stackBalls:
+false`) reduces the queue to the original's single slot. Each item counts once:
+the original's guard is what stops an overlap that outlives the pickup tick
+from arming the same ball twice, and a queue has no guard to lean on, so it
+takes an item only on its first overlapping tick. From two balls up the
+renderers show `×N` beside the ball. The strategy goldens are qualitative and
+hold with it on.
+
 **No clip is indexed off a free-running clock.** That used to be the default -
 one `animFrame(meta, elapsed)` for everything - and it was wrong for every clip
 the original does not loop:
@@ -455,13 +471,46 @@ Two things that were half-present are now whole:
   the whole cheer; `hit_zero` does the same on frame 36 after moving itself to
   x = 220. Those are constants now (`OUTCOME_CAM_RESET_FRAME`,
   `FACEPLANT_CHEER_FRAME`, `ZERO_CHEER_FRAME`) and `settling.clip` says which
-  clip is showing. Still not reproduced: the cheer's frame 9 `setScore()` and
-  frame 27 distance caption - the port's HUD records the shot when it lands.
+  clip is showing. Still not reproduced: the cheer's frame 9 `setScore()` -
+  the port's HUD records the shot when it lands. The frame 27 caption is drawn
+  now; see *The sign and the gold ball* below.
 - **The no-rotate rule.** `Bullet.update` (Bullet.as:46) stops turning the
   clip below y = 940 while `xvel < 7` - the signed value, as written, and
   tested on the pre-move y. It first lived in `src/render/scene/pose.ts` as a
   display rule; since the pickup box turns with the clip it is physics, and
   `Projectile.integrate()` applies it. The renderers read `rotationDeg` back.
+
+### The sign and the gold ball
+
+Two things the original draws and the port left out, both in clips it
+already had:
+
+- **The gold ball.** Clip 331 carries two bounce balls, `ball` (177, pink) at
+  depth 72 and `superball` (330, gold) at depth 74, and each pickup shows its
+  own and hides the other (Game.as:692-693, 707-708). Only 177 was ever
+  extracted, so `poseFor` drew the pink ball for both. `build_sprites.py`
+  exports 330 as `hamster/superball` now, and the reason it had not is worth
+  knowing: the superball's placement carries a colour transform - an alpha
+  multiplier of 179/256 - and `sprite_bounds.read_place2` stopped parsing at
+  any colour transform, so the instance name behind it, and the placement,
+  were never found. It reads past it now, and the manifest carries that alpha
+  (`SpriteMeta.alpha`), which the renderers apply. The superball is placed a
+  quarter turn clockwise at 0.71 scale. Regenerated with ffdec 26.2.1 against
+  the reference SWF, every other entry and every frame's pixels came out
+  identical; only the packing moved.
+- **The distance on the sign.** `hit_cheer` (351) and `hit_hole` (365) place
+  `distance1_txt` and `distance_txt` on frame 27 and fill both with
+  `distances[l - 1] + " ft."` (their frame 27 scripts); nothing removes them
+  before frame 50. The fields are DefineEditText 345/346 and 363/364: black
+  under yellow (`#FFFF33`), a pixel apart, 14 px, centred in a 39.4 x 21.5 px
+  box from (-2, -2) with Flash's 2 px gutter. `src/render/scene/signText.ts`
+  has the placements and draws both in the clip's own space, so the clip's
+  quarter turn and the faceplant's `+ 3` carry them. **One interpretation:**
+  the font is 236, `FontOnAStick`, embedded as outlines, and the page's CSP has
+  no `font-src`. The text is set in the system sans instead and squeezed to the
+  width font 236's advance table gives it ("1234 ft." is 35.07 px against a
+  35.4 px text area), so it sits centred on the board and inside the field
+  whatever the system font's own width.
 
 And two ordering details in the port itself: commands are applied in the order
 given, so `[press, togglePause]` no longer drops the press; and the shot driver

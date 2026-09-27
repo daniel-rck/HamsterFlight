@@ -43,6 +43,7 @@ function snap(setup: Setup = {}): SimSnapshot {
     powerups: [],
     glidePoints: C.GLIDE_MAX,
     flags: noEffects(),
+    balls: [],
     shots: [],
     feet: 0,
     outcome: setup.outcome ?? null,

@@ -140,6 +140,12 @@ presentation choices that the original stage did not make:
   Pixi fails to start, the Canvas2D renderer takes over and says so in the
   console. Nobody gets a blank page for want of a GPU.
 
+One is a change to the game itself: **bounce balls stack.** The original holds
+one ball at most, and a second pickup is ignored or replaces the first. Here
+every pink or gold ball joins a queue and each ground contact bursts the oldest,
+with a `×N` beside the ball from two up. It is `Tuning.stackBalls`;
+`FAITHFUL_TUNING` turns it off. See `reference/doc/porting-notes.md`.
+
 ## Assets
 
 The sprites under `src/assets/sprites/` are extracted from the original SWF by

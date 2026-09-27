@@ -119,6 +119,7 @@ function snapshot(): SimSnapshot {
     powerups: [],
     glidePoints: C.GLIDE_MAX,
     flags: noEffects(),
+    balls: [],
     shots: [],
     feet: 0,
     outcome: null,

@@ -64,6 +64,7 @@ SPRITES = [
     ('hamster/slide', 312, 'DefineSprite_312', 19),
     ('hamster/skid', 318, 'DefineSprite_318', 19),
     ('hamster/ball', 177, 'DefineSprite_177', 19),
+    ('hamster/superball', 330, 'DefineSprite_330', 19),
     ('pillow', 234, 'DefineSprite_234', None),
     ('shadow', 21, 'DefineSprite_21_shadow', None),
     ('powerup/bounce', 454, 'DefineSprite_454__bounce', 19),
@@ -134,6 +135,7 @@ PARENT_PLACEMENT = {
     'hamster/slide': (331, 'slide'),
     'hamster/skid': (331, 'skid'),
     'hamster/ball': (331, 'ball'),
+    'hamster/superball': (331, 'superball'),
 }
 
 
@@ -626,12 +628,16 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None, densities=(1,)):
         # ox/oy stay the art's own offset; the renderer applies this matrix
         # inside the arrow clip's rotation. Flash's order: x' = a*x + c*y + tx,
         # y' = b*x + d*y + ty - the same as canvas `transform()`.
+        # The placement's colour transform too, as far as the art needs it: the
+        # superball sits in the arrow clip at 70 % alpha (179/256), which is
+        # not in its own frames.
         parent_matrix = None
+        parent_alpha = 1.0
         placement = PARENT_PLACEMENT.get(name)
         if placement is not None:
             found = resolver.child_placement(*placement)
             if found is not None:
-                _child_cid, (sx, sy, r0, r1, tx, ty) = found
+                _child_cid, (sx, sy, r0, r1, tx, ty), parent_alpha = found
                 parent_matrix = [
                     round(v, 3) + 0.0 for v in (sx, r0, r1, sy, tx, ty)
                 ]
@@ -666,6 +672,8 @@ def collect(resolver, export_dir, asset_dir, svg_dir=None, densities=(1,)):
             entry['fps'] = fps
         if parent_matrix is not None:
             entry['placement'] = parent_matrix
+        if parent_alpha != 1.0:
+            entry['alpha'] = parent_alpha
         entries[name] = entry
 
     if svg_dir is not None:
@@ -690,7 +698,7 @@ HEADER = [
     '// so the renderer needs no per-sprite magic numbers.',
     '//',
     '// Frames are packed into atlas sheets in the same directory: one request',
-    '// instead of 526, and one GPU texture so every sprite batches together.',
+    '// instead of 537, and one GPU texture so every sprite batches together.',
     '// Identical frames share a rect, so `rects` can repeat: the launcher holds',
     '// one pose for twenty frames of its miss animation.',
     '//',
@@ -724,6 +732,8 @@ HEADER = [
     '   * clip; this then places the clip in the parent.',
     '   */',
     '  readonly placement?: readonly [number, number, number, number, number, number];',
+    '  /** The alpha multiplier of that placement\'s colour transform, if it has one. */',
+    '  readonly alpha?: number;',
     '  /** Which atlas sheet the frames live on. */',
     '  readonly sheet: number;',
     '  /** Top-left of each frame within that sheet; `w`/`h` are shared. */',
@@ -740,6 +750,8 @@ def emit(entries, path, densities=(1,)):
         fps = f", fps: {entry['fps']}" if 'fps' in entry else ''
         if 'placement' in entry:
             fps += ', placement: [' + ', '.join(f'{v:g}' for v in entry['placement']) + ']'
+        if 'alpha' in entry:
+            fps += f", alpha: {entry['alpha']:g}"
         rects = ', '.join(f'[{x}, {y}]' for x, y in entry['rects'])
         lines.append(
             f"  '{name}': {{ frames: {entry['frames']}, w: {entry['w']}, "

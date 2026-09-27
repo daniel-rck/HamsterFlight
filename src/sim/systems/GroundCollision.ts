@@ -2,7 +2,7 @@ import { C } from "../constants.ts";
 import type { SimEvent } from "../events.ts";
 import { radToDeg } from "../math/angles.ts";
 import type { FlightState } from "../state.ts";
-import { clearFalling } from "./PowerupPickups.ts";
+import { clearFalling, syncBallFlags } from "./PowerupPickups.ts";
 
 /**
  * `Game.checkCollision()` - Game.as:775-904.
@@ -66,7 +66,9 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
     p.xvel *= C.BOUNCE_F;
     p.yvel *= C.BOUNCE_Y_MUL;
     if (p.yvel > C.BOUNCE_Y_MIN) p.yvel = C.BOUNCE_Y_MIN;
-    s.flags.bounce = false;
+    // `this.bounce = false` - or, with balls stacked, the next one up.
+    s.balls.shift();
+    syncBallFlags(s);
     p.hit = false;
     out.push({ t: "sfx", id: "bounce", gain: C.SFX_VOLUME });
     out.push({ t: "fx", id: "break", x: p.x, y: 955 });
@@ -76,7 +78,8 @@ export function resolveGround(s: FlightState, out: SimEvent[]): void {
     p.xvel *= 1 + C.BOUNCE_F;
     p.yvel *= C.SUPERBOUNCE_Y_MUL;
     if (p.yvel > C.SUPERBOUNCE_Y_MIN) p.yvel = C.SUPERBOUNCE_Y_MIN;
-    s.flags.superbounce = false;
+    s.balls.shift();
+    syncBallFlags(s);
     p.hit = false;
     out.push({ t: "sfx", id: "superbounce", gain: C.SFX_VOLUME });
     out.push({ t: "fx", id: "superBreak", x: p.x, y: 955 });

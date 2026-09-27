@@ -3,6 +3,7 @@ import {
   CanvasTextMetrics,
   Container,
   Graphics,
+  Matrix,
   Rectangle,
   Sprite,
   Text,
@@ -10,6 +11,7 @@ import {
   type Texture,
 } from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
+import type { SpriteId } from "@/assets/sprites.generated.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
 import {
   hideFrom,
@@ -41,14 +43,17 @@ import {
   skyColours,
   starField,
 } from "@/render/scene/decor.ts";
-import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
+import { BALL_BADGE, ballBadge, FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
 import {
   castsShadow,
   hamsterBox,
   hamsterRotation,
+  isBallPose,
   outcomeOffsetY,
+  poseAlpha,
   poseFor,
 } from "@/render/scene/pose.ts";
+import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -108,6 +113,20 @@ export class PixiRenderer implements Renderer {
   /** Drawn under the bubble in enhanced mode, so the hamster stays visible. */
   readonly #hamsterInner = new Sprite();
   readonly #hamster = new Sprite();
+  /** The sign's two fields, `distance1_txt` then `distance_txt`. */
+  readonly #signs: Text[] = [];
+  readonly #signAscent: number;
+  readonly #ballBadge = new Text({
+    text: "",
+    anchor: 0.5,
+    style: new TextStyle({
+      fontFamily: FONTS.sans,
+      fontSize: BALL_BADGE.size,
+      fontWeight: "bold",
+      fill: BALL_BADGE.fill,
+      stroke: { color: BALL_BADGE.stroke, width: BALL_BADGE.strokeWidth, join: "round" },
+    }),
+  });
 
   // Pools.
   readonly #bushPool: Sprite[] = [];
@@ -135,6 +154,7 @@ export class PixiRenderer implements Renderer {
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false);
     this.#ascentMono10 = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
+    this.#signAscent = CanvasTextMetrics.measureFont(SIGN_TEXT.font).ascent;
 
     this.#skyFade = verticalFadeTexture();
     this.#skyTop = this.#skyFade === null ? solidRect() : new Sprite(this.#skyFade);
@@ -206,7 +226,19 @@ export class PixiRenderer implements Renderer {
     );
 
     this.#shadowPivot.addChild(this.#shadow);
-    this.#hamsterPivot.addChild(this.#hamsterInner, this.#hamster);
+    for (let i = 0; i < 2; i++) {
+      const text = new Text({
+        text: "",
+        style: new TextStyle({
+          fontFamily: FONTS.sans,
+          fontSize: SIGN_TEXT.size,
+          fontWeight: "bold",
+        }),
+      });
+      text.visible = false;
+      this.#signs.push(text);
+    }
+    this.#hamsterPivot.addChild(this.#hamsterInner, this.#hamster, ...this.#signs);
     this.#world.addChild(
       ground,
       this.#bushes,
@@ -217,6 +249,7 @@ export class PixiRenderer implements Renderer {
       this.#particleLayer,
       this.#shadowPivot,
       this.#hamsterPivot,
+      this.#ballBadge,
     );
     this.#scene.addChild(this.#world);
     this.#overlay.addChild(this.#debugBoxes);
@@ -394,6 +427,7 @@ export class PixiRenderer implements Renderer {
 
   #drawHamster(s: SimSnapshot): void {
     const h = s.hamster;
+    this.#ballBadge.visible = false;
     if (!h.visible && s.phaseKind !== "settling") {
       this.#hamsterPivot.visible = false;
       this.#shadowPivot.visible = false;
@@ -410,20 +444,25 @@ export class PixiRenderer implements Renderer {
 
     const pose = poseFor(s);
     const asset = this.#assets.get(pose);
-    const texture =
-      asset === undefined
-        ? undefined
-        : this.#textures.get(asset, this.#effects.poses.frame(s, asset.meta, this.#elapsed));
+    const frame = asset === undefined ? 0 : this.#effects.poses.frame(s, asset.meta, this.#elapsed);
+    const texture = asset === undefined ? undefined : this.#textures.get(asset, frame);
     if (asset === undefined || texture === undefined) {
       this.#hamsterPivot.visible = false;
       return;
     }
+    this.#drawSign(s, pose, frame);
+    const badge = ballBadge(s);
+    if (badge !== null) {
+      if (this.#ballBadge.text !== badge) this.#ballBadge.text = badge;
+      this.#ballBadge.position.set(h.x + BALL_BADGE.dx, h.y + BALL_BADGE.dy);
+      this.#ballBadge.visible = true;
+    }
 
     // The bubble is opaque in the original, so the hamster vanishes inside it
     // for the whole bounce. Enhanced mode draws the flier underneath.
-    const inBubble = pose === "hamster/ball" && this.#effects.enhanced;
+    const inBubble = isBallPose(pose) && this.#effects.enhanced;
     this.#hamsterInner.visible = inBubble;
-    this.#hamster.alpha = inBubble ? BUBBLE_ALPHA : 1;
+    this.#hamster.alpha = poseAlpha(asset.meta) * (inBubble ? BUBBLE_ALPHA : 1);
     if (inBubble) {
       const inside = this.#assets.get("hamster/fly");
       const insideTexture =
@@ -443,6 +482,27 @@ export class PixiRenderer implements Renderer {
     this.#hamsterPivot.rotation = hamsterRotation(s);
     this.#hamster.texture = texture;
     placeInParent(this.#hamster, asset);
+  }
+
+  /** The distance on the outcome clip's sign, placed in the clip's own space. */
+  #drawSign(s: SimSnapshot, pose: SpriteId, frame: number): void {
+    const text = signText(s, pose, frame);
+    const fields = signFields(pose);
+    this.#signs.forEach((sign, i) => {
+      const field = fields[i];
+      sign.visible = text !== null && field !== undefined;
+      if (text === null || field === undefined) return;
+      if (sign.text !== text) sign.text = text;
+      sign.style.fill = field.colour;
+      // Measured unsqueezed: `width` is local, before the matrix below.
+      const squeeze = signScaleX(text, sign.getLocalBounds().width);
+      const [a, b, c, d, tx, ty] = field.matrix;
+      sign.setFromMatrix(
+        new Matrix(a, b, c, d, tx, ty)
+          .append(new Matrix(squeeze, 0, 0, 1, SIGN_TEXT.centreX, SIGN_TEXT.baseline))
+          .append(new Matrix(1, 0, 0, 1, -sign.getLocalBounds().width / 2, -this.#signAscent)),
+      );
+    });
   }
 
   #drawHitboxes(s: SimSnapshot): void {

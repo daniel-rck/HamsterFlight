@@ -54,6 +54,8 @@ export function makeFlight(setup: FlightSetup = {}): FlightState {
   return {
     p,
     flags: { ...noEffects(), ...setup.flags },
+    // A test that arms a flag by hand gets the one ball the original would hold.
+    balls: setup.flags?.superbounce ? ["superbounce"] : setup.flags?.bounce ? ["bounce"] : [],
     glidePoints: setup.glidePoints ?? C.GLIDE_MAX,
     gravButton: setup.gravButton ?? false,
     powerups: (setup.powerups ?? []).map((it) => ({ ...it, taken: false, activeTicksLeft: 0 })),

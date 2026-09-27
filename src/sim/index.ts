@@ -12,7 +12,7 @@ export { mulberry32 } from "./rng/mulberry32.ts";
 export type { Rng } from "./rng/Rng.ts";
 export { Simulation, type SimulationOptions } from "./Simulation.ts";
 export type { Phase, SimSnapshot } from "./state.ts";
-export { DEFAULT_TUNING, type Tuning } from "./tuning.ts";
+export { DEFAULT_TUNING, FAITHFUL_TUNING, type Tuning } from "./tuning.ts";
 export {
   type EffectFlags,
   noEffects,

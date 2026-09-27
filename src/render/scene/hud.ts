@@ -1,3 +1,4 @@
+import { isBallPose, poseFor } from "@/render/scene/pose.ts";
 import { distance } from "@/render/units.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
@@ -56,6 +57,28 @@ export const FONTS = {
   marker: "10px ui-monospace, monospace",
   prompt: "bold 17px system-ui, sans-serif",
 } as const;
+
+/**
+ * The stacked-ball count (`Tuning.stackBalls`, a port addition): `×N` beside
+ * the ball once more than one is queued. World pixels from the hamster, upright
+ * rather than turning with the clip, just outside both balls' rims - the pink
+ * one is 41 px across the middle, the gold one 32.
+ */
+export const BALL_BADGE = {
+  dx: 26,
+  dy: -30,
+  font: `bold 13px ${FONTS.sans}`,
+  size: 13,
+  fill: "#ffffff",
+  stroke: "#3a1830",
+  strokeWidth: 3,
+} as const;
+
+/** The badge text for this snapshot, or null when there is nothing to count. */
+export function ballBadge(s: SimSnapshot): string | null {
+  if (s.phaseKind !== "flying" || s.balls.length < 2) return null;
+  return isBallPose(poseFor(s)) ? `×${s.balls.length}` : null;
+}
 
 export function totalFeet(s: SimSnapshot): number {
   let total = 0;

@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import { C } from "@/sim/constants.ts";
 import type { SimEvent } from "@/sim/events.ts";
 import { rotateBox } from "@/sim/math/aabb.ts";
-import { DEFAULT_TUNING } from "@/sim/tuning.ts";
+import { syncBallFlags } from "@/sim/systems/PowerupPickups.ts";
+import { DEFAULT_TUNING, FAITHFUL_TUNING } from "@/sim/tuning.ts";
 import { POWERUP_KINDS, POWERUPS, type PowerupKind } from "@/sim/types.ts";
-import { centredOn, makeFlight, tick } from "../support/harness.ts";
+import { centredOn, makeFlight, tick, withActiveTicks } from "../support/harness.ts";
 
 const sfxIds = (events: readonly SimEvent[]) =>
   events.filter((e) => e.t === "sfx").map((e) => (e.t === "sfx" ? e.id : ""));
@@ -114,6 +115,74 @@ describe("arming pickups", () => {
     expect(s.flags.bounce).toBe(true);
     expect(s.flags.falling).toBe(false);
     expect(events.filter((e) => e.t === "falling")).toEqual([{ t: "falling", on: false }]);
+  });
+});
+
+/** A pink ball and a gold one on the same spot, met in the same tick in that order. */
+const pinkThenGold = () => [
+  centredOn("bounce", C.HAMSTER_X, 600),
+  centredOn("superbounce", C.HAMSTER_X, 600),
+];
+
+describe("stacked balls", () => {
+  it("queues every ball in pickup order, the head armed", () => {
+    const s = makeFlight({ y: 600, xvel: 10, powerups: pinkThenGold() });
+    tick(s);
+    expect(s.balls).toEqual(["bounce", "superbounce"]);
+    expect(s.flags.bounce).toBe(true);
+    expect(s.flags.superbounce).toBe(false);
+  });
+
+  it("counts a ball once however long it keeps firing", () => {
+    // A slow hamster on an item whose core outlives the pickup tick: the
+    // original's `!this.bounce` would turn the repeats away, the queue must too.
+    const tuning = withActiveTicks("bounce", 3);
+    const s = makeFlight({ y: 600, xvel: 0.5, powerups: [centredOn("bounce", C.HAMSTER_X, 600)] });
+    for (let i = 0; i < 3; i++) tick(s, { tuning });
+    expect(s.balls).toEqual(["bounce"]);
+  });
+
+  it("stacks two of a kind, which the original ignores", () => {
+    const pinks = [centredOn("bounce", C.HAMSTER_X, 600), centredOn("bounce", C.HAMSTER_X, 600)];
+    const stacked = makeFlight({ y: 600, xvel: 10, powerups: pinks });
+    tick(stacked);
+    expect(stacked.balls).toEqual(["bounce", "bounce"]);
+
+    // Game.as:690 - `!this.bounce` turns the second one away.
+    const faithful = makeFlight({ y: 600, xvel: 10, powerups: pinks });
+    tick(faithful, { tuning: FAITHFUL_TUNING });
+    expect(faithful.balls).toEqual(["bounce"]);
+  });
+
+  it("lets the gold ball replace the pink one when not stacking, as the original does", () => {
+    // Game.as:707-712: `bounce = false; superbounce = true`.
+    const s = makeFlight({ y: 600, xvel: 10, powerups: pinkThenGold() });
+    tick(s, { tuning: FAITHFUL_TUNING });
+    expect(s.balls).toEqual(["superbounce"]);
+    expect(s.flags.bounce).toBe(false);
+    expect(s.flags.superbounce).toBe(true);
+  });
+
+  it("bursts one ball per ground contact, oldest first", () => {
+    const s = makeFlight({ y: 945, yvel: 15, xvel: 20, ox: 146, oy: 880 });
+    s.balls.push("bounce", "superbounce");
+    syncBallFlags(s);
+
+    const first = tick(s).events;
+    expect(first.some((e) => e.t === "fx" && e.id === "break")).toBe(true);
+    expect(s.balls).toEqual(["superbounce"]);
+    expect(s.flags.superbounce).toBe(true);
+    expect(s.flags.bounce).toBe(false);
+
+    // Back down onto the ground for the second one.
+    s.p.y = 945;
+    s.p.yvel = 15;
+    s.p.ox = s.p.x - 2;
+    s.p.oy = 880;
+    const second = tick(s).events;
+    expect(second.some((e) => e.t === "fx" && e.id === "superBreak")).toBe(true);
+    expect(s.balls).toEqual([]);
+    expect(s.flags.superbounce).toBe(false);
   });
 });
 

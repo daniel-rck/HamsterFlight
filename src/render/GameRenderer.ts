@@ -1,4 +1,5 @@
 import type { AssetBundle, Sprite } from "@/assets/AssetLoader.ts";
+import type { SpriteId } from "@/assets/sprites.generated.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
 import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
@@ -20,6 +21,8 @@ import {
   starField,
 } from "@/render/scene/decor.ts";
 import {
+  BALL_BADGE,
+  ballBadge,
   debugLines,
   FONTS,
   glideFill,
@@ -32,10 +35,13 @@ import {
   castsShadow,
   hamsterBox,
   hamsterRotation,
+  isBallPose,
   outcomeOffsetY,
+  poseAlpha,
   posePlacement,
   poseFor,
 } from "@/render/scene/pose.ts";
+import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -245,7 +251,7 @@ export class GameRenderer implements Renderer {
     // The bubble is opaque in the original, so the hamster vanishes inside it
     // for the whole bounce. Enhanced mode draws the flier underneath and lets
     // the bubble sit over it.
-    const inBubble = id === "hamster/ball" && this.#effects.enhanced;
+    const inBubble = isBallPose(id) && this.#effects.enhanced;
     const rotation = hamsterRotation(s);
     if (rotation !== 0) ctx.rotate(rotation);
     if (inBubble) {
@@ -256,18 +262,54 @@ export class GameRenderer implements Renderer {
         this.#blit(ctx, inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed), 0, 0);
         ctx.restore();
       }
-      ctx.globalAlpha = BUBBLE_ALPHA;
     }
+    ctx.globalAlpha = poseAlpha(sprite.meta) * (inBubble ? BUBBLE_ALPHA : 1);
     ctx.transform(...posePlacement(sprite.meta));
-    this.#blit(ctx, sprite, this.#effects.poses.frame(s, sprite.meta, this.#elapsed), 0, 0);
-    if (inBubble) ctx.globalAlpha = 1;
+    const frame = this.#effects.poses.frame(s, sprite.meta, this.#elapsed);
+    this.#blit(ctx, sprite, frame, 0, 0);
+    ctx.globalAlpha = 1;
+    this.#sign(ctx, s, id, frame);
     ctx.restore();
+
+    const badge = ballBadge(s);
+    if (badge !== null) {
+      ctx.save();
+      ctx.font = BALL_BADGE.font;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = BALL_BADGE.strokeWidth;
+      ctx.strokeStyle = BALL_BADGE.stroke;
+      ctx.fillStyle = BALL_BADGE.fill;
+      ctx.strokeText(badge, h.x + BALL_BADGE.dx, h.y + BALL_BADGE.dy);
+      ctx.fillText(badge, h.x + BALL_BADGE.dx, h.y + BALL_BADGE.dy);
+      ctx.restore();
+    }
 
     if (this.#showHitboxes) {
       const box = hamsterBox(s, this.#tuning);
       ctx.strokeStyle = hex(HUD_COLOURS.hitboxHamster);
       ctx.lineWidth = 1;
       ctx.strokeRect(h.x + box.cx - box.hw, h.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
+    }
+  }
+
+  /** The distance on the outcome clip's sign, drawn in the clip's own space. */
+  #sign(ctx: CanvasRenderingContext2D, s: SimSnapshot, id: SpriteId, frame: number): void {
+    const text = signText(s, id, frame);
+    if (text === null) return;
+    ctx.font = SIGN_TEXT.font;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    const squeeze = signScaleX(text, ctx.measureText(text).width);
+    for (const field of signFields(id)) {
+      ctx.save();
+      ctx.transform(...field.matrix);
+      ctx.translate(SIGN_TEXT.centreX, SIGN_TEXT.baseline);
+      ctx.scale(squeeze, 1);
+      ctx.fillStyle = hex(field.colour);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
     }
   }
 

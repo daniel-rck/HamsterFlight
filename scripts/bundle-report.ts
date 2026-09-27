@@ -47,8 +47,10 @@ const BUDGET_KB: {
   // The WebGL backend. Lazy in the bundle, but enhanced mode is the default,
   // so every visitor who is not on ?mode=faithful pays this too.
   lazy: 182,
-  // Per atlas sheet, per density.
-  atlas: { 1: 850, 2: 2250 },
+  // Per atlas sheet, per density. Raised from 850/2250 for the gold ball
+  // (`hamster/superball`, 11 frames of 175 x 219 - its pickup flash fills the
+  // box), keeping the headroom the sheets had before it.
+  atlas: { 1: 925, 2: 2450 },
   // Every sound, raw - MP3 does not gzip. Fetched after the first gesture.
   audio: 800,
   // The instructions board and Play Now!, both densities, raw.

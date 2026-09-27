@@ -25,5 +25,10 @@ describe("Simulation.snapshot", () => {
   it("gives a fresh array on every call", () => {
     const sim = new Simulation({ seed: 1 });
     expect(sim.snapshot().shots).not.toBe(sim.snapshot().shots);
+    expect(sim.snapshot().balls).not.toBe(sim.snapshot().balls);
+  });
+
+  it("holds no balls outside a flight", () => {
+    expect(new Simulation({ seed: 1 }).snapshot().balls).toEqual([]);
   });
 });

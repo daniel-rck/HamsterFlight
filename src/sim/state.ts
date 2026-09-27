@@ -1,5 +1,5 @@
 import type { Projectile } from "./entities/Projectile.ts";
-import type { EffectFlags, PowerupKind, ShotOutcome } from "./types.ts";
+import type { BallKind, EffectFlags, PowerupKind, ShotOutcome } from "./types.ts";
 
 /**
  * Mutability convention: phase payloads (`JumpState`, `FlightState`,
@@ -41,6 +41,13 @@ export interface CameraState {
 export interface FlightState {
   readonly p: Projectile;
   readonly flags: EffectFlags;
+  /**
+   * The armed balls, next to burst first. `flags.bounce`/`flags.superbounce`
+   * mirror its head (`syncBallFlags`), so everything that reads the flags - the
+   * ground cascade, the fall test, the pose - sees the ball that is up. The
+   * original holds one at most; `Tuning.stackBalls` lets it queue.
+   */
+  readonly balls: BallKind[];
   glidePoints: number;
   /** True between `press` and `release`, independent of whether lift applies. */
   gravButton: boolean;
@@ -133,6 +140,8 @@ export interface SimSnapshot {
   readonly powerups: readonly PowerupInstance[];
   readonly glidePoints: number;
   readonly flags: Readonly<EffectFlags>;
+  /** `FlightState.balls`, copied; empty outside `flying`. */
+  readonly balls: readonly BallKind[];
   readonly shots: readonly number[];
   readonly feet: number;
   readonly outcome: ShotOutcome | null;

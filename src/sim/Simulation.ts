@@ -321,6 +321,7 @@ export class Simulation {
     const flight: FlightState = {
       p,
       flags: noEffects(),
+      balls: [],
       glidePoints: C.GLIDE_MAX,
       gravButton: false,
       powerups: [],
@@ -441,6 +442,7 @@ export class Simulation {
         powerups: f.powerups.map((it) => ({ ...it })),
         glidePoints: f.glidePoints,
         flags: { ...f.flags },
+        balls: [...f.balls],
         feet: Math.floor(f.p.x / C.PX_PER_FOOT),
         outcome: f.outcome,
       };
@@ -462,6 +464,7 @@ export class Simulation {
         powerups: [],
         glidePoints: C.GLIDE_MAX,
         flags: noEffects(),
+        balls: [],
         outcome: null,
       };
     }
@@ -485,6 +488,7 @@ export class Simulation {
         powerups: [],
         glidePoints: C.GLIDE_MAX,
         flags: noEffects(),
+        balls: [],
         outcome: phase.outcome,
       };
     }
@@ -504,6 +508,7 @@ export class Simulation {
       powerups: [],
       glidePoints: C.GLIDE_MAX,
       flags: noEffects(),
+      balls: [],
       outcome: null,
     };
   }
