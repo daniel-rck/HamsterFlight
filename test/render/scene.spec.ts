@@ -39,6 +39,7 @@ function flying(over: Partial<SimSnapshot> = {}): SimSnapshot {
     paused: false,
     swung: false,
     windup: null,
+    walkOut: null,
     hamster: {
       x: 800,
       y: 700,
@@ -271,6 +272,8 @@ describe("hud strings", () => {
 
   it("prompts by phase and falls silent while skidding", () => {
     expect(promptFor(flying({ phaseKind: "ready" }))).toBe("click to jump");
+    // The next hamster is still on its way to the pad: a click would do nothing.
+    expect(promptFor(flying({ phaseKind: "ready", walkOut: 3 }))).toBeNull();
     expect(promptFor(flying({ phaseKind: "jumping" }))).toBe("click again to hit the pillow");
     expect(promptFor(flying({ phaseKind: "jumping", windup: 3 }))).toBe("get ready...");
     // The swing is spent: a second click does nothing, so do not ask for one.

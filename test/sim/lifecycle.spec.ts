@@ -3,7 +3,7 @@ import type { InputCommand } from "@/sim/commands.ts";
 import { C } from "@/sim/constants.ts";
 import { CLICK_WINDOW } from "@/sim/drive.ts";
 import type { SimEvent } from "@/sim/events.ts";
-import { JUMP_WINDUP_TICKS } from "@/sim/phases/JumpPhase.ts";
+import { JUMP_WINDUP_TICKS, WALK_OUT_TICKS } from "@/sim/phases/JumpPhase.ts";
 import { clipHoldTicks, PLAY_AGAIN_TICKS, Simulation } from "@/sim/Simulation.ts";
 import { beginQuickPan, newCamera, quickPanStep } from "@/sim/systems/CameraModel.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
@@ -47,6 +47,8 @@ function inWindow(y: number): boolean {
  */
 function playTurn(sim: Simulation, attempts = 40): SimEvent[] {
   const out: SimEvent[] = [];
+  // The next hamster walks to the pad first; a press before then does nothing.
+  while (sim.phaseKind === "ready" && sim.snapshot().walkOut !== null) out.push(...sim.step());
   for (let attempt = 0; attempt < attempts; attempt++) {
     out.push(...sim.step([{ kind: "press" }, { kind: "release" }]));
     while (sim.phaseKind === "jumping") {
@@ -354,6 +356,52 @@ describe("settling", () => {
   });
 });
 
+describe("the next hamster", () => {
+  it("takes clip 53's fifteen frames, in ticks", () => {
+    // `play()` from frame 1 to the frame 15 script: 14 frames at 19 fps.
+    expect(WALK_OUT_TICKS).toBe(15);
+  });
+
+  it("walks out to an empty pad, and the turn cannot start until it is there", () => {
+    const sim = connectingShot(8);
+    stepOut(sim, "settling");
+    // `nextHamster()` hides the pad hamster as the walker sets off.
+    expect(sim.phaseKind).toBe("ready");
+    expect(sim.snapshot().turn).toBe(2);
+    expect(sim.snapshot().walkOut).toBe(0);
+    expect(sim.snapshot().hamster.visible).toBe(false);
+
+    // A click on every tick of the walk: `shooting` is still set, so none of
+    // them starts the jump.
+    for (let t = 1; t < WALK_OUT_TICKS; t++) {
+      const events = sim.step([{ kind: "press" }, { kind: "release" }]);
+      expect(events.some((e) => e.t === "turnStart")).toBe(false);
+      expect(sim.phaseKind).toBe("ready");
+      expect(sim.snapshot().walkOut).toBe(t);
+      expect(sim.snapshot().hamster.visible).toBe(false);
+    }
+
+    // Frame 15: the pad hamster is back and `cleanUp()` lets the click through.
+    sim.step();
+    expect(sim.snapshot().walkOut).toBeNull();
+    expect(sim.snapshot().hamster.visible).toBe(true);
+    const events = sim.step([{ kind: "press" }, { kind: "release" }]);
+    expect(events).toContainEqual({ t: "turnStart", turn: 2 });
+    expect(sim.phaseKind).toBe("jumping");
+  });
+
+  it("does not walk out after a missed jump or on the first turn", () => {
+    const sim = new Simulation({ seed: 3 });
+    expect(sim.snapshot().walkOut).toBeNull();
+    expect(sim.snapshot().hamster.visible).toBe(true);
+    failedJump(sim);
+    // The same hamster lands back on the pad, turn intact.
+    expect(sim.phaseKind).toBe("ready");
+    expect(sim.snapshot().walkOut).toBeNull();
+    expect(sim.snapshot().hamster.visible).toBe(true);
+  });
+});
+
 describe("session", () => {
   it("ends after five turns and restarts on confirm", () => {
     const sim = new Simulation({ seed: 11 });
@@ -409,6 +457,9 @@ describe("session", () => {
     expect(sim.phaseKind).toBe("ready");
     expect(sim.snapshot().turn).toBe(1);
     expect(sim.snapshot().shots).toEqual([]);
+    // `reset()` puts the first hamster straight on the pad: no walk-out.
+    expect(sim.snapshot().walkOut).toBeNull();
+    expect(sim.snapshot().hamster.visible).toBe(true);
   });
 
   it("starts the menu music on the first step, as init() does", () => {

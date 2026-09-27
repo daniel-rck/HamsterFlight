@@ -482,6 +482,25 @@ Two things that were half-present are now whole:
   display rule; since the pickup box turns with the clip it is physics, and
   `Projectile.integrate()` applies it. The renderers read `rotationDeg` back.
 
+### The next hamster walked out onto an occupied pad
+
+`nextHamster()` hides the pad hamster (`this._$mc.hamster._visible = false`,
+Game.as:995) and sends the next one walking out of the queue
+(`hWalkOut<turn>.play()`, :996). Clip 53's frame 15 hides the walker, shows the
+pad hamster again and calls `cleanUp()` (as2/timeline/DefineSprite_53/frame_15),
+and `cleanUp()` is what clears `shooting` - until then `onMouseDown` cannot start
+a jump (Game.as:1021, 1184-1190). The port went straight to `ready` with the pad
+hamster showing and a click live, while `PreLaunchScene` played the walk on a
+clock of its own: two hamsters at the launcher for the whole walk, and a jump
+that could start before the new one had arrived.
+
+`ready` carries a walk-out counter now (`C.WALK_OUT_FRAMES`, 14 frames, 15
+ticks). While it runs the pad is empty and a press does nothing; the queue's
+walk-out and `walkUp` shuffle are drawn from the same counter, as the jump's
+wind-up is, so the walker reaching the pad and the pad hamster appearing are one
+tick. A missed jump, a restart and the first turn start with the hamster on the
+pad, as `reset()` has it.
+
 ### The sign and the gold ball
 
 Two things the original draws and the port left out, both in clips it

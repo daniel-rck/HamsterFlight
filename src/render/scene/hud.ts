@@ -123,7 +123,8 @@ export function promptFor(s: SimSnapshot, touch = false): string | null {
   if (s.paused) return touch ? "paused - tap to resume" : "paused - click, Space or P to resume";
   switch (s.phaseKind) {
     case "ready":
-      return `${click} to jump`;
+      // Nothing to click for while the next hamster is still walking out.
+      return s.walkOut !== null ? null : `${click} to jump`;
     case "jumping":
       // One swing per jump: after a whiff there is nothing left to click for,
       // and saying "click again" was an invitation to mash at a dead button.

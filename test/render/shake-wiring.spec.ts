@@ -108,6 +108,7 @@ function snapshot(): SimSnapshot {
     paused: false,
     swung: false,
     windup: null,
+    walkOut: null,
     hamster: {
       x: 500,
       y: 700,

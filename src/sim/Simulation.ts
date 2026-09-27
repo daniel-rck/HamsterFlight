@@ -3,7 +3,7 @@ import { C } from "./constants.ts";
 import { Projectile } from "./entities/Projectile.ts";
 import type { SimEvent } from "./events.ts";
 import { stepFlight } from "./phases/FlightPhase.ts";
-import { beginJump, framesToTicks, stepJump } from "./phases/JumpPhase.ts";
+import { beginJump, framesToTicks, stepJump, WALK_OUT_TICKS } from "./phases/JumpPhase.ts";
 import { attemptLaunch } from "./phases/Launch.ts";
 import { mulberry32 } from "./rng/mulberry32.ts";
 import type { Rng } from "./rng/Rng.ts";
@@ -106,7 +106,7 @@ export class Simulation {
     // one shared Math.random stream; unobservable, since its seed is unknowable.
     this.#rngJump = master.fork("jump");
     this.#rngPowerups = master.fork("powerups");
-    this.#phase = { kind: "ready" };
+    this.#phase = { kind: "ready", walkOut: null };
   }
 
   get tick(): number {
@@ -158,6 +158,16 @@ export class Simulation {
     this.#tick++;
 
     switch (this.#phase.kind) {
+      case "ready": {
+        // Clip 53's frame 15: the walker is on the pad, and `cleanUp()` lets
+        // the next click start the jump.
+        const phase = this.#phase;
+        if (phase.walkOut !== null) {
+          phase.walkOut++;
+          if (phase.walkOut >= WALK_OUT_TICKS) phase.walkOut = null;
+        }
+        break;
+      }
       case "jumping": {
         const st = this.#phase.jump;
         const winding = st.windup !== null;
@@ -172,7 +182,7 @@ export class Simulation {
         // pad with the turn intact. Only the pillow ends a turn.
         if (landed) {
           out.push({ t: "jumpFailed" });
-          this.#phase = { kind: "ready" };
+          this.#phase = { kind: "ready", walkOut: null };
         }
         break;
       }
@@ -240,6 +250,10 @@ export class Simulation {
 
     if (cmd.kind === "press") {
       if (phase.kind === "ready") {
+        // The next hamster is still on its way: `shooting` stays true until
+        // clip 53's frame 15 calls `cleanUp()`, so `onMouseDown` falls through
+        // to the glide branch with nothing to glide (Game.as:1021, 1038).
+        if (phase.walkOut !== null) return;
         this.#phase = { kind: "jumping", jump: beginJump(), camera: newCamera() };
         out.push({ t: "turnStart", turn: this.#turn });
         // The same click sets `hamsterWheel2.play()` going (Game.as:1027); its
@@ -295,7 +309,7 @@ export class Simulation {
       // fade the theme again; both are already covered by these two cues.
       out.push({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
       out.push({ t: "sfxStop", id: "theme" });
-      this.#phase = { kind: "ready" };
+      this.#phase = { kind: "ready", walkOut: null };
     }
   }
 
@@ -403,7 +417,7 @@ export class Simulation {
     // Game.as:986-990.
     out.push({ t: "sfx", id: "prelude", gain: C.MUSIC_VOL, loop: true });
     out.push({ t: "sfxStop", id: "theme", fade: true });
-    this.#phase = { kind: "ready" };
+    this.#phase = { kind: "ready", walkOut: 0 };
   }
 
   snapshot(): SimSnapshot {
@@ -417,6 +431,7 @@ export class Simulation {
       // which, because a second click after a whiff does nothing.
       swung: phase.kind === "jumping" && phase.jump.swung,
       windup: phase.kind === "jumping" ? phase.jump.windup : null,
+      walkOut: phase.kind === "ready" ? phase.walkOut : null,
       outcomeClip: phase.kind === "settling" ? phase.clip : null,
       restartable: phase.kind === "gameOver" && phase.ticks >= PLAY_AGAIN_TICKS,
       // Copied, like camera/powerups/flags below. A cast would have handed
@@ -500,7 +515,9 @@ export class Simulation {
         y: C.HAMSTER_START_Y,
         xvel: 0,
         yvel: 0,
-        visible: phase.kind === "ready",
+        // `nextHamster()` hides the pad hamster while the next one walks out
+        // (Game.as:995); clip 53's frame 15 shows it again.
+        visible: phase.kind === "ready" && phase.walkOut === null,
         doRotation: false,
         rotationDeg: 0,
       },

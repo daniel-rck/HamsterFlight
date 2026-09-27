@@ -100,6 +100,14 @@ export const C = Object.freeze({
   /** `sndJump.attachSound("snd_jump"); sndJump.start()` - clip 52, frame 23. */
   JUMP_SFX_FRAMES: 21,
   /**
+   * The next hamster's walk to the pad. `nextHamster()` hides the pad hamster
+   * and `play()`s `hWalkOut<turn>` from its frame 1 (Game.as:995-996); clip 53's
+   * frame 15 hides the walker, shows the pad hamster and calls `cleanUp()`
+   * (as2/timeline/DefineSprite_53/frame_15), which is what clears `shooting` -
+   * so `onMouseDown` cannot start a jump before then (Game.as:1021, 1184-1190).
+   */
+  WALK_OUT_FRAMES: 14,
+  /**
    * `this._y -= 117.8` right before `jump()` - clip 52, frame 28. The wind-up
    * lifts the art 115 px inside the clip; this moves the clip up to where the
    * art already is and draws the tumbling ball back on the registration point,
