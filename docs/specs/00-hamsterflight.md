@@ -23,7 +23,8 @@ src/
 ├── input/        # DOM events to discrete press/release/confirm/pause commands
 ├── assets/       # atlas sheets, sounds, the instructions board, generated manifests
 ├── audio/        # the Web Audio player - reads the sim's sound cues, never writes
-├── app/          # boot (main.ts), the fixed-timestep loop, URL params, frame profiler
+├── app/          # boot (main.ts), the loop, URL params, and the game around the game:
+│                 #   recording/replay, session, records, daily, ghost, achievements, i18n
 reference/        # vendored: decompiled bytecode and frame scripts, extraction tools, notes
 ```
 
@@ -49,8 +50,43 @@ A visit opens on the INSTRUCTIONS board over a still of the scene, as the
 original's frame 6 does; Play Now! starts the loop and unlocks audio.
 `?profile` and `?instructions=0` skip it. There is no title screen.
 
-There is no persistence layer: the game keeps no scores between visits, and
-the simulation may not touch storage even if one is added later.
+### Around the game
+
+The port adds a layer the original did not have - records, a results panel,
+a daily challenge, a ghost to race, achievements, a German translation - and
+all of it lives in `src/app/`, reading the simulation's snapshots and events
+and never writing to it. The only way it changes a game is by choosing the
+seed of the next one.
+
+- **Every game is recorded** (`recording.ts`): the seed and the commands of
+  each `step()`, keyed by step rather than by tick, because a paused step can
+  carry commands without advancing the tick. Paused, empty steps are dropped -
+  the simulation returns from them untouched - so a pause costs nothing.
+  `replay.ts` plays a recording into a fresh `Simulation` and keeps the
+  flight traces; a run that does not end in a game over on its last step is
+  rejected, which is also what catches an old link after a physics change.
+- **PLAY AGAIN builds a new simulation** (`session.ts`). The simulation's own
+  `reset()` keeps its random streams running, so a second game could only be
+  reproduced by replaying the first as well. A fresh `Simulation` per game
+  makes each one `(seed, inputs)` on its own; the restart cues are the same
+  ones `reset()` emits, and a test holds them equal.
+- **A shared link is a recording** (`?run=`), not a score. The recipient's
+  page replays it to get the ghost and the total, so the number shown is the
+  simulation's, never the sender's. `MAX_RUN_STEPS` bounds what a hostile
+  link can make a page compute.
+- **The ghost** (`ghost.ts`) starts each shot when the player's shot of the
+  same number leaves the pillow and runs tick for tick from there; the two
+  games share no clock otherwise. It and the flags reach the renderers as an
+  `Overlay` beside the snapshot (`render/scene/overlay.ts`).
+- **The daily challenge** (`daily.ts`) seeds every game from the local date,
+  so everyone gets the same powerups that day, and races the day's own best.
+
+It keeps one `localStorage` key, `hamsterflight:v1` (`progress.ts`): records,
+the day's best run, the streak, achievements and settings. It is not the
+web-base storage layer - no IndexedDB, no schema - and it is only ever read
+behind a try/catch: a browser that will not store is a game that forgets, not
+one that breaks. The simulation may not touch storage; the lint rule and the
+purity check still say so.
 
 ### The sim is pure, and that is enforced
 
@@ -78,7 +114,7 @@ PR. See `reference/doc/porting-notes.md`.
 
 | Deviation | Reason |
 |---|---|
-| No React / router / storage / layout / PWA | It is a canvas game. |
+| No React / router / storage / layout / PWA | It is a canvas game. One `localStorage` key in `src/app/` is not the storage layer. |
 | `wrangler.jsonc`, not `wrangler.toml` | Functionally equivalent; the repo predates the convention. |
 | `not_found_handling: "404-page"` | Correct for a single-page game — the SPA fallback would mask real 404s. |
 | English README | It is a technical port write-up whose audience is the emulation community, not an end-user app README. |
