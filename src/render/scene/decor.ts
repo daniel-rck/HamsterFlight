@@ -1,5 +1,5 @@
 import type { SpriteId } from "@/assets/sprites.generated.ts";
-import { markerScale } from "@/render/units.ts";
+import { markerLabel, markerScale } from "@/render/units.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import type { PowerupKind } from "@/sim/types.ts";
@@ -150,8 +150,8 @@ export interface Markers {
 }
 
 /** Distance markers along the ground, so progress is readable without the HUD. */
-export function markers(cameraX: number, metric: boolean): Markers {
-  const scale = markerScale(C.PX_PER_FOOT, metric);
+export function markers(cameraX: number): Markers {
+  const scale = markerScale(C.PX_PER_FOOT);
   const every = scale.step * scale.labelEvery;
   const first = Math.max(0, Math.floor((-cameraX - 100) / scale.pixels / scale.step) * scale.step);
   const until = -cameraX + C.VIEW_W + 100;
@@ -161,7 +161,7 @@ export function markers(cameraX: number, metric: boolean): Markers {
     const x = at * scale.pixels;
     ticks.push(x);
     // No label at the origin: it says nothing, and it sat on the tower's leg.
-    if (at !== 0 && at % every === 0) labels.push({ x, text: `${at}${scale.suffix}` });
+    if (at !== 0 && at % every === 0) labels.push({ x, text: markerLabel(at) });
   }
   return { ticks, labels };
 }

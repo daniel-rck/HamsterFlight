@@ -324,7 +324,7 @@ export class PixiRenderer implements Renderer {
     this.#drawFx(now);
     this.#drawParticles(now);
     this.#drawHamster(s);
-    this.#hud.draw(s, scene, this.#effects.enhanced, this.#showHitboxes);
+    this.#hud.draw(s, scene, this.#showHitboxes);
     this.#filters.apply(this.#scene, s, this.#effects, now, offsetX, offsetY);
     if (this.#showHitboxes) this.#drawHitboxes(s);
     else this.#debugBoxes.clear();
@@ -356,7 +356,7 @@ export class PixiRenderer implements Renderer {
     }
     hideFrom(this.#bushPool, used);
 
-    const marks = markers(s.camera.x, this.#effects.enhanced);
+    const marks = markers(s.camera.x);
     for (const [i, x] of marks.ticks.entries()) {
       const tick = this.#tickAt(i);
       tick.position.set(x, C.GROUND_Y - 7);
@@ -486,7 +486,7 @@ export class PixiRenderer implements Renderer {
 
   /** The distance on the outcome clip's sign, placed in the clip's own space. */
   #drawSign(s: SimSnapshot, pose: SpriteId, frame: number): void {
-    const text = signText(s, pose, frame, this.#effects.enhanced);
+    const text = signText(s, pose, frame);
     const fields = signFields(pose);
     this.#signs.forEach((sign, i) => {
       const field = fields[i];

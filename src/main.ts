@@ -264,7 +264,7 @@ async function boot(): Promise<void> {
   const sim = new Simulation({ seed, tuning: DEFAULT_TUNING });
   const stress = stressFromUrl(params);
   // Shake, warp and particles honour the OS-level preference; the rest of the
-  // enhanced presentation - metres, the translucent bubble - is not motion.
+  // enhanced presentation - the translucent bubble - is not motion.
   const reducedMotion =
     typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const effects = new Effects({

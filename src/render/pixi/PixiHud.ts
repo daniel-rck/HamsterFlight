@@ -117,7 +117,7 @@ export class PixiHud {
     );
   }
 
-  draw(s: SimSnapshot, scene: PreLaunchLayout, metric: boolean, showDebug: boolean): void {
+  draw(s: SimSnapshot, scene: PreLaunchLayout, showDebug: boolean): void {
     let used = 0;
     for (const at of scene.hud) {
       const asset = this.#assets.get(at.sprite);
@@ -144,7 +144,7 @@ export class PixiHud {
       this.#needle.rotation = needle.flipped ? Math.PI : 0;
     }
 
-    const lines = panelLines(s, metric);
+    const lines = panelLines(s);
     setText(this.#panelLines[0], lines[0]);
     setText(this.#panelLines[1], lines[1]);
 
@@ -161,7 +161,7 @@ export class PixiHud {
       setText(this.#debugLines[2], text[2]);
     }
 
-    const prompt = promptFor(s, metric, this.#touch);
+    const prompt = promptFor(s, this.#touch);
     const show = prompt !== null;
     this.#promptBg.visible = show;
     this.#promptText.visible = show;

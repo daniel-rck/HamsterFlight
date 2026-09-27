@@ -225,22 +225,16 @@ describe("ground decoration", () => {
     expect(new Set(under.map((b) => b.sprite)).size).toBeGreaterThan(1);
   });
 
-  it("labels every fifth marker in the unit the mode shows", () => {
-    // Ticks every 10 ft, a label every 50 ft: the view around 5 000 px has one.
-    const feet = markers(-5000, false);
-    // 800 px of view, a tick every 1 000: the one on screen plus the one the
-    // floor keeps just off its left edge.
-    expect(feet.ticks).toEqual([4000, 5000]);
-    expect(feet.labels).toEqual([{ x: 5000, text: "50ft" }]);
-    // Metres: ticks every 5 m (about 1 640 px), a label every 25 m (8 202 px).
-    const metres = markers(-8200, true);
-    expect(metres.labels.map((l) => l.text)).toEqual(["25m"]);
-    expect(metres.ticks.length).toBeGreaterThanOrEqual(1);
+  it("labels every fifth marker in metres", () => {
+    // Ticks every 5 m (about 1 640 px), a label every 25 m (8 202 px).
+    const view = markers(-8200);
+    expect(view.labels.map((l) => l.text)).toEqual(["25.00 m"]);
+    expect(view.ticks.length).toBeGreaterThanOrEqual(1);
     // Ticks start at the origin, never behind it - but the origin gets no
-    // label: "0ft" said nothing and sat on the launch tower's leg.
-    expect(markers(0, false).ticks[0]).toBe(0);
-    expect(markers(0, false).labels).toEqual([]);
-    expect(markers(-5000, false).labels.map((l) => l.x)).not.toContain(0);
+    // label: it said nothing and sat on the launch tower's leg.
+    expect(markers(0).ticks[0]).toBe(0);
+    expect(markers(0).labels).toEqual([]);
+    expect(markers(-8200).labels.map((l) => l.x)).not.toContain(0);
   });
 
   it("leaves a collectible standing on its first frame", () => {
@@ -265,9 +259,8 @@ describe("hud strings", () => {
   it("sums the board and formats the panel", () => {
     const s = flying();
     expect(totalFeet(s)).toBe(165);
-    expect(panelLines(s, false)).toEqual(["try 2/5", "8 ft   total 165 ft"]);
-    expect(panelLines(s, true)).toEqual(["try 2/5", "2.44 m   total 50.29 m"]);
-    expect(panelLines(flying({ turn: 6 }), false)[0]).toBe("try 5/5");
+    expect(panelLines(s)).toEqual(["try 2/5", "2.44 m   total 50.29 m"]);
+    expect(panelLines(flying({ turn: 6 }))[0]).toBe("try 5/5");
   });
 
   it("fills the glide bar by the meter and turns red when empty", () => {
@@ -277,25 +270,23 @@ describe("hud strings", () => {
   });
 
   it("prompts by phase and falls silent while skidding", () => {
-    expect(promptFor(flying({ phaseKind: "ready" }), false)).toBe("click to jump");
-    expect(promptFor(flying({ phaseKind: "jumping" }), false)).toBe(
-      "click again to hit the pillow",
-    );
-    expect(promptFor(flying({ phaseKind: "jumping", windup: 3 }), false)).toBe("get ready...");
+    expect(promptFor(flying({ phaseKind: "ready" }))).toBe("click to jump");
+    expect(promptFor(flying({ phaseKind: "jumping" }))).toBe("click again to hit the pillow");
+    expect(promptFor(flying({ phaseKind: "jumping", windup: 3 }))).toBe("get ready...");
     // The swing is spent: a second click does nothing, so do not ask for one.
-    expect(promptFor(flying({ phaseKind: "jumping", swung: true }), false)).toBe(
+    expect(promptFor(flying({ phaseKind: "jumping", swung: true }))).toBe(
       "missed - wait for the landing",
     );
-    expect(promptFor(flying(), false)).toBe("hold to glide");
-    expect(promptFor(flying({ flags: { ...noEffects(), skidding: true } }), false)).toBeNull();
-    expect(promptFor(flying({ phaseKind: "settling" }), false)).toBeNull();
-    expect(promptFor(flying({ phaseKind: "gameOver" }), false)).toBe("165 ft total");
-    expect(promptFor(flying({ phaseKind: "gameOver", restartable: true }), false)).toBe(
-      "165 ft total - click to play again",
+    expect(promptFor(flying())).toBe("hold to glide");
+    expect(promptFor(flying({ flags: { ...noEffects(), skidding: true } }))).toBeNull();
+    expect(promptFor(flying({ phaseKind: "settling" }))).toBeNull();
+    expect(promptFor(flying({ phaseKind: "gameOver" }))).toBe("50.29 m total");
+    expect(promptFor(flying({ phaseKind: "gameOver", restartable: true }))).toBe(
+      "50.29 m total - click to play again",
     );
-    expect(promptFor(flying({ paused: true }), false)).toBe("paused - click, Space or P to resume");
-    expect(promptFor(flying({ paused: true }), false, true)).toBe("paused - tap to resume");
-    expect(promptFor(flying({ phaseKind: "ready" }), false, true)).toBe("tap to jump");
+    expect(promptFor(flying({ paused: true }))).toBe("paused - click, Space or P to resume");
+    expect(promptFor(flying({ paused: true }), true)).toBe("paused - tap to resume");
+    expect(promptFor(flying({ phaseKind: "ready" }), true)).toBe("tap to jump");
   });
 
   it("lists only the flags that are on in the debug readout", () => {

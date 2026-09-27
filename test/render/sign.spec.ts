@@ -29,28 +29,28 @@ function flyingWith(balls: SimSnapshot["balls"], flags = noEffects()): SimSnapsh
 
 describe("the sign's distance", () => {
   it("goes up on frame 27 of the cheer and the hole, with the latest shot", () => {
-    // DefineSprite_351_hit_cheer/frame_27: `distances[l - 1] + " ft."`.
+    // DefineSprite_351_hit_cheer/frame_27: `distances[l - 1] + " ft."` - the
+    // latest shot, shown in metres here.
     for (const clip of ["cheer", "hole"] as const) {
       const s = settled(clip);
       const pose = poseFor(s);
-      expect(signText(s, pose, SIGN_FROM_FRAME - 1, false), clip).toBeNull();
-      expect(signText(s, pose, SIGN_FROM_FRAME, false), clip).toBe("1234 ft.");
-      expect(signText(s, pose, 49, false), clip).toBe("1234 ft."); // held to frame 50
+      expect(signText(s, pose, SIGN_FROM_FRAME - 1), clip).toBeNull();
+      expect(signText(s, pose, SIGN_FROM_FRAME), clip).toBe("376.12 m");
+      expect(signText(s, pose, 49), clip).toBe("376.12 m"); // held to frame 50
     }
   });
 
   it("shows on the cheer a faceplant hands over to, and not on the faceplant", () => {
     const faceplant = settled("faceplant");
     expect(signFields(poseFor(faceplant))).toEqual([]);
-    expect(signText(faceplant, poseFor(faceplant), 40, false)).toBeNull();
+    expect(signText(faceplant, poseFor(faceplant), 40)).toBeNull();
     const handedOver = { ...faceplant, outcomeClip: "cheer" as const };
-    expect(signText(handedOver, poseFor(handedOver), 40, false)).toBe("1234 ft.");
+    expect(signText(handedOver, poseFor(handedOver), 40)).toBe("376.12 m");
   });
 
-  it("says metres to the centimetre when the HUD does", () => {
+  it("says metres to the centimetre, as the HUD does", () => {
     const s = settled("cheer", [229]);
-    expect(signText(s, poseFor(s), 40, true)).toBe("69.80 m");
-    expect(signText(s, poseFor(s), 40, false)).toBe("229 ft.");
+    expect(signText(s, poseFor(s), 40)).toBe("69.80 m");
   });
 
   it("puts the black field under the yellow one, as depths 6 and 7 do", () => {

@@ -182,7 +182,7 @@ export class GameRenderer implements Renderer {
       if (sprite !== undefined) this.#blit(ctx, sprite, at.frame, at.x, at.y);
     }
 
-    const marks = markers(s.camera.x, this.#effects.enhanced);
+    const marks = markers(s.camera.x);
     ctx.fillStyle = MARKER_INK;
     ctx.font = FONTS.marker;
     for (const x of marks.ticks) ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
@@ -296,7 +296,7 @@ export class GameRenderer implements Renderer {
 
   /** The distance on the outcome clip's sign, drawn in the clip's own space. */
   #sign(ctx: CanvasRenderingContext2D, s: SimSnapshot, id: SpriteId, frame: number): void {
-    const text = signText(s, id, frame, this.#effects.enhanced);
+    const text = signText(s, id, frame);
     if (text === null) return;
     ctx.font = SIGN_TEXT.font;
     ctx.textAlign = "center";
@@ -354,12 +354,11 @@ export class GameRenderer implements Renderer {
 
     ctx.font = FONTS.hud;
 
-    const metric = this.#effects.enhanced;
     const panel = HUD.panel;
     ctx.fillStyle = CHROME;
     ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
     ctx.fillStyle = HUD_COLOURS.ink;
-    for (const [i, line] of panelLines(s, metric).entries()) {
+    for (const [i, line] of panelLines(s).entries()) {
       ctx.fillText(line, panel.textX, panel.baseline + i * panel.lineHeight);
     }
 
@@ -389,7 +388,7 @@ export class GameRenderer implements Renderer {
       }
     }
 
-    const prompt = promptFor(s, metric, this.#touch);
+    const prompt = promptFor(s, this.#touch);
     if (prompt !== null) {
       const box = HUD.prompt;
       ctx.font = FONTS.prompt;

@@ -587,9 +587,9 @@ There was none. The simulation had emitted its cues all along - `sfx`,
   and the two breaks to 165 (Game.as:812, 831, 853). The port places them at
   the hamster's world x, which is the same point while the camera follows at
   its 150 px anchor and differs only left of x = 150.
-- **Metres in enhanced mode.** The original scores in feet and faithful mode
-  keeps them. Enhanced mode shows every reached distance - the shot, the
-  total, the game-over line and the sign - in metres to two decimals
+- **Metres, in both modes.** The original scores in feet. The port shows every
+  length - the shot, the total, the game-over line, the sign and the ground
+  markers - in metres to two decimals, in faithful mode too
   (`src/render/units.ts`). The score is still whole feet, as
   `updateDistance()` floors it; the decimals are that score converted exactly.
   Three-digit metres are wider than the sign's field, so the sign squeezes

@@ -1,5 +1,5 @@
 import { isBallPose, poseFor } from "@/render/scene/pose.ts";
-import { distance } from "@/render/units.ts";
+import { metres } from "@/render/units.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 
@@ -87,10 +87,10 @@ export function totalFeet(s: SimSnapshot): number {
   return total;
 }
 
-export function panelLines(s: SimSnapshot, metric: boolean): readonly [string, string] {
+export function panelLines(s: SimSnapshot): readonly [string, string] {
   return [
     `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`,
-    `${distance(s.feet, metric)}   total ${distance(totalFeet(s), metric)}`,
+    `${metres(s.feet)}   total ${metres(totalFeet(s))}`,
   ];
 }
 
@@ -117,7 +117,7 @@ export function debugLines(s: SimSnapshot): readonly [string, string, string] {
 }
 
 /** What to tell the player, or null when the picture says it all. */
-export function promptFor(s: SimSnapshot, metric: boolean, touch = false): string | null {
+export function promptFor(s: SimSnapshot, touch = false): string | null {
   // "Click" on a phone reads as a mouse-only game, and a phone has no P key.
   const click = touch ? "tap" : "click";
   if (s.paused) return touch ? "paused - tap to resume" : "paused - click, Space or P to resume";
@@ -136,8 +136,8 @@ export function promptFor(s: SimSnapshot, metric: boolean, touch = false): strin
     case "gameOver":
       // Only once PLAY AGAIN is up: a click before that does nothing.
       return s.restartable
-        ? `${distance(totalFeet(s), metric)} total - ${click} to play again`
-        : `${distance(totalFeet(s), metric)} total`;
+        ? `${metres(totalFeet(s))} total - ${click} to play again`
+        : `${metres(totalFeet(s))} total`;
     default:
       return null;
   }

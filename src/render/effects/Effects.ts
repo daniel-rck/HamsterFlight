@@ -176,7 +176,7 @@ export interface EffectsOptions {
   /**
    * Everything this layer *adds* rather than restores: camera shake, chromatic
    * aberration, the shockwave, the particles, plus the presentation choices
-   * that ride on the mode - metres instead of feet, the translucent bubble.
+   * that ride on the mode - the translucent bubble.
    * Off in faithful mode, where the original stage neither moved nor warped.
    * The impact clips are not gated by it - the original played those, so
    * leaving them out was the deviation.

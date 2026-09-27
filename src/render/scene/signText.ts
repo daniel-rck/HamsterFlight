@@ -23,8 +23,8 @@ import type { SimSnapshot } from "@/sim/state.ts";
  * The one interpretation is the face. Font 236 is `FontOnAStick`, embedded as
  * outlines, and the page's CSP has no `font-src` - so the text is set in the
  * system sans and squeezed to the width the original glyphs take, which keeps
- * it centred on the board and inside the field. In metric mode the sign says
- * metres, like the HUD - a port choice the original never had to make.
+ * it centred on the board and inside the field. The sign says metres, like
+ * every other length in the port - a choice the original never had to make.
  */
 
 /** 0-based: the fields go up on frame 27. */
@@ -86,21 +86,13 @@ export function signFields(pose: SpriteId): readonly SignField[] {
   return SIGNS[pose] ?? [];
 }
 
-/**
- * What the sign says on this frame of its clip, or null while it is blank.
- * `metric` follows the HUD: metres to two decimals, or the original's feet.
- */
-export function signText(
-  s: SimSnapshot,
-  pose: SpriteId,
-  frame: number,
-  metric: boolean,
-): string | null {
+/** What the sign says on this frame of its clip, or null while it is blank. */
+export function signText(s: SimSnapshot, pose: SpriteId, frame: number): string | null {
   if (s.phaseKind !== "settling" || frame < SIGN_FROM_FRAME) return null;
   if (signFields(pose).length === 0) return null;
   const feet = s.shots[s.shots.length - 1];
   if (feet === undefined) return null;
-  return metric ? metres(feet) : `${feet} ft.`;
+  return metres(feet);
 }
 
 /** How wide the original's glyphs set `text`, in field pixels. */
