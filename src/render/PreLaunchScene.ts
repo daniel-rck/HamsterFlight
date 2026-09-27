@@ -10,8 +10,8 @@ import type { SimSnapshot } from "@/sim/state.ts";
  * their turn, and the launch meter that reads the jump.
  *
  * None of it is an addition. The original drew all of it and this port drew
- * none of it, so it is on in both modes - the same reasoning that keeps the
- * `fx/*` impact clips out of the enhanced gate.
+ * none of it, so it is not an effect to gate - the same reasoning that keeps
+ * the `fx/*` impact clips out of the `motion` gate.
  *
  * The simulation is not consulted and not touched: every frame number here is
  * derived from the snapshot and the event stream, which is the rule

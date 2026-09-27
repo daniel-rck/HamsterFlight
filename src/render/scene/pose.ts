@@ -122,7 +122,7 @@ export function poseAlpha(meta: SpriteMeta): number {
   return meta.alpha ?? 1;
 }
 
-/** Either bounce ball - the poses the enhanced mode draws the flier inside. */
+/** Either bounce ball - the poses the flier is drawn inside. */
 export function isBallPose(id: SpriteId): boolean {
   return id === "hamster/ball" || id === "hamster/superball";
 }

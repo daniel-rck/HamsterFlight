@@ -31,9 +31,9 @@ const FX_FPS = 19;
  * and never touches the collectible (Game.as:733-746), and `powerup/wind` has
  * a single frame to play anyway.
  *
- * This is restoration, not addition, so it is outside the `enhanced` and
- * `motion` gates - the same reasoning that puts the `fx/*` clips and the whole
- * pre-launch scene outside them.
+ * This is restoration, not addition, so it is outside the `motion` gate - the
+ * same reasoning that puts the `fx/*` clips and the whole pre-launch scene
+ * outside it.
  */
 const PICKUP_BURST: Partial<
   Record<PowerupKind, { readonly from: number; readonly frames: number }>
@@ -174,23 +174,11 @@ function fxStep(fx: LiveFx, nowMs: number): number {
  */
 export interface EffectsOptions {
   /**
-   * Everything this layer *adds* rather than restores: camera shake, chromatic
-   * aberration, the shockwave, the particles, plus the presentation choices
-   * that ride on the mode - the translucent bubble.
-   * Off in faithful mode, where the original stage neither moved nor warped.
-   * The impact clips are not gated by it - the original played those, so
-   * leaving them out was the deviation.
-   *
-   * The renderer choice would hide the shader effects anyway, since Canvas2D
-   * has no filters. Gating them here as well means `?mode=faithful` stays
-   * faithful even when a backend is forced with `?renderer=`.
-   */
-  readonly enhanced?: boolean;
-  /**
-   * The subset of `enhanced` that moves or warps the picture: shake,
-   * aberration, shockwave, particles, motion blur. Defaults to `enhanced`;
-   * `prefers-reduced-motion` turns it off on its own while the rest of the
-   * enhanced presentation stays.
+   * Everything that moves or warps the picture on top of the scene: camera
+   * shake, chromatic aberration, the shockwave, the particles, motion blur.
+   * On by default; `prefers-reduced-motion` turns it off while the rest of the
+   * presentation stays. The impact clips are not gated by it - the original
+   * played those, so leaving them out would be the deviation.
    */
   readonly motion?: boolean;
 }
@@ -201,16 +189,15 @@ export class Effects {
    *
    * It rides along here because it is driven by the same event stream and
    * reaches the renderers by the same route, but it is deliberately outside
-   * the `enhanced` gate: it restores what the original drew rather than adding
+   * the `motion` gate: it restores what the original drew rather than adding
    * to it, exactly like the `fx/*` clips above.
    */
   readonly scene = new PreLaunchScene();
   /**
    * Which frame of the hamster's own clip is showing. Also outside the
-   * `enhanced` gate, and for the same reason: it is what the original did.
+   * `motion` gate, and for the same reason: it is what the original did.
    */
   readonly poses = new PoseClock();
-  readonly #enhanced: boolean;
   readonly #motion: boolean;
   #live: LiveFx[] = [];
   #shakeStartedMs = 0;
@@ -226,13 +213,7 @@ export class Effects {
   #lastDustMs = Number.NEGATIVE_INFINITY;
 
   constructor(options: EffectsOptions = {}) {
-    this.#enhanced = options.enhanced ?? false;
-    this.#motion = options.motion ?? this.#enhanced;
-  }
-
-  /** Whether the renderer should draw the additions as well as the original. */
-  get enhanced(): boolean {
-    return this.#enhanced;
+    this.#motion = options.motion ?? true;
   }
 
   /** Whether anything may shake, warp, blur or scatter. */

@@ -249,9 +249,9 @@ export class GameRenderer implements Renderer {
     ctx.save();
     ctx.translate(h.x, h.y + outcomeOffsetY(s));
     // The bubble is opaque in the original, so the hamster vanishes inside it
-    // for the whole bounce. Enhanced mode draws the flier underneath and lets
-    // the bubble sit over it.
-    const inBubble = isBallPose(id) && this.#effects.enhanced;
+    // for the whole bounce. The port draws the flier underneath and lets the
+    // bubble sit over it, translucent.
+    const inBubble = isBallPose(id);
     const rotation = hamsterRotation(s);
     if (rotation !== 0) ctx.rotate(rotation);
     if (inBubble) {

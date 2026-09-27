@@ -155,7 +155,7 @@ describe("impact shake wiring", () => {
   withFakeWindow();
 
   it("displaces the world by the shake offset and leaves the HUD alone", () => {
-    const effects = new Effects({ enhanced: true });
+    const effects = new Effects();
     const transforms: Transform[] = [];
     const renderer = new GameRenderer(recordingCanvas(transforms), EMPTY_ASSETS, effects);
 
@@ -172,7 +172,7 @@ describe("impact shake wiring", () => {
   });
 
   it("leaves the world exactly on the camera when shake is off", () => {
-    const effects = new Effects();
+    const effects = new Effects({ motion: false });
     const transforms: Transform[] = [];
     const renderer = new GameRenderer(recordingCanvas(transforms), EMPTY_ASSETS, effects);
 
@@ -192,13 +192,9 @@ describe("the hamster inside the bounce bubble", () => {
     return { ...s, flags: { ...s.flags, bounce: true } };
   }
 
-  it("draws the flier under a translucent bubble in enhanced mode", () => {
+  it("draws the flier under a translucent bubble", () => {
     const drawn: Drawn[] = [];
-    const renderer = new GameRenderer(
-      recordingCanvas([], drawn),
-      stubAssets(),
-      new Effects({ enhanced: true }),
-    );
+    const renderer = new GameRenderer(recordingCanvas([], drawn), stubAssets(), new Effects());
     renderer.draw(bouncing(), 0);
 
     const ball = SPRITES["hamster/ball"];
@@ -211,21 +207,13 @@ describe("the hamster inside the bounce bubble", () => {
     expect(faded).toHaveLength(1);
     expect(opaque.length).toBeGreaterThan(0);
   });
-
-  it("draws the bubble alone, fully opaque, in faithful mode", () => {
-    const drawn: Drawn[] = [];
-    const renderer = new GameRenderer(recordingCanvas([], drawn), stubAssets(), new Effects());
-    renderer.draw(bouncing(), 0);
-
-    expect(drawn.filter((d) => d.alpha > 0 && d.alpha < 1)).toHaveLength(0);
-  });
 });
 
 describe("particle wiring", () => {
   withFakeWindow();
 
   it("draws one fading quad per live particle", () => {
-    const effects = new Effects({ enhanced: true });
+    const effects = new Effects();
     const rects: Drawn[] = [];
     const renderer = new GameRenderer(recordingCanvas([], [], rects), stubAssets(), effects);
 
@@ -246,8 +234,8 @@ describe("particle wiring", () => {
     expect(rects.length).toBe(baseline + live);
   });
 
-  it("draws none of them in faithful mode", () => {
-    const effects = new Effects();
+  it("draws none of them with motion off", () => {
+    const effects = new Effects({ motion: false });
     const rects: Drawn[] = [];
     const renderer = new GameRenderer(recordingCanvas([], [], rects), stubAssets(), effects);
 

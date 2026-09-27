@@ -269,11 +269,13 @@ simulated. Nothing in the physics path reads them. The pre-launch scene follows
 the same rule: `PreLaunchScene` derives every frame number from the snapshot and
 the event stream, and the simulation neither knows nor cares that it exists.
 
-**Restoration is not gated by the mode.** `enhanced` gates what the port *adds* -
-camera shake, chromatic aberration, the shockwave. Anything the original drew
-and the port had been leaving out is on in both modes, because putting it back
-makes faithful mode more faithful, not less. That covers the `fx/*` impact clips
-and the whole pre-launch scene.
+**One presentation, and restoration is not gated.** There used to be two modes:
+`enhanced`, the default, and `?mode=faithful`, the Canvas2D renderer drawing
+only what the original stage drew. There is one now, with everything the port
+adds on. The only gate left is `motion` - camera shake, chromatic aberration,
+the shockwave, the particles, motion blur - which `prefers-reduced-motion`
+turns off. Anything the original drew and the port had been leaving out is
+never behind it: the `fx/*` impact clips and the whole pre-launch scene.
 
 **The outcome clip is drawn where the shot came down.** `createHitClip` takes
 `bc._x`/`bc._y` (Game.as:862-875, 964-967) - which is why `deleteBlt()` had to
@@ -305,7 +307,7 @@ kind already armed is ignored, and the other kind replaces it (Game.as:689-712,
 two pink and a gold picked up in that order are three powered bounces, pink,
 pink, gold. `flags.bounce`/`flags.superbounce` mirror the head of the queue
 (`syncBallFlags`), so the ground cascade, the fall test (Game.as:608) and the
-pose read exactly what they read before, and `FAITHFUL_TUNING` (`stackBalls:
+pose read exactly what they read before, and `ORIGINAL_TUNING` (`stackBalls:
 false`) reduces the queue to the original's single slot. Each item counts once:
 the original's guard is what stops an overlap that outlives the pickup tick
 from arming the same ball twice, and a queue has no guard to lean on, so it
@@ -587,10 +589,9 @@ There was none. The simulation had emitted its cues all along - `sfx`,
   and the two breaks to 165 (Game.as:812, 831, 853). The port places them at
   the hamster's world x, which is the same point while the camera follows at
   its 150 px anchor and differs only left of x = 150.
-- **Metres, in both modes.** The original scores in feet. The port shows every
-  length - the shot, the total, the game-over line, the sign and the ground
-  markers - in metres to two decimals, in faithful mode too
-  (`src/render/units.ts`). The score is still whole feet, as
+- **Metres.** The original scores in feet. The port shows every length - the
+  shot, the total, the game-over line, the sign and the ground markers - in
+  metres to two decimals (`src/render/units.ts`). The score is still whole feet, as
   `updateDistance()` floors it; the decimals are that score converted exactly.
   Three-digit metres are wider than the sign's field, so the sign squeezes
   them to the field's 35.4 px rather than letting them run off the board.

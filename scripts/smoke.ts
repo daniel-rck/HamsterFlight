@@ -1,4 +1,4 @@
-// Does the game actually come up and draw, in every mode and on both backends?
+// Does the game actually come up and draw, on both backends?
 //
 //   bun run build && bun run smoke
 //
@@ -9,8 +9,8 @@
 // failure happens inside a GPU driver at run time. It was found by opening the
 // page. This opens the page.
 //
-// Four combinations, because the two axes are independent: `enhanced` and
-// `faithful` differ in what they draw, `pixi` and `canvas2d` in how.
+// Both backends, because they put the same scene down in different ways and
+// Canvas2D is what a machine without WebGL falls back to.
 import { setTimeout as sleep } from "node:timers/promises";
 import type { Browser, Page } from "playwright";
 import { intEnv, run } from "./lib/cli.ts";
@@ -18,12 +18,7 @@ import { playOneShot, waitForBoot, watchRequests, withPreview } from "./lib/prev
 
 const PORT = intEnv("PORT", 4174);
 const SEED = intEnv("SEED", 12345);
-const COMBINATIONS = [
-  { mode: "enhanced", renderer: "pixi" },
-  { mode: "enhanced", renderer: "canvas2d" },
-  { mode: "faithful", renderer: "canvas2d" },
-  { mode: "faithful", renderer: "pixi" },
-] as const;
+const COMBINATIONS = [{ renderer: "pixi" }, { renderer: "canvas2d" }] as const;
 
 /**
  * How many distinct colours the stage is showing.
@@ -105,9 +100,9 @@ interface Result {
 async function check(
   browser: Browser,
   origin: string,
-  { mode, renderer }: (typeof COMBINATIONS)[number],
+  { renderer }: (typeof COMBINATIONS)[number],
 ): Promise<Result> {
-  const label = `${mode}/${renderer}`;
+  const label = renderer;
   const failures: string[] = [];
   const page = await browser.newPage({ viewport: { width: 900, height: 600 } });
 
@@ -125,10 +120,9 @@ async function check(
 
   try {
     // `?profile` is what publishes the frame counter on window.
-    const response = await page.goto(
-      `${origin}/?seed=${SEED}&profile&mode=${mode}&renderer=${renderer}`,
-      { waitUntil: "load" },
-    );
+    const response = await page.goto(`${origin}/?seed=${SEED}&profile&renderer=${renderer}`, {
+      waitUntil: "load",
+    });
     // Checked explicitly, because a 404 page is a perfectly valid page: it
     // loads, it has no `#boot` to wait for, and everything after this would
     // fail somewhere far away from the cause.
@@ -220,7 +214,7 @@ async function main(): Promise<void> {
   const results = await withPreview(PORT, async (browser, origin) => {
     const out: Result[] = [];
     for (const combination of COMBINATIONS) {
-      process.stderr.write(`checking ${combination.mode}/${combination.renderer}...\n`);
+      process.stderr.write(`checking ${combination.renderer}...\n`);
       out.push(await check(browser, origin, combination));
     }
     process.stderr.write("checking the first visit...\n");

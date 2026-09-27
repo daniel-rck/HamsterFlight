@@ -65,9 +65,7 @@ async function measure(
   const page = await browser.newPage({ viewport: { width: 1000, height: 800 } });
   page.on("pageerror", (error) => process.stderr.write(`  page error: ${error.message}\n`));
 
-  const query = `?seed=${SEED}&profile&profileWindow=${WINDOW}&stress=${stress}${
-    backend === "pixi" ? "&renderer=pixi" : ""
-  }`;
+  const query = `?seed=${SEED}&profile&profileWindow=${WINDOW}&stress=${stress}&renderer=${backend}`;
   await page.goto(origin + query, { waitUntil: "load" });
   await waitForBoot(page);
 

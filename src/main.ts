@@ -1,7 +1,7 @@
 import { versionLabel } from "@/app/build.ts";
 import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
-import { modeFromUrl, type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
+import { type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
 import {
   instructionsFromUrl,
   profileWindowFromUrl,
@@ -72,9 +72,9 @@ function startAudioImport(): Promise<AudioPlayer | null> {
 }
 
 /**
- * The Pixi module is imported dynamically so it lands in its own Vite chunk.
- * `?mode=faithful` then costs nothing beyond the entry chunk, and one build
- * still yields both bundle numbers for the comparison.
+ * The Pixi module is imported dynamically so it lands in its own Vite chunk:
+ * the Canvas2D fallback then costs nothing beyond the entry chunk, and one
+ * build still yields both bundle numbers for the comparison.
  *
  * Started here, before the atlas is awaited, so the two downloads overlap:
  * the chunk is 160 kB gzip and used to be requested only after the 2 MB sheet
@@ -226,8 +226,7 @@ async function boot(): Promise<void> {
 
   const params = new URLSearchParams(window.location.search);
   const seed = seedFromUrl(params);
-  const mode = modeFromUrl(params);
-  const rendererName = rendererFromUrl(params, mode);
+  const rendererName = rendererFromUrl(params);
 
   // How big the stage actually is decides which atlas is worth downloading -
   // a 1x screen showing a wide layout is already past 1:1.
@@ -258,13 +257,10 @@ async function boot(): Promise<void> {
   const sim = new Simulation({ seed, tuning: DEFAULT_TUNING });
   const stress = stressFromUrl(params);
   // Shake, warp and particles honour the OS-level preference; the rest of the
-  // enhanced presentation - the translucent bubble - is not motion.
+  // presentation - the translucent bubble, the parallax sky - is not motion.
   const reducedMotion =
     typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const effects = new Effects({
-    enhanced: mode === "enhanced",
-    motion: mode === "enhanced" && !reducedMotion,
-  });
+  const effects = new Effects({ motion: !reducedMotion });
   const { renderer, backend } = await pickRenderer(await pixiImport, canvas, assets, effects, {
     showHitboxes: params.has("debug"),
     stress,
@@ -315,7 +311,7 @@ async function boot(): Promise<void> {
   // The profiler wraps draw() from the outside, so neither backend can be
   // instrumented more kindly than the other.
   const profiler = params.has("profile")
-    ? new FrameProfiler(`${mode}/${backend} stress=${stress}`, profileWindowFromUrl(params))
+    ? new FrameProfiler(`${backend} stress=${stress}`, profileWindowFromUrl(params))
     : null;
   // Scraping formatted console output is not reliable across drivers, so the
   // benchmark reads this instead.
@@ -473,10 +469,9 @@ async function boot(): Promise<void> {
   }
 
   console.info(
-    "[hamsterflight] build=%s seed=%d mode=%s renderer=%s - append ?seed=%d to replay",
+    "[hamsterflight] build=%s seed=%d renderer=%s - append ?seed=%d to replay",
     versionLabel(),
     seed,
-    mode,
     backend,
     seed,
   );

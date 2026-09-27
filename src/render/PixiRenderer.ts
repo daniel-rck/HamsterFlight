@@ -110,7 +110,7 @@ export class PixiRenderer implements Renderer {
   readonly #shadowPivot = new Container();
   readonly #shadow = new Sprite();
   readonly #hamsterPivot = new Container();
-  /** Drawn under the bubble in enhanced mode, so the hamster stays visible. */
+  /** Drawn under the bubble, so the hamster stays visible. */
   readonly #hamsterInner = new Sprite();
   readonly #hamster = new Sprite();
   /** The sign's two fields, `distance1_txt` then `distance_txt`. */
@@ -459,8 +459,8 @@ export class PixiRenderer implements Renderer {
     }
 
     // The bubble is opaque in the original, so the hamster vanishes inside it
-    // for the whole bounce. Enhanced mode draws the flier underneath.
-    const inBubble = isBallPose(pose) && this.#effects.enhanced;
+    // for the whole bounce. The port draws the flier underneath.
+    const inBubble = isBallPose(pose);
     this.#hamsterInner.visible = inBubble;
     this.#hamster.alpha = poseAlpha(asset.meta) * (inBubble ? BUBBLE_ALPHA : 1);
     if (inBubble) {

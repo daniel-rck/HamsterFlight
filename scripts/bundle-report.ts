@@ -44,8 +44,8 @@ const BUDGET_KB: {
 } = {
   // Every visitor pays this.
   eager: 22,
-  // The WebGL backend. Lazy in the bundle, but enhanced mode is the default,
-  // so every visitor who is not on ?mode=faithful pays this too.
+  // The WebGL backend. Lazy in the bundle, but it is the default, so every
+  // visitor with WebGL pays this too.
   lazy: 182,
   // Per atlas sheet, per density. Raised from 850/2250 for the gold ball
   // (`hamster/superball`, 11 frames of 175 x 219 - its pickup flash fills the
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     if (groupRows.length === 0) continue;
     console.log(
       group
-        ? "\nlazy - the WebGL backend; the default, skipped only under ?mode=faithful"
+        ? "\nlazy - the WebGL backend; the default, skipped only without WebGL"
         : "eager - every visitor",
     );
     console.log(head);

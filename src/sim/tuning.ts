@@ -81,4 +81,4 @@ export const DEFAULT_TUNING: Tuning = deepFreeze({
 });
 
 /** `DEFAULT_TUNING` with every deliberate departure from the original turned off. */
-export const FAITHFUL_TUNING: Tuning = deepFreeze({ ...DEFAULT_TUNING, stackBalls: false });
+export const ORIGINAL_TUNING: Tuning = deepFreeze({ ...DEFAULT_TUNING, stackBalls: false });

@@ -3,7 +3,7 @@ import { C } from "@/sim/constants.ts";
 import type { SimEvent } from "@/sim/events.ts";
 import { rotateBox } from "@/sim/math/aabb.ts";
 import { syncBallFlags } from "@/sim/systems/PowerupPickups.ts";
-import { DEFAULT_TUNING, FAITHFUL_TUNING } from "@/sim/tuning.ts";
+import { DEFAULT_TUNING, ORIGINAL_TUNING } from "@/sim/tuning.ts";
 import { POWERUP_KINDS, POWERUPS, type PowerupKind } from "@/sim/types.ts";
 import { centredOn, makeFlight, tick, withActiveTicks } from "../support/harness.ts";
 
@@ -150,14 +150,14 @@ describe("stacked balls", () => {
 
     // Game.as:690 - `!this.bounce` turns the second one away.
     const faithful = makeFlight({ y: 600, xvel: 10, powerups: pinks });
-    tick(faithful, { tuning: FAITHFUL_TUNING });
+    tick(faithful, { tuning: ORIGINAL_TUNING });
     expect(faithful.balls).toEqual(["bounce"]);
   });
 
   it("lets the gold ball replace the pink one when not stacking, as the original does", () => {
     // Game.as:707-712: `bounce = false; superbounce = true`.
     const s = makeFlight({ y: 600, xvel: 10, powerups: pinkThenGold() });
-    tick(s, { tuning: FAITHFUL_TUNING });
+    tick(s, { tuning: ORIGINAL_TUNING });
     expect(s.balls).toEqual(["superbounce"]);
     expect(s.flags.bounce).toBe(false);
     expect(s.flags.superbounce).toBe(true);
