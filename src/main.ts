@@ -1,13 +1,22 @@
 import { versionLabel } from "@/app/build.ts";
+import { dayKey } from "@/app/daily.ts";
 import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
 import { type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
+import { vibrationFor } from "@/app/haptics.ts";
+import { ACHIEVEMENT_IDS, applyPage, pickLang, STRINGS, type Strings } from "@/app/i18n.ts";
+import { achievementCount, MetaGame } from "@/app/MetaGame.ts";
 import {
   instructionsFromUrl,
   profileWindowFromUrl,
+  randomSeed,
   seedFromUrl,
   stressFromUrl,
 } from "@/app/params.ts";
+import { browserStore, type Progress, type Settings } from "@/app/progress.ts";
+import { resultsView } from "@/app/results.ts";
+import { GameSession } from "@/app/session.ts";
+import { Toasts } from "@/app/toast.ts";
 import { type AssetBundle, densityFor, loadSprites } from "@/assets/AssetLoader.ts";
 import boardUrl from "@/assets/screens/instructions.webp?url";
 import board2xUrl from "@/assets/screens/instructions@2x.webp?url";
@@ -23,7 +32,6 @@ import { interpolate } from "@/render/interpolate.ts";
 import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
 import { stageScale } from "@/render/resolution.ts";
 import { C } from "@/sim/constants.ts";
-import { Simulation } from "@/sim/index.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
 
@@ -209,9 +217,26 @@ function wireAbout(canvas: HTMLCanvasElement, signal: AbortSignal): { onOpen: ()
     else canvas.focus({ preventScroll: true });
   };
   button.addEventListener("click", () => show(about.hasAttribute("hidden")), { signal });
-  // Anywhere on the overlay closes it; it is information, not a dialog.
-  about.addEventListener("click", () => show(false), { signal });
+  // Anywhere on the overlay closes it - it is information, not a dialog -
+  // except the settings and the achievements, which are there to be used.
+  about.addEventListener(
+    "click",
+    (event) => {
+      if (event.target instanceof Element && event.target.closest("section") !== null) return;
+      show(false);
+    },
+    { signal },
+  );
   return hooks;
+}
+
+/** Today, locally - the daily challenge's day. */
+function today(): string {
+  return dayKey(new Date());
+}
+
+function pads(): readonly (Gamepad | null)[] {
+  return typeof navigator.getGamepads === "function" ? navigator.getGamepads() : [];
 }
 
 async function boot(): Promise<void> {
@@ -225,7 +250,6 @@ async function boot(): Promise<void> {
   const about = wireAbout(canvas, signal);
 
   const params = new URLSearchParams(window.location.search);
-  const seed = seedFromUrl(params);
   const rendererName = rendererFromUrl(params);
 
   // How big the stage actually is decides which atlas is worth downloading -
@@ -254,7 +278,13 @@ async function boot(): Promise<void> {
     return;
   }
 
-  const sim = new Simulation({ seed, tuning: DEFAULT_TUNING });
+  const store = browserStore();
+  const saved = store.load();
+  let lang = pickLang(params.get("lang"), saved.settings.lang, navigator.languages ?? []);
+  let t: Strings = STRINGS[lang];
+  applyPage(document, lang);
+  const touch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+
   const stress = stressFromUrl(params);
   // Shake, warp and particles honour the OS-level preference; the rest of the
   // presentation - the translucent bubble, the parallax sky - is not motion.
@@ -265,15 +295,26 @@ async function boot(): Promise<void> {
     showHitboxes: params.has("debug"),
     stress,
     tuning: DEFAULT_TUNING,
-    touch: typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches,
+    touch,
+    strings: t.hud,
   });
   const audio = await audioImport;
+  audio?.setVolume(saved.settings.volume);
+  audio?.setSfxMuted(saved.settings.sfxMuted);
   const musicButton = document.querySelector<HTMLButtonElement>("#music");
+  const sfxButton = document.querySelector<HTMLButtonElement>("#sfx");
+  const syncSoundButtons = (): void => {
+    const music = audio?.musicMuted ?? false;
+    musicButton?.setAttribute("aria-pressed", String(music));
+    musicButton?.setAttribute("aria-label", music ? t.unmuteMusic : t.muteMusic);
+    const sfx = audio?.sfxMuted ?? false;
+    sfxButton?.setAttribute("aria-pressed", String(sfx));
+    sfxButton?.setAttribute("aria-label", sfx ? t.unmuteSfx : t.muteSfx);
+  };
   const toggleMusic = (): void => {
     if (audio === null) return;
-    const muted = audio.toggleMusic();
-    musicButton?.setAttribute("aria-pressed", String(muted));
-    musicButton?.setAttribute("aria-label", muted ? "Unmute music" : "Mute music");
+    audio.toggleMusic();
+    syncSoundButtons();
   };
   if (audio !== null) {
     // Audio may only start from a gesture. Any press on the page counts, and
@@ -282,15 +323,155 @@ async function boot(): Promise<void> {
     window.addEventListener("pointerdown", unlock, { signal, capture: true });
     window.addEventListener("keydown", unlock, { signal, capture: true });
   }
+  for (const button of [musicButton, sfxButton]) {
+    // Keep focus, and with it Space, on the canvas.
+    button?.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
+  }
   if (musicButton !== null && audio !== null) {
-    musicButton.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
     musicButton.addEventListener("click", toggleMusic, { signal });
   }
 
+  const toasts = new Toasts(document.querySelector<HTMLElement>("#toast"));
   const input = new InputController();
+  const renderAchievements = (p: Progress): void => {
+    const list = document.querySelector<HTMLElement>("#achievements");
+    const heading = document.querySelector<HTMLElement>("#achievements-count");
+    if (list === null) return;
+    list.replaceChildren(
+      ...ACHIEVEMENT_IDS.map((id) => {
+        const [title, detail] = t.achievements[id];
+        const li = document.createElement("li");
+        li.textContent = title;
+        const small = document.createElement("small");
+        small.textContent = detail;
+        li.append(small);
+        if (id in p.achievements) li.className = "done";
+        return li;
+      }),
+    );
+    const { done, of } = achievementCount(p);
+    if (heading !== null) heading.textContent = `(${t.achievementsDone(done, of)})`;
+  };
+  // A shared run is replayed once, here: the seed and the ghost both come out of it.
+  const opening = MetaGame.modeFor(params, saved, today());
+  const meta = new MetaGame(
+    {
+      store,
+      strings: t,
+      toasts,
+      today,
+      randomSeed,
+      celebrate: (x, y) => {
+        effects.celebrate(x, y, performance.now());
+        audio?.consume([{ t: "sfx", id: "pickup", gain: C.SFX_VOLUME }]);
+      },
+      share: async (url, text) => {
+        try {
+          if (typeof navigator.share === "function") {
+            await navigator.share({ title: "HamsterFlight", text, url });
+            return "shared";
+          }
+          await navigator.clipboard.writeText(url);
+          return "copied";
+        } catch (error) {
+          // Cancelled by the player, or no clipboard: offer the link to copy by hand.
+          if (error instanceof DOMException && error.name === "AbortError") return "failed";
+          window.prompt(text, url);
+          return "failed";
+        }
+      },
+      baseUrl: () => `${window.location.origin}${window.location.pathname}`,
+      results: resultsView(document.querySelector<HTMLElement>("#results"), {
+        again: () => input.confirm(),
+        switchMode: () => {
+          meta.switchMode();
+          input.confirm();
+        },
+        share: () => void meta.share(),
+      }),
+      onProgress: renderAchievements,
+    },
+    opening.mode,
+  );
+  if (opening.badRun) {
+    console.warn("[hamsterflight] ?run= could not be replayed; playing a free game");
+    toasts.show(t.toast.badRun);
+  }
+  renderAchievements(meta.progress);
+  // A duel or a daily game plays its own seed; `?seed=` is for a free game.
+  const seed = meta.mode.kind === "free" ? seedFromUrl(params) : meta.nextSeed();
+  const session = new GameSession({
+    seed,
+    nextSeed: () => meta.nextSeed(),
+    tuning: DEFAULT_TUNING,
+  });
+
+  const saveSettings = (change: Partial<Settings>): void => meta.updateSettings(change);
+  const toggleSfx = (): void => {
+    if (audio === null) return;
+    audio.setSfxMuted(!audio.sfxMuted);
+    saveSettings({ sfxMuted: audio.sfxMuted });
+    syncSoundButtons();
+    syncSettings();
+  };
+  sfxButton?.addEventListener("click", toggleSfx, { signal });
+
+  const haptics =
+    touch && !reducedMotion && typeof navigator.vibrate === "function"
+      ? (ms: number): void => {
+          if (ms > 0 && meta.progress.settings.haptics) navigator.vibrate(ms);
+        }
+      : null;
+
+  // The settings in the help panel, which save as they change.
+  const setSfx = document.querySelector<HTMLInputElement>("#set-sfx");
+  const setVolume = document.querySelector<HTMLInputElement>("#set-volume");
+  const setHaptics = document.querySelector<HTMLInputElement>("#set-haptics");
+  const setLang = document.querySelector<HTMLSelectElement>("#set-lang");
+  const syncSettings = (): void => {
+    const settings = meta.progress.settings;
+    if (setSfx !== null) setSfx.checked = !settings.sfxMuted;
+    if (setVolume !== null) setVolume.value = String(Math.round(settings.volume * 100));
+    if (setHaptics !== null) setHaptics.checked = settings.haptics;
+    if (setLang !== null) setLang.value = settings.lang ?? "";
+  };
+  syncSettings();
+  if (audio !== null) {
+    setSfx?.addEventListener("change", () => {
+      if (audio.sfxMuted === setSfx.checked) toggleSfx();
+    });
+    setVolume?.addEventListener("input", () => {
+      const volume = Number(setVolume.value) / 100;
+      audio.setVolume(volume);
+      saveSettings({ volume });
+    });
+  }
+  const hapticsRow = document.querySelector<HTMLElement>("#set-haptics-row");
+  if (hapticsRow !== null) hapticsRow.hidden = haptics === null;
+  setHaptics?.addEventListener("change", () => saveSettings({ haptics: setHaptics.checked }));
+  setLang?.addEventListener("change", () => {
+    const choice = setLang.value === "en" || setLang.value === "de" ? setLang.value : null;
+    saveSettings({ lang: choice });
+    lang = pickLang(null, choice, navigator.languages ?? []);
+    t = STRINGS[lang];
+    applyPage(document, lang);
+    renderer.setStrings(t.hud);
+    meta.setStrings(t);
+    renderAchievements(meta.progress);
+    syncSoundButtons();
+    syncPauseButton(current.paused, true);
+    syncFullscreenButton();
+    syncSettings();
+  });
+  for (const section of ["#settings", "#achievements-panel"]) {
+    const el = document.querySelector<HTMLElement>(section);
+    if (el !== null) el.hidden = false;
+  }
+
   input.attach(canvas, {
     onToggleHitboxes: () => renderer.toggleHitboxes(),
     onToggleMusic: toggleMusic,
+    onToggleSfx: toggleSfx,
   });
   signal.addEventListener("abort", () => input.detach());
 
@@ -301,12 +482,51 @@ async function boot(): Promise<void> {
     pauseButton.addEventListener("click", () => input.togglePause(), { signal });
   }
   let shownPaused: boolean | null = null;
-  const syncPauseButton = (paused: boolean): void => {
-    if (pauseButton === null || paused === shownPaused) return;
+  const syncPauseButton = (paused: boolean, force = false): void => {
+    if (pauseButton === null || (paused === shownPaused && !force)) return;
     shownPaused = paused;
-    pauseButton.textContent = paused ? "\u25B6" : "II";
-    pauseButton.setAttribute("aria-label", paused ? "Resume" : "Pause");
+    pauseButton.textContent = paused ? "▶" : "II";
+    pauseButton.setAttribute("aria-label", paused ? t.resume : t.pause);
   };
+
+  // Full screen for the whole page, not the stage: the page already lays the
+  // stage out at 3:2 in whatever it is given. Not offered where it cannot be
+  // had - an iPhone's Safari has no element full screen.
+  const fullscreenButton = document.querySelector<HTMLButtonElement>("#fullscreen");
+  const syncFullscreenButton = (): void => {
+    fullscreenButton?.setAttribute(
+      "aria-label",
+      document.fullscreenElement === null ? t.fullscreen : t.exitFullscreen,
+    );
+  };
+  if (fullscreenButton !== null && document.fullscreenEnabled === true) {
+    fullscreenButton.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
+    fullscreenButton.addEventListener(
+      "click",
+      () => {
+        if (document.fullscreenElement !== null) {
+          void document.exitFullscreen().catch(() => undefined);
+          return;
+        }
+        void document.documentElement
+          .requestFullscreen({ navigationUI: "hide" })
+          .then(() => {
+            // A phone held upright gets a third of the screen; ask for landscape.
+            const orientation = screen.orientation as ScreenOrientation & {
+              lock?: (o: string) => Promise<void>;
+            };
+            return touch ? orientation.lock?.("landscape") : undefined;
+          })
+          .catch(() => undefined)
+          .finally(() => canvas.focus({ preventScroll: true }));
+      },
+      { signal },
+    );
+    document.addEventListener("fullscreenchange", syncFullscreenButton, { signal });
+    syncFullscreenButton();
+    fullscreenButton.hidden = false;
+  }
+  syncSoundButtons();
 
   // The profiler wraps draw() from the outside, so neither backend can be
   // instrumented more kindly than the other.
@@ -320,22 +540,25 @@ async function boot(): Promise<void> {
   // The snapshot is taken once per tick, here, and the draw reads it back:
   // both hooks used to build their own, twice the allocation for one picture.
   let previous: SimSnapshot | null = null;
-  let current = sim.snapshot();
+  let current = session.snapshot;
 
   const loop = new FixedTimestepLoop({
     step: () => {
       const commands = input.drain();
       // The event stream used to be discarded here. Impact clips ride on it.
-      const events = sim.step(commands);
+      const result = session.step(commands);
+      const events = result.events;
       const now = performance.now();
-      previous = current;
-      current = sim.snapshot();
+      previous = result.restarted ? null : current;
+      current = result.snapshot;
       syncPauseButton(current.paused);
+      meta.step(result);
       effects.consume(events, now, current.hamster);
       if (audio !== null) {
         audio.setPaused(current.paused);
         audio.consume(events);
       }
+      haptics?.(vibrationFor(events));
       // Grit comes off whenever the hamster is dragging along the ground, not
       // only during the `skidding` predicate - that one is a two-tick window
       // and fires in 2 runs out of 40, which is not an effect anyone would see.
@@ -351,11 +574,14 @@ async function boot(): Promise<void> {
     // with no tweening, so this is a deliberate departure - presentation only,
     // the simulation and the scores are untouched.
     draw: (alpha) => {
+      // Every frame, not every tick: a quick tap must not fall between ticks.
+      input.pollGamepads(pads());
       const now = performance.now();
       effects.prune(now);
       const snapshot = interpolate(previous, current, alpha);
-      if (profiler === null) renderer.draw(snapshot, now);
-      else profiler.measure(() => renderer.draw(snapshot, now));
+      const overlay = meta.overlay(current, alpha);
+      if (profiler === null) renderer.draw(snapshot, now, overlay);
+      else profiler.measure(() => renderer.draw(snapshot, now, overlay));
     },
     // The loop stops and rethrows, so the stack still reaches the console;
     // without this the picture just froze.
@@ -365,7 +591,7 @@ async function boot(): Promise<void> {
   // Until Play Now! the scene stands still behind the board, as frame 6 has
   // no Game yet: one picture, redrawn whenever the stage is resized.
   let started = false;
-  const drawStill = (): void => renderer.draw(current, performance.now());
+  const drawStill = (): void => renderer.draw(current, performance.now(), meta.overlay(current, 1));
   watchStageSize(
     canvas,
     () => {
@@ -433,7 +659,10 @@ async function boot(): Promise<void> {
 
   const bootPanel = document.querySelector<HTMLElement>("#boot");
   if (bootPanel !== null) bootPanel.hidden = true;
-  if (musicButton !== null && audio !== null) musicButton.hidden = false;
+  if (audio !== null) {
+    if (musicButton !== null) musicButton.hidden = false;
+    if (sfxButton !== null) sfxButton.hidden = false;
+  }
   const version = document.querySelector("#version");
   if (version !== null) version.textContent = versionLabel();
   const start = (): void => {
@@ -443,6 +672,7 @@ async function boot(): Promise<void> {
     canvas.focus({ preventScroll: true });
     // Nothing pressed before the game existed carries over into it.
     input.drain();
+    meta.announce();
     loop.start();
   };
   const instructions = document.querySelector<HTMLElement>("#instructions");
@@ -469,9 +699,10 @@ async function boot(): Promise<void> {
   }
 
   console.info(
-    "[hamsterflight] build=%s seed=%d renderer=%s - append ?seed=%d to replay",
+    "[hamsterflight] build=%s seed=%d mode=%s renderer=%s - append ?seed=%d to replay",
     versionLabel(),
     seed,
+    meta.mode.kind,
     backend,
     seed,
   );

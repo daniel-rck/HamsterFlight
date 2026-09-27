@@ -100,12 +100,18 @@
       }
       #pause[hidden],
       #music[hidden],
-      #about[hidden] {
+      #sfx[hidden],
+      #fullscreen[hidden],
+      #about[hidden],
+      #results[hidden],
+      #toast[hidden] {
         display: none;
       }
       /* The original's music button sits in the same corner, left of where
-         the port put pause. Music only, as there: the effects stay on. */
-      #music {
+         the port put pause. Music only, as there: the effects have their own. */
+      #music,
+      #sfx,
+      #fullscreen {
         position: absolute;
         right: calc(8px + var(--corner) + var(--corner-gap));
         bottom: 8px;
@@ -123,6 +129,17 @@
           sans-serif;
         cursor: pointer;
         touch-action: manipulation;
+      }
+      #sfx {
+        right: calc(8px + 2 * (var(--corner) + var(--corner-gap)));
+        font-size: 12px;
+      }
+      #fullscreen {
+        right: calc(8px + 3 * (var(--corner) + var(--corner-gap)));
+      }
+      #sfx[aria-pressed="true"] {
+        color: rgb(234 246 255 / 45%);
+        text-decoration: line-through;
       }
       /* Root frame 6: the INSTRUCTIONS board over the scene, its Play Now!
          button at (331, 306) of the 600x400 stage - hanging off the bottom
@@ -170,7 +187,7 @@
          even when the game failed to boot: the credits are the point. */
       #info {
         position: absolute;
-        right: calc(8px + 2 * (var(--corner) + var(--corner-gap)));
+        right: calc(8px + 4 * (var(--corner) + var(--corner-gap)));
         bottom: 8px;
         width: var(--corner);
         aspect-ratio: 1;
@@ -220,6 +237,171 @@
       #about p:last-child {
         margin: 0;
         opacity: 0.7;
+      }
+      #about section {
+        margin: 0 0 0.75rem;
+        padding: 0.6rem 0.75rem;
+        border-radius: 8px;
+        background: #232e3c;
+        text-align: left;
+        cursor: auto;
+      }
+      #about h3 {
+        margin: 0 0 0.4rem;
+        font-size: 13px;
+      }
+      #settings {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 0.35rem 1rem;
+      }
+      #settings h3 {
+        grid-column: 1 / -1;
+      }
+      #settings label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+      #settings label[hidden] {
+        display: none;
+      }
+      /* A range input's intrinsic width would push into the next column. */
+      #settings input[type="range"] {
+        flex: 1;
+        min-width: 0;
+      }
+      #achievements {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+        gap: 0.2rem 1rem;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      #achievements li {
+        opacity: 0.45;
+      }
+      #achievements li.done {
+        opacity: 1;
+      }
+      #achievements li::before {
+        content: "\25CB  ";
+      }
+      #achievements li.done::before {
+        content: "\2605  ";
+        color: #ffd166;
+      }
+      #achievements small {
+        display: block;
+        margin-left: 1.3em;
+        opacity: 0.75;
+      }
+      /* Over the stage once PLAY AGAIN is up. Clicks around the card still
+         reach the canvas, which plays again as it always did. */
+      #results {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 3% 1rem 12%;
+        pointer-events: none;
+      }
+      #results > div {
+        pointer-events: auto;
+        width: min(360px, 100%);
+        max-height: 100%;
+        overflow: auto;
+        padding: 0.8rem 1rem;
+        border-radius: 10px;
+        background: rgb(20 28 38 / 92%);
+        box-shadow: 0 6px 24px rgb(0 0 0 / 45%);
+        font-size: 13px;
+        text-align: center;
+      }
+      #results h2 {
+        margin: 0;
+        font-size: 17px;
+      }
+      #results-badge {
+        margin: 0.2rem 0 0;
+        color: #ffd166;
+        font-weight: 700;
+      }
+      #results-shots {
+        margin: 0.5rem 0;
+        padding: 0;
+        list-style: none;
+        font-family: ui-monospace, monospace;
+        font-size: 12px;
+      }
+      #results-shots li {
+        display: flex;
+        justify-content: space-between;
+        padding: 1px 0.25rem;
+      }
+      #results-shots li.best {
+        color: #ffd166;
+      }
+      #results-total {
+        margin: 0.25rem 0;
+        font-size: 15px;
+        font-weight: 700;
+      }
+      #results-notes p {
+        margin: 0.1rem 0;
+        opacity: 0.85;
+      }
+      #results-unlocked {
+        margin: 0.4rem 0 0;
+        padding: 0;
+        list-style: none;
+        color: #ffd166;
+      }
+      #results-unlocked li::before {
+        content: "\2605  ";
+      }
+      #results .actions {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.4rem;
+        margin-top: 0.7rem;
+      }
+      #results button {
+        font: inherit;
+        font-weight: 600;
+        padding: 0.35rem 0.8rem;
+        border: 0;
+        border-radius: 6px;
+        background: #2a3543;
+        color: var(--ink);
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      #results button#results-again {
+        background: #7fd4ff;
+        color: #0c141e;
+      }
+      #results button:focus-visible {
+        outline: 2px solid #ffd166;
+        outline-offset: 2px;
+      }
+      /* News - an achievement, a record - under the HUD, over the sky. */
+      #toast {
+        position: absolute;
+        left: 50%;
+        top: 14%;
+        transform: translateX(-50%);
+        max-width: 90%;
+        padding: 0.35rem 0.8rem;
+        border-radius: 999px;
+        background: rgb(12 20 30 / 80%);
+        color: #ffd166;
+        font-weight: 600;
+        font-size: 13px;
+        text-align: center;
+        pointer-events: none;
       }
       #music[aria-pressed="true"] {
         color: rgb(234 246 255 / 45%);
@@ -315,6 +497,19 @@
       >
         &#x266A;
       </button>
+      <button
+        id="sfx"
+        type="button"
+        tabindex="-1"
+        aria-label="Mute sound effects"
+        aria-pressed="false"
+        hidden
+      >
+        FX
+      </button>
+      <button id="fullscreen" type="button" tabindex="-1" aria-label="Full screen" hidden>
+        &#x2922;
+      </button>
       <div id="instructions" hidden>
         <img
           alt="Instructions. Powering the Kids Next Door Treehouse is hard work! Help the hamsters enjoy their time off with the new extreme sport of hamster launching! Click your mouse button to start the hamster in motion. When the hamster lines up with the pillow, click again to launch the hamster. While flying, click and hold your mouse button to use Glide Power! The Glide Meter refills slowly when not in use. Grab Items to keep the hamster in the air for as long as possible."
@@ -323,17 +518,62 @@
           <img class="up" alt="Play Now!" /><img class="over" alt="" />
         </button>
       </div>
+      <div id="results" hidden role="dialog" aria-labelledby="results-title">
+        <div>
+          <h2 id="results-title"></h2>
+          <p id="results-badge" hidden></p>
+          <ol id="results-shots"></ol>
+          <p id="results-total"></p>
+          <div id="results-notes"></div>
+          <ul id="results-unlocked" hidden></ul>
+          <div class="actions">
+            <button id="results-again" type="button"></button>
+            <button id="results-mode" type="button"></button>
+            <button id="results-share" type="button"></button>
+          </div>
+        </div>
+      </div>
+      <div id="toast" role="status" aria-live="polite" hidden></div>
       <div id="boot" role="status" aria-live="polite">loading…</div>
       <noscript>This game needs JavaScript to run.</noscript>
       <div id="about" hidden>
         <div>
-          <p id="how-to">
+          <p id="how-to" data-i18n="howTo">
             Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide.
             One swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner
             button pauses; a click resumes. <kbd>M</kbd> or the note mutes the music.
           </p>
-          <p>Physics runs at a fixed 20&nbsp;Hz, as the original did.</p>
-          <p>
+          <section id="settings" hidden>
+            <h3 data-i18n="settings">Settings</h3>
+            <label
+              ><input id="set-sfx" type="checkbox" />
+              <span data-i18n="sfx">Sound effects</span></label
+            >
+            <label>
+              <span data-i18n="volume">Volume</span>
+              <input id="set-volume" type="range" min="0" max="100" step="5" />
+            </label>
+            <label id="set-haptics-row" hidden>
+              <input id="set-haptics" type="checkbox" /> <span data-i18n="haptics">Vibration</span>
+            </label>
+            <label>
+              <span data-i18n="language">Language</span>
+              <select id="set-lang">
+                <option value="" data-i18n="langAuto">Automatic</option>
+                <option value="en">English</option>
+                <option value="de">Deutsch</option>
+              </select>
+            </label>
+          </section>
+          <section id="achievements-panel" hidden>
+            <h3>
+              <span data-i18n="achievements">Achievements</span>
+              <span id="achievements-count"></span>
+            </h3>
+            <ul id="achievements"></ul>
+          </section>
+          <p data-i18n="physics">Physics runs at a fixed 20&nbsp;Hz, as the original did.</p>
+          <p data-i18n="credits">
             A fan reimplementation built from bytecode analysis of the original Flash game. Not
             affiliated with the original publisher. Sprites are extracted from the original SWF and
             remain the property of their respective owners.
@@ -345,13 +585,14 @@
         id="info"
         type="button"
         aria-label="Help and credits"
+        data-i18n-label="info"
         aria-expanded="false"
         aria-controls="about"
       >
         i
       </button>
     </div>
-    <p id="rotate">Turn your phone sideways for a bigger stage.</p>
+    <p id="rotate" data-i18n="rotate">Turn your phone sideways for a bigger stage.</p>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -16,7 +16,7 @@ export function seedFromUrl(params: URLSearchParams, random: () => number = rand
   return random();
 }
 
-function randomSeed(): number {
+export function randomSeed(): number {
   const bytes = new Uint32Array(1);
   crypto.getRandomValues(bytes);
   return bytes[0] ?? 1;
