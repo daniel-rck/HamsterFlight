@@ -587,6 +587,13 @@ There was none. The simulation had emitted its cues all along - `sfx`,
   and the two breaks to 165 (Game.as:812, 831, 853). The port places them at
   the hamster's world x, which is the same point while the camera follows at
   its 150 px anchor and differs only left of x = 150.
+- **Metres in enhanced mode.** The original scores in feet and faithful mode
+  keeps them. Enhanced mode shows every reached distance - the shot, the
+  total, the game-over line and the sign - in metres to two decimals
+  (`src/render/units.ts`). The score is still whole feet, as
+  `updateDistance()` floors it; the decimals are that score converted exactly.
+  Three-digit metres are wider than the sign's field, so the sign squeezes
+  them to the field's 35.4 px rather than letting them run off the board.
 - **The exactly-70-degree branch.** `checkCollision`'s final `else` is reached
   only when the impact angle is exactly 70.000 degrees. It is transcribed but
   practically unreachable, and untested for that reason.

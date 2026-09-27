@@ -33,18 +33,24 @@ describe("the sign's distance", () => {
     for (const clip of ["cheer", "hole"] as const) {
       const s = settled(clip);
       const pose = poseFor(s);
-      expect(signText(s, pose, SIGN_FROM_FRAME - 1), clip).toBeNull();
-      expect(signText(s, pose, SIGN_FROM_FRAME), clip).toBe("1234 ft.");
-      expect(signText(s, pose, 49), clip).toBe("1234 ft."); // held to frame 50
+      expect(signText(s, pose, SIGN_FROM_FRAME - 1, false), clip).toBeNull();
+      expect(signText(s, pose, SIGN_FROM_FRAME, false), clip).toBe("1234 ft.");
+      expect(signText(s, pose, 49, false), clip).toBe("1234 ft."); // held to frame 50
     }
   });
 
   it("shows on the cheer a faceplant hands over to, and not on the faceplant", () => {
     const faceplant = settled("faceplant");
     expect(signFields(poseFor(faceplant))).toEqual([]);
-    expect(signText(faceplant, poseFor(faceplant), 40)).toBeNull();
+    expect(signText(faceplant, poseFor(faceplant), 40, false)).toBeNull();
     const handedOver = { ...faceplant, outcomeClip: "cheer" as const };
-    expect(signText(handedOver, poseFor(handedOver), 40)).toBe("1234 ft.");
+    expect(signText(handedOver, poseFor(handedOver), 40, false)).toBe("1234 ft.");
+  });
+
+  it("says metres to the centimetre when the HUD does", () => {
+    const s = settled("cheer", [229]);
+    expect(signText(s, poseFor(s), 40, true)).toBe("69.80 m");
+    expect(signText(s, poseFor(s), 40, false)).toBe("229 ft.");
   });
 
   it("puts the black field under the yellow one, as depths 6 and 7 do", () => {
@@ -59,6 +65,9 @@ describe("the sign's distance", () => {
     expect(signWidth("1234 ft.")).toBeCloseTo(35.07, 1);
     expect(signWidth("9999 ft.")).toBeLessThan(35.8);
     expect(signScaleX("1234 ft.", signWidth("1234 ft.") * 2)).toBeCloseTo(0.5, 10);
+    // Three-digit metres are wider than the field; they are held to it.
+    expect(signWidth("304.80 m")).toBeGreaterThan(35.4);
+    expect(signScaleX("304.80 m", 100)).toBeCloseTo(0.354, 10);
   });
 });
 

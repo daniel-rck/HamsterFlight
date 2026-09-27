@@ -9,9 +9,18 @@ export function feetToMetres(feet: number): number {
   return feet * METRES_PER_FOOT;
 }
 
+/**
+ * Metres to the centimetre. The score itself stays whole feet - the original's
+ * `updateDistance()` floors it - so the two decimals are that score converted
+ * exactly, not a finer measurement.
+ */
+export function metres(feet: number): string {
+  return `${feetToMetres(feet).toFixed(2)} m`;
+}
+
 /** A distance for the HUD, in whichever unit the mode calls for. */
 export function distance(feet: number, metric: boolean): string {
-  return metric ? `${Math.round(feetToMetres(feet))} m` : `${feet} ft`;
+  return metric ? metres(feet) : `${feet} ft`;
 }
 
 /**

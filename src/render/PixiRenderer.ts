@@ -486,7 +486,7 @@ export class PixiRenderer implements Renderer {
 
   /** The distance on the outcome clip's sign, placed in the clip's own space. */
   #drawSign(s: SimSnapshot, pose: SpriteId, frame: number): void {
-    const text = signText(s, pose, frame);
+    const text = signText(s, pose, frame, this.#effects.enhanced);
     const fields = signFields(pose);
     this.#signs.forEach((sign, i) => {
       const field = fields[i];

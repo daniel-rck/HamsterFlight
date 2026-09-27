@@ -266,7 +266,7 @@ describe("hud strings", () => {
     const s = flying();
     expect(totalFeet(s)).toBe(165);
     expect(panelLines(s, false)).toEqual(["try 2/5", "8 ft   total 165 ft"]);
-    expect(panelLines(s, true)).toEqual(["try 2/5", "2 m   total 50 m"]);
+    expect(panelLines(s, true)).toEqual(["try 2/5", "2.44 m   total 50.29 m"]);
     expect(panelLines(flying({ turn: 6 }), false)[0]).toBe("try 5/5");
   });
 

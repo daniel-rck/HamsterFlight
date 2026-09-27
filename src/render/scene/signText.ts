@@ -1,6 +1,7 @@
 import type { SpriteId } from "@/assets/sprites.generated.ts";
 import { FONTS } from "@/render/scene/hud.ts";
 import type { Affine } from "@/render/scene/pose.ts";
+import { metres } from "@/render/units.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 
 /**
@@ -22,7 +23,8 @@ import type { SimSnapshot } from "@/sim/state.ts";
  * The one interpretation is the face. Font 236 is `FontOnAStick`, embedded as
  * outlines, and the page's CSP has no `font-src` - so the text is set in the
  * system sans and squeezed to the width the original glyphs take, which keeps
- * it centred on the board and inside the field.
+ * it centred on the board and inside the field. In metric mode the sign says
+ * metres, like the HUD - a port choice the original never had to make.
  */
 
 /** 0-based: the fields go up on frame 27. */
@@ -54,6 +56,7 @@ const SIGNS: Partial<Record<SpriteId, readonly SignField[]>> = {
  */
 export const SIGN_TEXT = {
   centreX: 17.7,
+  width: 35.4,
   baseline: 13.62,
   size: 14,
   font: `bold 14px ${FONTS.sans}`,
@@ -73,6 +76,7 @@ const ADVANCE: Readonly<Record<string, number>> = {
   "9": 5.25,
   " ": 3.36,
   f: 5.26,
+  m: 9.01,
   t: 4.36,
   ".": 1.74,
 };
@@ -82,12 +86,21 @@ export function signFields(pose: SpriteId): readonly SignField[] {
   return SIGNS[pose] ?? [];
 }
 
-/** What the sign says on this frame of its clip, or null while it is blank. */
-export function signText(s: SimSnapshot, pose: SpriteId, frame: number): string | null {
+/**
+ * What the sign says on this frame of its clip, or null while it is blank.
+ * `metric` follows the HUD: metres to two decimals, or the original's feet.
+ */
+export function signText(
+  s: SimSnapshot,
+  pose: SpriteId,
+  frame: number,
+  metric: boolean,
+): string | null {
   if (s.phaseKind !== "settling" || frame < SIGN_FROM_FRAME) return null;
   if (signFields(pose).length === 0) return null;
   const feet = s.shots[s.shots.length - 1];
-  return feet === undefined ? null : `${feet} ft.`;
+  if (feet === undefined) return null;
+  return metric ? metres(feet) : `${feet} ft.`;
 }
 
 /** How wide the original's glyphs set `text`, in field pixels. */
@@ -97,7 +110,11 @@ export function signWidth(text: string): number {
   return width;
 }
 
-/** The horizontal squeeze that sets `text` at the original's width. */
+/**
+ * The horizontal squeeze that sets `text` at the original's width - and no
+ * wider than the text area. Feet never need the cap ("9999 ft." is 35.72 px);
+ * three-digit metres ("304.80 m", 42.72 px) would run off the field.
+ */
 export function signScaleX(text: string, measured: number): number {
-  return measured > 0 ? signWidth(text) / measured : 1;
+  return measured > 0 ? Math.min(signWidth(text), SIGN_TEXT.width) / measured : 1;
 }

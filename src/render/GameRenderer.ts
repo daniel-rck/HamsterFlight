@@ -296,7 +296,7 @@ export class GameRenderer implements Renderer {
 
   /** The distance on the outcome clip's sign, drawn in the clip's own space. */
   #sign(ctx: CanvasRenderingContext2D, s: SimSnapshot, id: SpriteId, frame: number): void {
-    const text = signText(s, id, frame);
+    const text = signText(s, id, frame, this.#effects.enhanced);
     if (text === null) return;
     ctx.font = SIGN_TEXT.font;
     ctx.textAlign = "center";

@@ -11,7 +11,8 @@ import type { SimSnapshot } from "@/sim/state.ts";
 export const HUD = {
   /** Shifted right of x = 118: the shot pips and the launch meter keep the
    *  left column the original reserved for them. */
-  panel: { x: 122, y: 10, w: 150, h: 16 * 2 + 10, textX: 130, baseline: 28, lineHeight: 16 },
+  // Wide enough for "999.99 m   total 9999.99 m" in the 12 px mono.
+  panel: { x: 122, y: 10, w: 212, h: 16 * 2 + 10, textX: 130, baseline: 28, lineHeight: 16 },
   glide: {
     w: 110,
     x: C.VIEW_W - 110 - 14,
