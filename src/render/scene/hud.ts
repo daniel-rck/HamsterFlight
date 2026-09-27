@@ -1,4 +1,5 @@
-import { distance } from "@/render/units.ts";
+import { isBallPose, poseFor } from "@/render/scene/pose.ts";
+import { metres } from "@/render/units.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 
@@ -10,7 +11,8 @@ import type { SimSnapshot } from "@/sim/state.ts";
 export const HUD = {
   /** Shifted right of x = 118: the shot pips and the launch meter keep the
    *  left column the original reserved for them. */
-  panel: { x: 122, y: 10, w: 150, h: 16 * 2 + 10, textX: 130, baseline: 28, lineHeight: 16 },
+  // Wide enough for "999.99 m   total 9999.99 m" in the 12 px mono.
+  panel: { x: 122, y: 10, w: 212, h: 16 * 2 + 10, textX: 130, baseline: 28, lineHeight: 16 },
   glide: {
     w: 110,
     x: C.VIEW_W - 110 - 14,
@@ -57,16 +59,38 @@ export const FONTS = {
   prompt: "bold 17px system-ui, sans-serif",
 } as const;
 
+/**
+ * The stacked-ball count (`Tuning.stackBalls`, a port addition): `×N` beside
+ * the ball once more than one is queued. World pixels from the hamster, upright
+ * rather than turning with the clip, just outside both balls' rims - the pink
+ * one is 41 px across the middle, the gold one 32.
+ */
+export const BALL_BADGE = {
+  dx: 26,
+  dy: -30,
+  font: `bold 13px ${FONTS.sans}`,
+  size: 13,
+  fill: "#ffffff",
+  stroke: "#3a1830",
+  strokeWidth: 3,
+} as const;
+
+/** The badge text for this snapshot, or null when there is nothing to count. */
+export function ballBadge(s: SimSnapshot): string | null {
+  if (s.phaseKind !== "flying" || s.balls.length < 2) return null;
+  return isBallPose(poseFor(s)) ? `×${s.balls.length}` : null;
+}
+
 export function totalFeet(s: SimSnapshot): number {
   let total = 0;
   for (const feet of s.shots) total += feet;
   return total;
 }
 
-export function panelLines(s: SimSnapshot, metric: boolean): readonly [string, string] {
+export function panelLines(s: SimSnapshot): readonly [string, string] {
   return [
     `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`,
-    `${distance(s.feet, metric)}   total ${distance(totalFeet(s), metric)}`,
+    `${metres(s.feet)}   total ${metres(totalFeet(s))}`,
   ];
 }
 
@@ -93,13 +117,14 @@ export function debugLines(s: SimSnapshot): readonly [string, string, string] {
 }
 
 /** What to tell the player, or null when the picture says it all. */
-export function promptFor(s: SimSnapshot, metric: boolean, touch = false): string | null {
+export function promptFor(s: SimSnapshot, touch = false): string | null {
   // "Click" on a phone reads as a mouse-only game, and a phone has no P key.
   const click = touch ? "tap" : "click";
   if (s.paused) return touch ? "paused - tap to resume" : "paused - click, Space or P to resume";
   switch (s.phaseKind) {
     case "ready":
-      return `${click} to jump`;
+      // Nothing to click for while the next hamster is still walking out.
+      return s.walkOut !== null ? null : `${click} to jump`;
     case "jumping":
       // One swing per jump: after a whiff there is nothing left to click for,
       // and saying "click again" was an invitation to mash at a dead button.
@@ -112,8 +137,8 @@ export function promptFor(s: SimSnapshot, metric: boolean, touch = false): strin
     case "gameOver":
       // Only once PLAY AGAIN is up: a click before that does nothing.
       return s.restartable
-        ? `${distance(totalFeet(s), metric)} total - ${click} to play again`
-        : `${distance(totalFeet(s), metric)} total`;
+        ? `${metres(totalFeet(s))} total - ${click} to play again`
+        : `${metres(totalFeet(s))} total`;
     default:
       return null;
   }

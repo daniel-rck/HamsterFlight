@@ -1,4 +1,5 @@
 import type { AssetBundle, Sprite } from "@/assets/AssetLoader.ts";
+import type { SpriteId } from "@/assets/sprites.generated.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
 import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
@@ -7,6 +8,13 @@ import {
   altitudeOf,
   BUBBLE_ALPHA,
   bushes,
+  CLOUD_BASE_H,
+  CLOUD_SHADE_DROP,
+  CLOUD_SHAPES,
+  type CloudShape,
+  cloudAlpha,
+  cloudColours,
+  clouds,
   GROUND,
   markers,
   POWERUP_IDLE_FRAME,
@@ -17,9 +25,12 @@ import {
   type Star,
   shadowScale,
   skyColours,
+  starAt,
   starField,
 } from "@/render/scene/decor.ts";
 import {
+  BALL_BADGE,
+  ballBadge,
   debugLines,
   FONTS,
   glideFill,
@@ -32,10 +43,13 @@ import {
   castsShadow,
   hamsterBox,
   hamsterRotation,
+  isBallPose,
   outcomeOffsetY,
+  poseAlpha,
   posePlacement,
   poseFor,
 } from "@/render/scene/pose.ts";
+import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -43,6 +57,17 @@ import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
 const CHROME = `rgba(12,20,30,${HUD_COLOURS.chromeAlpha})`;
 const PROMPT_CHROME = `rgba(12,20,30,${HUD_COLOURS.promptAlpha})`;
 const MARKER_INK = `rgba(255,255,255,${HUD_COLOURS.markerAlpha})`;
+
+/** One path for the whole outline: every sub-shape winds the same way, so it fills as a union. */
+function cloudPath(ctx: CanvasRenderingContext2D, shape: CloudShape, drop: number): void {
+  const [x, width] = shape.base;
+  ctx.beginPath();
+  ctx.roundRect(x, drop - CLOUD_BASE_H, width, CLOUD_BASE_H, CLOUD_BASE_H / 2);
+  for (const [dx, dy, r] of shape.puffs) {
+    ctx.moveTo(dx + r, dy + drop);
+    ctx.arc(dx, dy + drop, r, 0, Math.PI * 2);
+  }
+}
 
 function hex(colour: number): string {
   return `#${colour.toString(16).padStart(6, "0")}`;
@@ -152,11 +177,30 @@ export class GameRenderer implements Renderer {
       ctx.globalAlpha = sky.starAlpha;
       ctx.fillStyle = "#fff";
       for (const star of this.#stars) {
+        const at = starAt(star, s.camera);
         ctx.beginPath();
-        ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+        ctx.arc(at.x, at.y, star.r, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
+    }
+
+    if (cloudAlpha(sky) > 0) {
+      for (const cloud of clouds(s.camera, this.#stress)) {
+        const shape = CLOUD_SHAPES[cloud.shape];
+        if (shape === undefined) continue;
+        const colours = cloudColours(sky, cloud.y);
+        ctx.save();
+        ctx.translate(cloud.x, cloud.y);
+        ctx.scale(cloud.scale, cloud.scale);
+        cloudPath(ctx, shape, CLOUD_SHADE_DROP);
+        ctx.fillStyle = rgbCss(colours.shade);
+        ctx.fill();
+        cloudPath(ctx, shape, 0);
+        ctx.fillStyle = rgbCss(colours.lit);
+        ctx.fill();
+        ctx.restore();
+      }
     }
   }
 
@@ -176,7 +220,7 @@ export class GameRenderer implements Renderer {
       if (sprite !== undefined) this.#blit(ctx, sprite, at.frame, at.x, at.y);
     }
 
-    const marks = markers(s.camera.x, this.#effects.enhanced);
+    const marks = markers(s.camera.x);
     ctx.fillStyle = MARKER_INK;
     ctx.font = FONTS.marker;
     for (const x of marks.ticks) ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
@@ -243,9 +287,9 @@ export class GameRenderer implements Renderer {
     ctx.save();
     ctx.translate(h.x, h.y + outcomeOffsetY(s));
     // The bubble is opaque in the original, so the hamster vanishes inside it
-    // for the whole bounce. Enhanced mode draws the flier underneath and lets
-    // the bubble sit over it.
-    const inBubble = id === "hamster/ball" && this.#effects.enhanced;
+    // for the whole bounce. The port draws the flier underneath and lets the
+    // bubble sit over it, translucent.
+    const inBubble = isBallPose(id);
     const rotation = hamsterRotation(s);
     if (rotation !== 0) ctx.rotate(rotation);
     if (inBubble) {
@@ -256,18 +300,54 @@ export class GameRenderer implements Renderer {
         this.#blit(ctx, inside, this.#effects.poses.innerFrame(inside.meta, this.#elapsed), 0, 0);
         ctx.restore();
       }
-      ctx.globalAlpha = BUBBLE_ALPHA;
     }
+    ctx.globalAlpha = poseAlpha(sprite.meta) * (inBubble ? BUBBLE_ALPHA : 1);
     ctx.transform(...posePlacement(sprite.meta));
-    this.#blit(ctx, sprite, this.#effects.poses.frame(s, sprite.meta, this.#elapsed), 0, 0);
-    if (inBubble) ctx.globalAlpha = 1;
+    const frame = this.#effects.poses.frame(s, sprite.meta, this.#elapsed);
+    this.#blit(ctx, sprite, frame, 0, 0);
+    ctx.globalAlpha = 1;
+    this.#sign(ctx, s, id, frame);
     ctx.restore();
+
+    const badge = ballBadge(s);
+    if (badge !== null) {
+      ctx.save();
+      ctx.font = BALL_BADGE.font;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.lineJoin = "round";
+      ctx.lineWidth = BALL_BADGE.strokeWidth;
+      ctx.strokeStyle = BALL_BADGE.stroke;
+      ctx.fillStyle = BALL_BADGE.fill;
+      ctx.strokeText(badge, h.x + BALL_BADGE.dx, h.y + BALL_BADGE.dy);
+      ctx.fillText(badge, h.x + BALL_BADGE.dx, h.y + BALL_BADGE.dy);
+      ctx.restore();
+    }
 
     if (this.#showHitboxes) {
       const box = hamsterBox(s, this.#tuning);
       ctx.strokeStyle = hex(HUD_COLOURS.hitboxHamster);
       ctx.lineWidth = 1;
       ctx.strokeRect(h.x + box.cx - box.hw, h.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
+    }
+  }
+
+  /** The distance on the outcome clip's sign, drawn in the clip's own space. */
+  #sign(ctx: CanvasRenderingContext2D, s: SimSnapshot, id: SpriteId, frame: number): void {
+    const text = signText(s, id, frame);
+    if (text === null) return;
+    ctx.font = SIGN_TEXT.font;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    const squeeze = signScaleX(text, ctx.measureText(text).width);
+    for (const field of signFields(id)) {
+      ctx.save();
+      ctx.transform(...field.matrix);
+      ctx.translate(SIGN_TEXT.centreX, SIGN_TEXT.baseline);
+      ctx.scale(squeeze, 1);
+      ctx.fillStyle = hex(field.colour);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
     }
   }
 
@@ -312,12 +392,11 @@ export class GameRenderer implements Renderer {
 
     ctx.font = FONTS.hud;
 
-    const metric = this.#effects.enhanced;
     const panel = HUD.panel;
     ctx.fillStyle = CHROME;
     ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
     ctx.fillStyle = HUD_COLOURS.ink;
-    for (const [i, line] of panelLines(s, metric).entries()) {
+    for (const [i, line] of panelLines(s).entries()) {
       ctx.fillText(line, panel.textX, panel.baseline + i * panel.lineHeight);
     }
 
@@ -347,7 +426,7 @@ export class GameRenderer implements Renderer {
       }
     }
 
-    const prompt = promptFor(s, metric, this.#touch);
+    const prompt = promptFor(s, this.#touch);
     if (prompt !== null) {
       const box = HUD.prompt;
       ctx.font = FONTS.prompt;

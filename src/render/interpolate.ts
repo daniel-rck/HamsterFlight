@@ -25,6 +25,8 @@ export function interpolate(
   // Clip 52's frame 28 moves the clip up 117.8 px in one go, with the art
   // moving back down the same amount - a cut, not a motion.
   if ((prev.windup === null) !== (next.windup === null)) return next;
+  // The walker arriving on the pad swaps one hamster clip for another.
+  if ((prev.walkOut === null) !== (next.walkOut === null)) return next;
   // Clamped at both ends, and alpha 0 is `prev` like every other alpha close to
   // it: returning `next` there drew a frame landing exactly on a tick boundary
   // one tick ahead, and the frame after it jumped back.

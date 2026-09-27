@@ -42,6 +42,15 @@ export interface Tuning {
    * strategy and the golden values.
    */
   readonly recomputeGlidePerTick: boolean;
+  /**
+   * Whether bounce balls queue. The original holds one at most: a ball of the
+   * kind already armed is ignored, and the other kind replaces it
+   * (Game.as:689-712, `!this.bounce` / `!this.superbounce` and the paired
+   * `= false`). With this on, every ball picked up joins a queue in pickup
+   * order and each ground contact bursts the one at its head. A deliberate
+   * change to the game, not a reading of it - `false` is the faithful value.
+   */
+  readonly stackBalls: boolean;
 }
 
 export const DEFAULT_TUNING: Tuning = deepFreeze({
@@ -68,4 +77,8 @@ export const DEFAULT_TUNING: Tuning = deepFreeze({
   },
   camera: { maxPanTicks: 120 },
   recomputeGlidePerTick: false,
+  stackBalls: true,
 });
+
+/** `DEFAULT_TUNING` with every deliberate departure from the original turned off. */
+export const ORIGINAL_TUNING: Tuning = deepFreeze({ ...DEFAULT_TUNING, stackBalls: false });

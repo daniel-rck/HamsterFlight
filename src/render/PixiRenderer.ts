@@ -3,6 +3,8 @@ import {
   CanvasTextMetrics,
   Container,
   Graphics,
+  GraphicsContext,
+  Matrix,
   Rectangle,
   Sprite,
   Text,
@@ -10,6 +12,7 @@ import {
   type Texture,
 } from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
+import type { SpriteId } from "@/assets/sprites.generated.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
 import {
   hideFrom,
@@ -30,6 +33,14 @@ import {
   altitudeOf,
   BUBBLE_ALPHA,
   bushes,
+  CLOUD_BASE_H,
+  CLOUD_SHADE,
+  CLOUD_SHADE_DROP,
+  CLOUD_SHAPES,
+  type CloudShape,
+  cloudAlpha,
+  cloudColours,
+  clouds,
   GROUND,
   markers,
   POWERUP_IDLE_FRAME,
@@ -37,18 +48,23 @@ import {
   rgbInt,
   SHADOW_ALPHA,
   SHADOW_MIN_SCALE,
+  STAR_LAYERS,
   shadowScale,
   skyColours,
   starField,
+  starOffset,
 } from "@/render/scene/decor.ts";
-import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
+import { BALL_BADGE, ballBadge, FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
 import {
   castsShadow,
   hamsterBox,
   hamsterRotation,
+  isBallPose,
   outcomeOffsetY,
+  poseAlpha,
   poseFor,
 } from "@/render/scene/pose.ts";
+import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -88,7 +104,13 @@ export class PixiRenderer implements Renderer {
   readonly #skyBottom = solidRect();
   readonly #skyTop: Sprite;
   readonly #skyFade: Texture | null;
-  readonly #stars: Graphics;
+  /** One baked Graphics per `STAR_LAYERS` entry, moved as a whole each frame. */
+  readonly #stars: Graphics[];
+  readonly #starLayer = new Container();
+  readonly #clouds = new Container();
+  readonly #cloudPool: Graphics[] = [];
+  /** One baked outline per `CLOUD_SHAPES` entry, shared by every cloud drawn with it. */
+  readonly #cloudShapes = CLOUD_SHAPES.map(bakeCloud);
   /** Sky plus world. Filters hang here so the HUD is never blurred or tinted. */
   readonly #scene = new Container();
   readonly #world = new Container();
@@ -105,9 +127,23 @@ export class PixiRenderer implements Renderer {
   readonly #shadowPivot = new Container();
   readonly #shadow = new Sprite();
   readonly #hamsterPivot = new Container();
-  /** Drawn under the bubble in enhanced mode, so the hamster stays visible. */
+  /** Drawn under the bubble, so the hamster stays visible. */
   readonly #hamsterInner = new Sprite();
   readonly #hamster = new Sprite();
+  /** The sign's two fields, `distance1_txt` then `distance_txt`. */
+  readonly #signs: Text[] = [];
+  readonly #signAscent: number;
+  readonly #ballBadge = new Text({
+    text: "",
+    anchor: 0.5,
+    style: new TextStyle({
+      fontFamily: FONTS.sans,
+      fontSize: BALL_BADGE.size,
+      fontWeight: "bold",
+      fill: BALL_BADGE.fill,
+      stroke: { color: BALL_BADGE.stroke, width: BALL_BADGE.strokeWidth, join: "round" },
+    }),
+  });
 
   // Pools.
   readonly #bushPool: Sprite[] = [];
@@ -135,6 +171,7 @@ export class PixiRenderer implements Renderer {
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false);
     this.#ascentMono10 = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
+    this.#signAscent = CanvasTextMetrics.measureFont(SIGN_TEXT.font).ascent;
 
     this.#skyFade = verticalFadeTexture();
     this.#skyTop = this.#skyFade === null ? solidRect() : new Sprite(this.#skyFade);
@@ -189,7 +226,8 @@ export class PixiRenderer implements Renderer {
       layer.width = C.VIEW_W;
       layer.height = C.VIEW_H;
     }
-    sky.addChild(this.#skyBottom, this.#skyTop, this.#stars);
+    this.#starLayer.addChild(...this.#stars);
+    sky.addChild(this.#skyBottom, this.#skyTop, this.#starLayer, this.#clouds);
     this.#scene.addChild(sky);
     // The filters centre their effects on screen fractions and the ground slab
     // always covers the view, so the scene's filter area is the viewport. Said
@@ -206,7 +244,19 @@ export class PixiRenderer implements Renderer {
     );
 
     this.#shadowPivot.addChild(this.#shadow);
-    this.#hamsterPivot.addChild(this.#hamsterInner, this.#hamster);
+    for (let i = 0; i < 2; i++) {
+      const text = new Text({
+        text: "",
+        style: new TextStyle({
+          fontFamily: FONTS.sans,
+          fontSize: SIGN_TEXT.size,
+          fontWeight: "bold",
+        }),
+      });
+      text.visible = false;
+      this.#signs.push(text);
+    }
+    this.#hamsterPivot.addChild(this.#hamsterInner, this.#hamster, ...this.#signs);
     this.#world.addChild(
       ground,
       this.#bushes,
@@ -217,6 +267,7 @@ export class PixiRenderer implements Renderer {
       this.#particleLayer,
       this.#shadowPivot,
       this.#hamsterPivot,
+      this.#ballBadge,
     );
     this.#scene.addChild(this.#world);
     this.#overlay.addChild(this.#debugBoxes);
@@ -234,14 +285,28 @@ export class PixiRenderer implements Renderer {
 
   /**
    * The star field is a fixed hash, so it is geometry rather than per-frame
-   * work. One Graphics keeps it to a single batch however many stars there are.
+   * work: one Graphics per depth layer, each a single batch however many stars
+   * it holds. The parallax moves the Graphics, not the stars, so every star is
+   * baked four times - the layer's 600 x 400 tile and its neighbours right,
+   * below and diagonally - and the layer is placed a tile up and left of its
+   * wrapped offset, which keeps the screen covered wherever the offset falls.
    */
-  #bakeStars(): Graphics {
-    const g = new Graphics();
-    for (const star of starField(this.#stress)) g.circle(star.x, star.y, star.r);
-    g.fill(0xffffff);
-    g.visible = false;
-    return g;
+  #bakeStars(): Graphics[] {
+    const layers = STAR_LAYERS.map(() => new Graphics());
+    for (const star of starField(this.#stress)) {
+      const g = layers[star.layer];
+      if (g === undefined) continue;
+      for (const [tx, ty] of [
+        [0, 0],
+        [C.VIEW_W, 0],
+        [0, C.VIEW_H],
+        [C.VIEW_W, C.VIEW_H],
+      ] as const) {
+        g.circle(star.x + tx, star.y + ty, star.r);
+      }
+    }
+    for (const g of layers) g.fill(0xffffff);
+    return layers;
   }
 
   // -- lifecycle -------------------------------------------------------------
@@ -267,6 +332,7 @@ export class PixiRenderer implements Renderer {
     this.#filters.destroy(this.#scene);
     this.#textures.destroy();
     this.#skyFade?.destroy(true);
+    for (const shape of this.#cloudShapes) shape.destroy();
     this.#app.destroy({ removeView: false }, { children: true });
   }
 
@@ -291,7 +357,7 @@ export class PixiRenderer implements Renderer {
     this.#drawFx(now);
     this.#drawParticles(now);
     this.#drawHamster(s);
-    this.#hud.draw(s, scene, this.#effects.enhanced, this.#showHitboxes);
+    this.#hud.draw(s, scene, this.#showHitboxes);
     this.#filters.apply(this.#scene, s, this.#effects, now, offsetX, offsetY);
     if (this.#showHitboxes) this.#drawHitboxes(s);
     else this.#debugBoxes.clear();
@@ -306,8 +372,31 @@ export class PixiRenderer implements Renderer {
     // exactly - and without allocating a FillGradient every frame.
     this.#skyBottom.tint = rgbInt(sky.bottom);
     this.#skyTop.tint = rgbInt(sky.top);
-    this.#stars.visible = sky.starAlpha > 0;
-    if (sky.starAlpha > 0) this.#stars.alpha = sky.starAlpha;
+    this.#starLayer.visible = sky.starAlpha > 0;
+    if (sky.starAlpha > 0) {
+      this.#starLayer.alpha = sky.starAlpha;
+      for (const [i, g] of this.#stars.entries()) {
+        const off = starOffset(s.camera, STAR_LAYERS[i]?.parallax ?? 0);
+        g.position.set(off.x - C.VIEW_W, off.y - C.VIEW_H);
+      }
+    }
+
+    let used = 0;
+    if (cloudAlpha(sky) > 0) {
+      for (const cloud of clouds(s.camera, this.#stress)) {
+        const shape = this.#cloudShapes[cloud.shape];
+        if (shape === undefined) continue;
+        const g = poolAt(this.#cloudPool, used++, this.#clouds, () => new Graphics());
+        if (g.context !== shape) g.context = shape;
+        g.position.set(cloud.x, cloud.y);
+        g.scale.set(cloud.scale);
+        // The shade is baked as `CLOUD_SHADE`, so the tint lands it on
+        // `cloudColours().shade` - the Canvas2D colour - by multiplication.
+        g.tint = rgbInt(cloudColours(sky, cloud.y).lit);
+        g.visible = true;
+      }
+    }
+    hideFrom(this.#cloudPool, used);
   }
 
   #ground(s: SimSnapshot): void {
@@ -323,7 +412,7 @@ export class PixiRenderer implements Renderer {
     }
     hideFrom(this.#bushPool, used);
 
-    const marks = markers(s.camera.x, this.#effects.enhanced);
+    const marks = markers(s.camera.x);
     for (const [i, x] of marks.ticks.entries()) {
       const tick = this.#tickAt(i);
       tick.position.set(x, C.GROUND_Y - 7);
@@ -394,6 +483,7 @@ export class PixiRenderer implements Renderer {
 
   #drawHamster(s: SimSnapshot): void {
     const h = s.hamster;
+    this.#ballBadge.visible = false;
     if (!h.visible && s.phaseKind !== "settling") {
       this.#hamsterPivot.visible = false;
       this.#shadowPivot.visible = false;
@@ -410,20 +500,25 @@ export class PixiRenderer implements Renderer {
 
     const pose = poseFor(s);
     const asset = this.#assets.get(pose);
-    const texture =
-      asset === undefined
-        ? undefined
-        : this.#textures.get(asset, this.#effects.poses.frame(s, asset.meta, this.#elapsed));
+    const frame = asset === undefined ? 0 : this.#effects.poses.frame(s, asset.meta, this.#elapsed);
+    const texture = asset === undefined ? undefined : this.#textures.get(asset, frame);
     if (asset === undefined || texture === undefined) {
       this.#hamsterPivot.visible = false;
       return;
     }
+    this.#drawSign(s, pose, frame);
+    const badge = ballBadge(s);
+    if (badge !== null) {
+      if (this.#ballBadge.text !== badge) this.#ballBadge.text = badge;
+      this.#ballBadge.position.set(h.x + BALL_BADGE.dx, h.y + BALL_BADGE.dy);
+      this.#ballBadge.visible = true;
+    }
 
     // The bubble is opaque in the original, so the hamster vanishes inside it
-    // for the whole bounce. Enhanced mode draws the flier underneath.
-    const inBubble = pose === "hamster/ball" && this.#effects.enhanced;
+    // for the whole bounce. The port draws the flier underneath.
+    const inBubble = isBallPose(pose);
     this.#hamsterInner.visible = inBubble;
-    this.#hamster.alpha = inBubble ? BUBBLE_ALPHA : 1;
+    this.#hamster.alpha = poseAlpha(asset.meta) * (inBubble ? BUBBLE_ALPHA : 1);
     if (inBubble) {
       const inside = this.#assets.get("hamster/fly");
       const insideTexture =
@@ -443,6 +538,27 @@ export class PixiRenderer implements Renderer {
     this.#hamsterPivot.rotation = hamsterRotation(s);
     this.#hamster.texture = texture;
     placeInParent(this.#hamster, asset);
+  }
+
+  /** The distance on the outcome clip's sign, placed in the clip's own space. */
+  #drawSign(s: SimSnapshot, pose: SpriteId, frame: number): void {
+    const text = signText(s, pose, frame);
+    const fields = signFields(pose);
+    this.#signs.forEach((sign, i) => {
+      const field = fields[i];
+      sign.visible = text !== null && field !== undefined;
+      if (text === null || field === undefined) return;
+      if (sign.text !== text) sign.text = text;
+      sign.style.fill = field.colour;
+      // Measured unsqueezed: `width` is local, before the matrix below.
+      const squeeze = signScaleX(text, sign.getLocalBounds().width);
+      const [a, b, c, d, tx, ty] = field.matrix;
+      sign.setFromMatrix(
+        new Matrix(a, b, c, d, tx, ty)
+          .append(new Matrix(squeeze, 0, 0, 1, SIGN_TEXT.centreX, SIGN_TEXT.baseline))
+          .append(new Matrix(1, 0, 0, 1, -sign.getLocalBounds().width / 2, -this.#signAscent)),
+      );
+    });
   }
 
   #drawHitboxes(s: SimSnapshot): void {
@@ -501,6 +617,20 @@ export class PixiRenderer implements Renderer {
       return label;
     });
   }
+}
+
+/** A cloud outline as reusable geometry: the shaded underside, then the lit top over it. */
+function bakeCloud(shape: CloudShape): GraphicsContext {
+  const g = new GraphicsContext();
+  const [x, width] = shape.base;
+  for (const [drop, colour] of [
+    [CLOUD_SHADE_DROP, rgbInt(CLOUD_SHADE)],
+    [0, 0xffffff],
+  ] as const) {
+    g.roundRect(x, drop - CLOUD_BASE_H, width, CLOUD_BASE_H, CLOUD_BASE_H / 2).fill(colour);
+    for (const [dx, dy, r] of shape.puffs) g.circle(dx, dy + drop, r).fill(colour);
+  }
+  return g;
 }
 
 export function createPixiRenderer(

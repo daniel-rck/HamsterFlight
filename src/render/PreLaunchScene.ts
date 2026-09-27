@@ -10,8 +10,8 @@ import type { SimSnapshot } from "@/sim/state.ts";
  * their turn, and the launch meter that reads the jump.
  *
  * None of it is an addition. The original drew all of it and this port drew
- * none of it, so it is on in both modes - the same reasoning that keeps the
- * `fx/*` impact clips out of the enhanced gate.
+ * none of it, so it is not an effect to gate - the same reasoning that keeps
+ * the `fx/*` impact clips out of the `motion` gate.
  *
  * The simulation is not consulted and not touched: every frame number here is
  * derived from the snapshot and the event stream, which is the rule
@@ -62,6 +62,19 @@ const QUEUE_STEP = 15;
 const WALK_UP = [19, 25] as const;
 /** The one whose turn it is walks out instead, and hides itself at frame 15. */
 const WALK_OUT = [0, 14] as const;
+
+/**
+ * Where a run started by `nextHamster()` is, from the simulation's walk-out
+ * counter rather than a clock of its own - the way `windupFrame` drives the
+ * jump - so the walker reaching the pad and the pad hamster appearing are the
+ * same tick, and there is never a frame with both or neither. -1 once the run
+ * is over, or when nothing is walking.
+ */
+function walkFrame(walkOut: number | null, run: readonly [number, number]): number {
+  if (walkOut === null) return -1;
+  const frame = run[0] + Math.floor((walkOut * C.TICK_MS * FPS) / 1000);
+  return frame > run[1] ? -1 : frame;
+}
 
 /** `_root.launchMeter`, placed on the main timeline at (78.05, 3). */
 const METER_X = 78.05;
@@ -116,10 +129,6 @@ export class PreLaunchScene {
   /** When the current swing run began; which one it is lives in `#swing`. */
   #swingStartedMs = 0;
   #swing: "idle" | "hit" | "miss" = "idle";
-  /** When the queue last shuffled, and which turn it shuffled into. */
-  #shuffleStartedMs = Number.NEGATIVE_INFINITY;
-  /** Null until the first snapshot, so nothing animates on the way in. */
-  #turn: number | null = null;
 
   /**
    * Takes one tick's events. Only the two launch outcomes matter here: they
@@ -138,26 +147,11 @@ export class PreLaunchScene {
   /** Drop everything in flight - on a restart, or when the tab comes back. */
   clear(): void {
     this.#swing = "idle";
-    this.#shuffleStartedMs = Number.NEGATIVE_INFINITY;
-    this.#turn = null;
   }
 
   layout(s: SimSnapshot, nowMs: number): PreLaunchLayout {
-    // The queue shuffles when the turn changes, not on `turnStart` - that cue
-    // fires on the first click of the new turn, and the original had already
-    // shuffled by then. `nextHamster()` runs from `updateGameState()`, which is
-    // the same moment `turn` increments here. Game.as:396-405, 984-1004.
-    // A drop - a restart - is adopted silently, and so is the first snapshot
-    // after `clear()`: the tab coming back should not replay a shuffle that
-    // happened while it was hidden.
-    if (s.turn !== this.#turn) {
-      const advanced = this.#turn !== null && s.turn > this.#turn;
-      this.#shuffleStartedMs = advanced ? nowMs : Number.NEGATIVE_INFINITY;
-      this.#turn = s.turn;
-    }
-
     return {
-      world: [...this.#launcher(s, nowMs), ...this.#queue(s, nowMs)],
+      world: [...this.#launcher(s, nowMs), ...this.#queue(s)],
       hud: this.#hud(s),
       needle: this.#needle(s),
     };
@@ -197,10 +191,18 @@ export class PreLaunchScene {
     return s.phaseKind === "jumping" ? SWING_WIND : SWING_IDLE;
   }
 
-  #queue(s: SimSnapshot, nowMs: number): Placement[] {
+  /**
+   * `nextHamster()` walks the next one out and shuffles the rest one slot up
+   * in the same call (Game.as:984-1004), when the turn changes - which is when
+   * the simulation starts `walkOut`. Before, the queue ran on a clock of its
+   * own from the first snapshot showing the new turn, and the pad hamster was
+   * already standing there: two hamsters at the launcher for the whole walk.
+   */
+  #queue(s: SimSnapshot): Placement[] {
     const out: Placement[] = [];
-    const shuffling = frameAt(this.#shuffleStartedMs, nowMs, WALK_UP) >= 0;
-    const walkingOut = frameAt(this.#shuffleStartedMs, nowMs, WALK_OUT);
+    const walkUp = walkFrame(s.walkOut, WALK_UP);
+    const walkingOut = walkFrame(s.walkOut, WALK_OUT);
+    const shuffling = walkUp >= 0;
 
     for (const [at, base] of QUEUE_X.entries()) {
       // `hWalkOut2` through `hWalkOut5`: the one at index 0 is next up.
@@ -210,8 +212,9 @@ export class PreLaunchScene {
       const shuffles = s.turn - 1;
 
       if (member === s.turn) {
-        // This one is walking out to the launcher. It hides itself at frame 15
-        // and does not come back until the next game.
+        // This one is walking out to the launcher. It hides itself at frame 15,
+        // where the pad hamster takes over, and does not come back until the
+        // next game.
         if (walkingOut >= 0) {
           out.push({
             sprite: "queue/hamster",
@@ -230,7 +233,7 @@ export class PreLaunchScene {
         // simultaneous. That mismatch is the original's, not a rounding error.
         out.push({
           sprite: "queue/hamster",
-          frame: frameAt(this.#shuffleStartedMs, nowMs, WALK_UP),
+          frame: walkUp,
           x: base + QUEUE_STEP * (shuffles - 1),
           y: QUEUE_Y,
         });

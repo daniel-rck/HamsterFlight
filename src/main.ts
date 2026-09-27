@@ -1,7 +1,7 @@
 import { versionLabel } from "@/app/build.ts";
 import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
-import { modeFromUrl, type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
+import { type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
 import {
   instructionsFromUrl,
   profileWindowFromUrl,
@@ -72,9 +72,9 @@ function startAudioImport(): Promise<AudioPlayer | null> {
 }
 
 /**
- * The Pixi module is imported dynamically so it lands in its own Vite chunk.
- * `?mode=faithful` then costs nothing beyond the entry chunk, and one build
- * still yields both bundle numbers for the comparison.
+ * The Pixi module is imported dynamically so it lands in its own Vite chunk:
+ * the Canvas2D fallback then costs nothing beyond the entry chunk, and one
+ * build still yields both bundle numbers for the comparison.
  *
  * Started here, before the atlas is awaited, so the two downloads overlap:
  * the chunk is 160 kB gzip and used to be requested only after the 2 MB sheet
@@ -193,30 +193,25 @@ function watchStageSize(
 }
 
 /**
- * Size the stage from what the page really has around it, not from an
- * estimate: the footer wraps to a different number of lines at every width.
- * `--chrome` is everything on the page that is not the stage; index.html
- * derives the stage's width from what it leaves of the viewport height.
+ * The help and credits, over the stage from the corner button. Wired before
+ * anything loads, so they open even on a page whose game failed to start.
+ * `onOpen` lets the game pause itself once it exists.
  */
-function fitStageToPage(signal: AbortSignal): void {
-  if (typeof ResizeObserver !== "function") return;
-  const around = [...document.body.children].filter(
-    (el): el is HTMLElement =>
-      el instanceof HTMLElement && !el.classList.contains("stage") && el.tagName !== "SCRIPT",
-  );
-  const measure = (): void => {
-    const body = getComputedStyle(document.body);
-    const padding = Number.parseFloat(body.paddingTop) + Number.parseFloat(body.paddingBottom);
-    const gap = Number.parseFloat(body.rowGap) || 0;
-    // A hidden row (the footer on a landscape phone) takes no gap either.
-    let chrome = padding;
-    for (const el of around) if (el.offsetHeight > 0) chrome += gap + el.offsetHeight;
-    document.documentElement.style.setProperty("--chrome", `${Math.ceil(chrome)}px`);
+function wireAbout(canvas: HTMLCanvasElement, signal: AbortSignal): { onOpen: () => void } {
+  const hooks = { onOpen: (): void => {} };
+  const button = document.querySelector<HTMLButtonElement>("#info");
+  const about = document.querySelector<HTMLElement>("#about");
+  if (button === null || about === null) return hooks;
+  const show = (open: boolean): void => {
+    about.hidden = !open;
+    button.setAttribute("aria-expanded", String(open));
+    if (open) hooks.onOpen();
+    else canvas.focus({ preventScroll: true });
   };
-  measure();
-  const observer = new ResizeObserver(measure);
-  for (const el of around) observer.observe(el);
-  signal.addEventListener("abort", () => observer.disconnect());
+  button.addEventListener("click", () => show(about.hasAttribute("hidden")), { signal });
+  // Anywhere on the overlay closes it; it is information, not a dialog.
+  about.addEventListener("click", () => show(false), { signal });
+  return hooks;
 }
 
 async function boot(): Promise<void> {
@@ -227,13 +222,11 @@ async function boot(): Promise<void> {
   const teardown = new AbortController();
   const { signal } = teardown;
 
-  // Before the stage is measured below: the atlas density depends on its width.
-  fitStageToPage(signal);
+  const about = wireAbout(canvas, signal);
 
   const params = new URLSearchParams(window.location.search);
   const seed = seedFromUrl(params);
-  const mode = modeFromUrl(params);
-  const rendererName = rendererFromUrl(params, mode);
+  const rendererName = rendererFromUrl(params);
 
   // How big the stage actually is decides which atlas is worth downloading -
   // a 1x screen showing a wide layout is already past 1:1.
@@ -264,13 +257,10 @@ async function boot(): Promise<void> {
   const sim = new Simulation({ seed, tuning: DEFAULT_TUNING });
   const stress = stressFromUrl(params);
   // Shake, warp and particles honour the OS-level preference; the rest of the
-  // enhanced presentation - metres, the translucent bubble - is not motion.
+  // presentation - the translucent bubble, the parallax sky - is not motion.
   const reducedMotion =
     typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const effects = new Effects({
-    enhanced: mode === "enhanced",
-    motion: mode === "enhanced" && !reducedMotion,
-  });
+  const effects = new Effects({ motion: !reducedMotion });
   const { renderer, backend } = await pickRenderer(await pixiImport, canvas, assets, effects, {
     showHitboxes: params.has("debug"),
     stress,
@@ -321,7 +311,7 @@ async function boot(): Promise<void> {
   // The profiler wraps draw() from the outside, so neither backend can be
   // instrumented more kindly than the other.
   const profiler = params.has("profile")
-    ? new FrameProfiler(`${mode}/${backend} stress=${stress}`, profileWindowFromUrl(params))
+    ? new FrameProfiler(`${backend} stress=${stress}`, profileWindowFromUrl(params))
     : null;
   // Scraping formatted console output is not reliable across drivers, so the
   // benchmark reads this instead.
@@ -403,6 +393,7 @@ async function boot(): Promise<void> {
     if (current.phaseKind === "ready" || current.phaseKind === "gameOver") return;
     input.pause();
   };
+  about.onOpen = pauseIfMoving;
   window.addEventListener("blur", pauseIfMoving, { signal });
   document.addEventListener(
     "visibilitychange",
@@ -478,10 +469,9 @@ async function boot(): Promise<void> {
   }
 
   console.info(
-    "[hamsterflight] build=%s seed=%d mode=%s renderer=%s - append ?seed=%d to replay",
+    "[hamsterflight] build=%s seed=%d renderer=%s - append ?seed=%d to replay",
     versionLabel(),
     seed,
-    mode,
     backend,
     seed,
   );

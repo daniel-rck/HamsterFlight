@@ -14,31 +14,29 @@
       :root {
         color-scheme: dark;
         --ink: #e8eef5;
-        /* Everything on the page that is not the stage: body padding, the grid
-           gap and a footer of up to five 18 px lines. The stage's width is
-           derived from what this leaves of the viewport height, so the page
-           never grows past the fold - the old fixed max-height budgeted 8rem
-           and came out 11 px short on every desktop viewport, which put a
-           scrollbar on a page whose only control is a canvas. main.ts
-           replaces this estimate with the measured footer: at 600-750 px the
-           footer wraps to seven or eight lines and the guess fell short. */
-        --chrome: 10rem;
+        /* The corner buttons: a stage-relative size, so they stay corners, not
+           slabs, on a phone, and one gap between them. */
+        --corner: clamp(28px, 6.5%, 40px);
+        --corner-gap: 6px;
       }
       * {
         box-sizing: border-box;
       }
+      /* The stage is the page: as large as the viewport allows at 3:2, centred,
+         with the page colour in the bars either side. Nothing else takes a
+         row - the help and credits open over the stage from the corner button -
+         so there is no scrollbar and nothing below the fold. */
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
       body {
         margin: 0;
-        min-height: 100vh;
-        min-height: 100svh;
+        height: 100vh;
+        height: 100svh;
         display: grid;
         place-items: center;
-        /* Pack the stage and the footer together in the middle. Stretched rows
-           left a portrait phone with the stage in the top third and the footer
-           adrift near the bottom. */
-        align-content: center;
-        gap: 1rem;
-        padding: 1rem;
         background: #141c26;
         color: var(--ink);
         font:
@@ -48,14 +46,11 @@
           sans-serif;
       }
       .stage {
-        /* Letterbox on short screens instead of pushing the HUD below the fold:
-           the third term is the widest 3:2 stage the remaining height allows. */
-        width: min(100%, 1600px, calc((100vh - var(--chrome)) * 1.5));
-        width: min(100%, 1600px, calc((100svh - var(--chrome)) * 1.5));
+        /* The whole width, or the widest 3:2 stage the height allows. */
+        width: min(100vw, 150vh);
+        width: min(100vw, 150svh);
         aspect-ratio: 3 / 2;
-        border-radius: 10px;
         overflow: hidden;
-        box-shadow: 0 12px 40px rgb(0 0 0 / 45%);
         position: relative;
       }
       canvas {
@@ -88,8 +83,7 @@
         position: absolute;
         right: 8px;
         bottom: 8px;
-        /* Scales with the stage, so it stays a corner, not a slab, on a phone. */
-        width: clamp(28px, 6.5%, 40px);
+        width: var(--corner);
         aspect-ratio: 1;
         display: grid;
         place-items: center;
@@ -105,16 +99,17 @@
         touch-action: manipulation;
       }
       #pause[hidden],
-      #music[hidden] {
+      #music[hidden],
+      #about[hidden] {
         display: none;
       }
       /* The original's music button sits in the same corner, left of where
          the port put pause. Music only, as there: the effects stay on. */
       #music {
         position: absolute;
-        right: calc(8px + clamp(28px, 6.5%, 40px) + 6px);
+        right: calc(8px + var(--corner) + var(--corner-gap));
         bottom: 8px;
-        width: clamp(28px, 6.5%, 40px);
+        width: var(--corner);
         aspect-ratio: 1;
         display: grid;
         place-items: center;
@@ -171,16 +166,74 @@
       #play-now:focus-visible .over {
         display: block;
       }
+      /* Help and credits, over the stage rather than under it. Always there,
+         even when the game failed to boot: the credits are the point. */
+      #info {
+        position: absolute;
+        right: calc(8px + 2 * (var(--corner) + var(--corner-gap)));
+        bottom: 8px;
+        width: var(--corner);
+        aspect-ratio: 1;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 0;
+        border-radius: 8px;
+        background: rgb(12 20 30 / 55%);
+        color: #eaf6ff;
+        font:
+          italic bold 17px/1 Georgia,
+          serif;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      /* Not over the Play Now! plank, which hangs into that corner. */
+      #instructions:not([hidden]) ~ #info {
+        display: none;
+      }
+      #info[aria-expanded="true"] {
+        background: #7fd4ff;
+        color: #0c141e;
+      }
+      #about {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 1rem;
+        background: rgb(12 20 30 / 72%);
+        cursor: pointer;
+      }
+      #about > div {
+        max-width: 640px;
+        max-height: 100%;
+        overflow: auto;
+        padding: 1rem 1.25rem;
+        border-radius: 10px;
+        background: #1b2430;
+        font-size: 13px;
+        text-align: center;
+      }
+      #about p {
+        margin: 0 0 0.75rem;
+      }
+      #about p:last-child {
+        margin: 0;
+        opacity: 0.7;
+      }
       #music[aria-pressed="true"] {
         color: rgb(234 246 255 / 45%);
         text-decoration: line-through;
       }
-      /* A landscape phone has ~340 px of height; reserving 10rem of it for the
-         credits left a stage the size of a stamp. */
       /* Portrait phones get a 3:2 stage a third of the screen tall, and the
-         HUD text on it is tiny; landscape gives it the whole screen. */
+         HUD text on it is tiny; landscape gives it the whole screen. The hint
+         sits in the bar under the stage, which portrait leaves empty. */
       #rotate {
         display: none;
+        position: fixed;
+        left: 1rem;
+        right: 1rem;
+        bottom: 1.5rem;
         margin: 0;
         font-size: 13px;
         text-align: center;
@@ -189,14 +242,6 @@
       @media (orientation: portrait) and (max-width: 600px) and (pointer: coarse) {
         #rotate {
           display: block;
-        }
-      }
-      @media (max-height: 500px) {
-        body {
-          padding: 0.5rem;
-        }
-        footer {
-          display: none;
         }
       }
       noscript {
@@ -237,12 +282,6 @@
         color: #0c141e;
         cursor: pointer;
       }
-      footer {
-        max-width: 900px;
-        opacity: 0.65;
-        font-size: 12px;
-        text-align: center;
-      }
       kbd {
         background: #2a3543;
         border-radius: 4px;
@@ -252,8 +291,6 @@
       #version {
         font-family: ui-monospace, monospace;
         font-size: 11px;
-        /* Stacked on the footer's 0.65; 0.5 came out near 2.5:1. */
-        opacity: 0.8;
       }
     </style>
   </head>
@@ -288,22 +325,33 @@
       </div>
       <div id="boot" role="status" aria-live="polite">loading…</div>
       <noscript>This game needs JavaScript to run.</noscript>
+      <div id="about" hidden>
+        <div>
+          <p id="how-to">
+            Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide.
+            One swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner
+            button pauses; a click resumes. <kbd>M</kbd> or the note mutes the music.
+          </p>
+          <p>Physics runs at a fixed 20&nbsp;Hz, as the original did.</p>
+          <p>
+            A fan reimplementation built from bytecode analysis of the original Flash game. Not
+            affiliated with the original publisher. Sprites are extracted from the original SWF and
+            remain the property of their respective owners.
+          </p>
+          <p id="version"></p>
+        </div>
+      </div>
+      <button
+        id="info"
+        type="button"
+        aria-label="Help and credits"
+        aria-expanded="false"
+        aria-controls="about"
+      >
+        i
+      </button>
     </div>
     <p id="rotate">Turn your phone sideways for a bigger stage.</p>
-    <footer>
-      <span id="how-to"
-        >Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide. One
-        swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner button
-        pauses; a click resumes. <kbd>M</kbd> or the note mutes the music.</span
-      >
-      Physics runs at a fixed 20&nbsp;Hz, as the original did.
-      <br />
-      A fan reimplementation built from bytecode analysis of the original Flash game. Not affiliated
-      with the original publisher. Sprites are extracted from the original SWF and remain the
-      property of their respective owners.
-      <br />
-      <span id="version"></span>
-    </footer>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

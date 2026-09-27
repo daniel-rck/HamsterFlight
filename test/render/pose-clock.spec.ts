@@ -30,6 +30,7 @@ function snap(setup: Setup = {}): SimSnapshot {
     paused: false,
     swung: false,
     windup: setup.windup ?? null,
+    walkOut: null,
     hamster: {
       x: C.HAMSTER_X,
       y: C.HAMSTER_START_Y,
@@ -43,6 +44,7 @@ function snap(setup: Setup = {}): SimSnapshot {
     powerups: [],
     glidePoints: C.GLIDE_MAX,
     flags: noEffects(),
+    balls: [],
     shots: [],
     feet: 0,
     outcome: setup.outcome ?? null,

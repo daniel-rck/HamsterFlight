@@ -9,6 +9,7 @@ const FRAME_MS = 1000 / 19;
 interface Setup {
   readonly phase?: Phase["kind"];
   readonly turn?: number;
+  readonly walkOut?: number | null;
   readonly y?: number;
   readonly yvel?: number;
   readonly shots?: readonly number[];
@@ -22,12 +23,13 @@ function snap(setup: Setup = {}): SimSnapshot {
     paused: false,
     swung: false,
     windup: null,
+    walkOut: setup.walkOut ?? null,
     hamster: {
       x: C.HAMSTER_X,
       y: setup.y ?? C.HAMSTER_START_Y,
       xvel: 0,
       yvel: setup.yvel ?? 0,
-      visible: true,
+      visible: (setup.walkOut ?? null) === null,
       doRotation: false,
       rotationDeg: 0,
     },
@@ -35,6 +37,7 @@ function snap(setup: Setup = {}): SimSnapshot {
     powerups: [],
     glidePoints: C.GLIDE_MAX,
     flags: noEffects(),
+    balls: [],
     shots: setup.shots ?? [],
     feet: 0,
     outcome: null,
@@ -104,38 +107,53 @@ describe("the hamster queue", () => {
   });
 
   it("shortens from the front and shuffles the rest one slot up", () => {
-    const scene = new PreLaunchScene();
-    scene.layout(snap({ turn: 1 }), 0);
-    scene.layout(snap({ turn: 2 }), 1000);
-    // Well past the walk-out and the shuffle, so only the settled queue is left.
-    const queue = only(scene.layout(snap({ turn: 2 }), 5000).world, "queue/hamster");
+    // The walk is over: only the settled queue is left.
+    const queue = only(new PreLaunchScene().layout(snap({ turn: 2 }), 5000).world, "queue/hamster");
     expect(queue.map((at) => at.x)).toEqual([30.5, 15.5, 0.5]);
   });
 
   it("empties by the last turn", () => {
     const scene = new PreLaunchScene();
-    for (const turn of [1, 2, 3, 4, 5]) scene.layout(snap({ turn }), turn * 5000);
     expect(only(scene.layout(snap({ turn: 5 }), 40000).world, "queue/hamster")).toHaveLength(0);
   });
 
   it("walks the departing one out while the others step up in place", () => {
     const scene = new PreLaunchScene();
-    scene.layout(snap({ turn: 1 }), 0);
-    const queue = only(scene.layout(snap({ turn: 2 }), 1000 + FRAME_MS).world, "queue/hamster");
+    const queue = only(scene.layout(snap({ turn: 2, walkOut: 1 }), 0).world, "queue/hamster");
     // The one leaving is on its walk-out run; the three behind are mid-walkUp
     // and still standing in the slots they have not yet moved out of.
     expect(queue.map((at) => at.frame)).toEqual([0, 19, 19, 19]);
     expect(queue.map((at) => at.x)).toEqual([30.5, 15.5, 0.5, -14.5]);
   });
 
-  it("adopts the turn without a shuffle when the tab comes back", () => {
+  it("finishes the shuffle first, then walks on alone", () => {
+    // Eight ticks in: `walkUp`'s seven frames are done, the walker is not.
+    const queue = only(
+      new PreLaunchScene().layout(snap({ turn: 2, walkOut: 8 }), 0).world,
+      "queue/hamster",
+    );
+    expect(queue.map((at) => at.frame)).toEqual([7, 0, 0, 0]);
+    expect(queue.map((at) => at.x)).toEqual([30.5, 30.5, 15.5, 0.5]);
+  });
+
+  it("hands the walker over to the pad hamster on the same tick", () => {
     const scene = new PreLaunchScene();
-    scene.layout(snap({ turn: 3 }), 0);
-    // The turn advanced while the tab was hidden; `clear()` runs on the way in.
-    scene.clear();
-    const queue = only(scene.layout(snap({ turn: 4 }), 100).world, "queue/hamster");
-    expect(queue.map((at) => at.frame)).toEqual([0]);
-    expect(queue.map((at) => at.x)).toEqual([30.5]);
+    // The last tick of the walk still draws it, near the end of its run.
+    const walking = only(scene.layout(snap({ turn: 2, walkOut: 14 }), 0).world, "queue/hamster");
+    expect(walking[0]?.frame).toBe(13);
+    // Clip 53's frame 15: the walker is gone and the pad hamster is back.
+    const arrived = snap({ turn: 2, walkOut: null });
+    expect(arrived.hamster.visible).toBe(true);
+    expect(only(scene.layout(arrived, 0).world, "queue/hamster")).toHaveLength(3);
+  });
+
+  it("draws from the snapshot alone, so a tab coming back replays nothing", () => {
+    const seen = new PreLaunchScene();
+    seen.layout(snap({ turn: 3 }), 0);
+    const mid = snap({ turn: 4, walkOut: 5 });
+    expect(only(seen.layout(mid, 100).world, "queue/hamster")).toEqual(
+      only(new PreLaunchScene().layout(mid, 100).world, "queue/hamster"),
+    );
   });
 
   it("forgets the queue when the game restarts", () => {

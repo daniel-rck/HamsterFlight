@@ -33,8 +33,7 @@ from the first keystroke; no click on the stage is needed first. Append
 | --- | --- |
 | `?seed=12345` | replay an exact run |
 | `?debug` | hitboxes and a state readout (<kbd>H</kbd> toggles) |
-| `?mode=faithful` | the Canvas2D reference renderer, nothing added |
-| `?renderer=pixi` \| `canvas2d` | pick a backend explicitly, overriding the mode |
+| `?renderer=pixi` \| `canvas2d` | pick a backend explicitly (Canvas2D is the no-WebGL fallback) |
 | `?stress=N` | multiply renderer-only decoration; profiling aid, never touches physics |
 | `?profile` | report draw-time percentiles to the console (skips the instructions board) |
 | `?instructions=0` | skip the instructions board |
@@ -100,9 +99,11 @@ not its numbers. Run `bun run bench` for the current table.
 
 ## Two renderers
 
-`enhanced` is the default and runs on PixiJS, because WebGL is what can carry
-shaders and particle effects; `?mode=faithful` gives the Canvas2D renderer
-drawing exactly what the original stage drew.
+There is one game, and it runs on PixiJS, because WebGL is what can carry
+shaders and particle effects. The Canvas2D renderer draws the same scene
+without the shaders; it is what a machine without WebGL gets, and
+`?renderer=canvas2d` forces it. An earlier `?mode=faithful` - the Canvas2D
+renderer drawing only what the original stage drew - is gone.
 
 That was not the first answer. `reference/doc/renderer-evaluation.md` records a
 measured spike which found Pixi costs about 158 kB gzip and only overtakes Canvas2D
@@ -126,19 +127,30 @@ ones, and `check:bundle` fails the build when they grow past their budget.
 ## What is drawn, and what departs from the original
 
 Both renderers draw from `src/render/scene/`, so they show the same picture by
-construction rather than by keeping two copies in step. Three things are
+construction rather than by keeping two copies in step. Four things are
 presentation choices that the original stage did not make:
 
 - **Interpolation.** The physics snaps at 20 Hz; the picture does not. Each
   frame places the hamster and the camera between the last two ticks by how far
-  into the current tick it falls, in both modes. The original ran at 19 fps
+  into the current tick it falls. The original ran at 19 fps
   with no tweening. Nothing in the simulation or the scores is touched.
+- **A sky that moves.** The stars drift in three depth layers and white
+  clouds in one, each at its own fraction of the camera's speed, so the
+  sideways motion stays readable up where there is no ground to judge it by.
+  The original's sky was a still backdrop; its own clouds are painted for a
+  sunset and are not used.
 - **`prefers-reduced-motion`.** Camera shake, chromatic aberration, the
   shockwave, motion blur and the particles switch off when the OS asks for
-  less motion. The rest of the enhanced presentation stays.
+  less motion. The rest of the presentation stays.
 - **No WebGL, no problem.** If the browser cannot give a WebGL context, or
   Pixi fails to start, the Canvas2D renderer takes over and says so in the
   console. Nobody gets a blank page for want of a GPU.
+
+One is a change to the game itself: **bounce balls stack.** The original holds
+one ball at most, and a second pickup is ignored or replaces the first. Here
+every pink or gold ball joins a queue and each ground contact bursts the oldest,
+with a `×N` beside the ball from two up. It is `Tuning.stackBalls`;
+`ORIGINAL_TUNING` turns it off. See `reference/doc/porting-notes.md`.
 
 ## Assets
 

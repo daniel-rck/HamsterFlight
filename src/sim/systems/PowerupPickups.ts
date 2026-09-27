@@ -3,7 +3,7 @@ import type { SimEvent } from "../events.ts";
 import { overlaps, rotateBox } from "../math/aabb.ts";
 import type { FlightState } from "../state.ts";
 import type { Tuning } from "../tuning.ts";
-import { type EffectFlags, POWERUPS, type PowerupKind } from "../types.ts";
+import { type EffectFlags, isBall, POWERUPS, type PowerupKind } from "../types.ts";
 
 /**
  * `Game.checkPowerUpsColl()` - Game.as:672-774.
@@ -27,7 +27,7 @@ export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): vo
   for (const it of s.powerups) {
     const live = !it.taken || it.activeTicksLeft > 0 || POWERUPS[it.kind].coreStays;
     if (live && overlaps(s.p.x, s.p.y, box, it.x, it.y, tuning.boxes.powerups[it.kind])) {
-      apply(s, it.kind, out);
+      apply(s, it.kind, !it.taken, tuning.stackBalls, out);
       if (!it.taken) {
         it.taken = true;
         it.activeTicksLeft = tuning.powerupActiveTicks[it.kind];
@@ -59,19 +59,33 @@ export function testPickups(s: FlightState, tuning: Tuning, out: SimEvent[]): vo
   }
 }
 
-/** One kind's branch of the `switch`. Guarded kinds fire once, unguarded on every tick. */
-function apply(s: FlightState, kind: PowerupKind, out: SimEvent[]): void {
+/**
+ * One kind's branch of the `switch`. Guarded kinds fire once, unguarded on every
+ * tick. `fresh` is the item's first overlapping tick, before it is `taken`.
+ */
+function apply(
+  s: FlightState,
+  kind: PowerupKind,
+  fresh: boolean,
+  stackBalls: boolean,
+  out: SimEvent[],
+): void {
   const flags = s.flags;
   switch (POWERUPS[kind].mode) {
     case "arm":
-      if (kind === "bounce" ? flags.bounce : flags.superbounce) return;
-      if (kind === "bounce") {
-        flags.bounce = true;
-        flags.superbounce = false;
+      if (!isBall(kind)) return;
+      if (stackBalls) {
+        // Once per item: the guard below is what stops the original counting
+        // one ball twice, and a queue has no guard to lean on.
+        if (!fresh) return;
+        s.balls.push(kind);
       } else {
-        flags.superbounce = true;
-        flags.bounce = false;
+        if (flags[kind]) return;
+        // `bounce = true; superbounce = false` or the other way round: the
+        // new ball replaces whichever was armed.
+        s.balls.splice(0, s.balls.length, kind);
       }
+      syncBallFlags(s);
       // `this.falling = false; this.fallOff();` - Game.as:698, 713.
       clearFalling(flags, out);
       return;
@@ -95,6 +109,13 @@ function apply(s: FlightState, kind: PowerupKind, out: SimEvent[]): void {
       if (kind === "speed") flags.speed = true;
       else flags.wind = true;
   }
+}
+
+/** Points the two ball flags at the head of the queue - the ball that bursts next. */
+export function syncBallFlags(s: FlightState): void {
+  const next = s.balls[0];
+  s.flags.bounce = next === "bounce";
+  s.flags.superbounce = next === "superbounce";
 }
 
 /** `fallOff()` as an event, so a renderer that saw `falling: true` sees it end. */

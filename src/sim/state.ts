@@ -1,5 +1,5 @@
 import type { Projectile } from "./entities/Projectile.ts";
-import type { EffectFlags, PowerupKind, ShotOutcome } from "./types.ts";
+import type { BallKind, EffectFlags, PowerupKind, ShotOutcome } from "./types.ts";
 
 /**
  * Mutability convention: phase payloads (`JumpState`, `FlightState`,
@@ -41,6 +41,13 @@ export interface CameraState {
 export interface FlightState {
   readonly p: Projectile;
   readonly flags: EffectFlags;
+  /**
+   * The armed balls, next to burst first. `flags.bounce`/`flags.superbounce`
+   * mirror its head (`syncBallFlags`), so everything that reads the flags - the
+   * ground cascade, the fall test, the pose - sees the ball that is up. The
+   * original holds one at most; `Tuning.stackBalls` lets it queue.
+   */
+  readonly balls: BallKind[];
   glidePoints: number;
   /** True between `press` and `release`, independent of whether lift applies. */
   gravButton: boolean;
@@ -70,7 +77,16 @@ export interface FlightState {
  * (`pan`, `GameCamera.doQuickPanTo`); `onDone()` advances the turn on arrival.
  */
 export type Phase =
-  | { readonly kind: "ready" }
+  | {
+      readonly kind: "ready";
+      /**
+       * Ticks since `nextHamster()` sent the next hamster walking to the pad;
+       * null once it is there - and at the start of a game, after a restart and
+       * after a missed jump, when the pad hamster never left. While it counts,
+       * the pad is empty and a press does nothing. See `C.WALK_OUT_FRAMES`.
+       */
+      walkOut: number | null;
+    }
   | { readonly kind: "jumping"; readonly jump: JumpState; readonly camera: CameraState }
   | { readonly kind: "flying"; readonly flight: FlightState }
   | {
@@ -119,6 +135,8 @@ export interface SimSnapshot {
    * and once the clip has called `jump()`.
    */
   readonly windup: number | null;
+  /** `ready`'s walk-out counter; null outside `ready` and once the hamster is on the pad. */
+  readonly walkOut: number | null;
   readonly hamster: {
     readonly x: number;
     readonly y: number;
@@ -133,6 +151,8 @@ export interface SimSnapshot {
   readonly powerups: readonly PowerupInstance[];
   readonly glidePoints: number;
   readonly flags: Readonly<EffectFlags>;
+  /** `FlightState.balls`, copied; empty outside `flying`. */
+  readonly balls: readonly BallKind[];
   readonly shots: readonly number[];
   readonly feet: number;
   readonly outcome: ShotOutcome | null;

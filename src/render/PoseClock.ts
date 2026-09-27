@@ -100,7 +100,7 @@ export class PoseClock {
 
   /**
    * The frame for a second clip drawn under the same pose - the `hamster/fly`
-   * that shows through the enhanced mode's `hamster/ball` bubble. It shares the
+   * that shows through the translucent ball bubble. It shares the
    * anchor, so the two never drift apart.
    */
   innerFrame(meta: Pick<SpriteMeta, "frames" | "fps">, nowMs: number): number {

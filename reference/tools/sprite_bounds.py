@@ -68,8 +68,29 @@ def read_name(rd):
     return b.decode('latin1')
 
 
+def read_cxform_alpha(rd):
+    """CXFORMWITHALPHA, read past; returns its alpha multiplier (1.0 if none).
+
+    The superball in the arrow clip (331, depth 74) is placed with one - an
+    alpha multiplier of 179/256 - and stopping at it, as this used to, lost the
+    instance name behind it, so `child_placement(331, 'superball')` found
+    nothing.
+    """
+    rd.align()
+    has_add, has_mult, n = rd.bits(1), rd.bits(1), rd.bits(4)
+    alpha = 1.0
+    if has_mult:
+        _r, _g, _b = sbits(rd, n), sbits(rd, n), sbits(rd, n)
+        alpha = sbits(rd, n) / 256.0
+    if has_add:
+        for _ in range(4):
+            sbits(rd, n)
+    rd.align()
+    return alpha
+
+
 def read_place2(data):
-    """Returns (depth, charId|None, matrix|None, name|None, is_move)."""
+    """Returns (depth, charId|None, matrix|None, name|None, is_move, alpha)."""
     rd = R(data)
     flags = rd.u8()
     depth = rd.u16()
@@ -79,13 +100,12 @@ def read_place2(data):
         cid = rd.u16()
     if flags & 4:
         mat = read_matrix(rd)
-    if flags & 8:
-        return depth, cid, mat, None, is_move  # colour transform: stop parsing
+    alpha = read_cxform_alpha(rd) if flags & 8 else 1.0
     if flags & 16:
         rd.u16()
     if flags & 32:
         name = read_name(rd)
-    return depth, cid, mat, name, is_move
+    return depth, cid, mat, name, is_move, alpha
 
 
 def read_place3(data):
@@ -111,13 +131,12 @@ def read_place3(data):
         cid = rd.u16()
     if flags & 4:
         mat = read_matrix(rd)
-    if flags & 8:
-        return depth, cid, mat, None, is_move  # colour transform: stop parsing
+    alpha = read_cxform_alpha(rd) if flags & 8 else 1.0
     if flags & 16:
         rd.u16()
     if flags & 32:
         name = read_name(rd)
-    return depth, cid, mat, name, is_move
+    return depth, cid, mat, name, is_move, alpha
 
 
 def read_place(code, data):
@@ -185,7 +204,7 @@ class Resolver:
         for code, _name, _off, data in self.sprites[cid]:
             if code in PLACE_TAGS:
                 try:
-                    dep, ccid, mat, _nm, is_move = read_place(code, data)
+                    dep, ccid, mat, _nm, is_move, _alpha = read_place(code, data)
                 except Exception:
                     continue
                 if ccid is not None:
@@ -232,7 +251,7 @@ class Resolver:
         for code, _name, _off, data in self.sprites[cid]:
             if code in PLACE_TAGS:
                 try:
-                    dep, ccid, mat, _nm, is_move = read_place(code, data)
+                    dep, ccid, mat, _nm, is_move, _alpha = read_place(code, data)
                 except Exception:
                     continue
                 if ccid is not None:
@@ -260,18 +279,18 @@ class Resolver:
         return total
 
     def child_placement(self, sid, child_name):
-        """The first placement matrix of a named child inside a sprite."""
+        """(charId, matrix, alpha) of a named child's first placement in a sprite."""
         if sid not in self.sprites:
             return None
         for code, _name, _off, data in self.sprites[sid]:
             if code not in PLACE_TAGS:
                 continue
             try:
-                _dep, ccid, mat, name, _mv = read_place(code, data)
+                _dep, ccid, mat, name, _mv, alpha = read_place(code, data)
             except Exception:
                 continue
             if name == child_name and ccid is not None and mat is not None:
-                return ccid, mat
+                return ccid, mat, alpha
         return None
 
 

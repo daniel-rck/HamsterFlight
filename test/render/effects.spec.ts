@@ -31,7 +31,7 @@ describe("Effects", () => {
   });
 
   it("prunes only what has finished", () => {
-    const effects = new Effects({ enhanced: true });
+    const effects = new Effects();
     effects.consume([BREAK], 0);
     effects.consume([BREAK], FRAME_MS * 3);
     effects.emitSkidDust(0, 950, 0);
@@ -132,9 +132,8 @@ describe("the pickup burst", () => {
 });
 
 describe("Effects with motion off", () => {
-  it("keeps the enhanced presentation but nothing moves or scatters", () => {
-    const effects = new Effects({ enhanced: true, motion: false });
-    expect(effects.enhanced).toBe(true);
+  it("keeps the presentation but nothing moves or scatters", () => {
+    const effects = new Effects({ motion: false });
     expect(effects.motion).toBe(false);
     effects.consume([{ t: "fx", id: "superBreak", x: 0, y: 955 }], 0);
     effects.consume([{ t: "pickup", kind: "speed" }], 0, { x: 100, y: 900 });
@@ -148,25 +147,24 @@ describe("Effects with motion off", () => {
     expect(effects.active(0).map((fx) => fx.sprite)).toEqual(["fx/superBreak", "powerup/speed"]);
   });
 
-  it("defaults motion to the enhanced flag", () => {
-    expect(new Effects({ enhanced: true }).motion).toBe(true);
-    expect(new Effects().motion).toBe(false);
+  it("moves by default", () => {
+    expect(new Effects().motion).toBe(true);
   });
 });
 
 describe("Effects camera shake", () => {
-  const enhanced = (): Effects => new Effects({ enhanced: true });
+  const moving = (): Effects => new Effects();
 
-  it("stays perfectly still in faithful mode", () => {
-    const effects = new Effects();
+  it("stays perfectly still with motion off", () => {
+    const effects = new Effects({ motion: false });
     effects.consume([{ t: "fx", id: "superBreak", x: 0, y: 955 }], 0);
     expect(effects.shakeOffset(0)).toEqual({ x: 0, y: 0 });
     expect(effects.shakeOffset(50)).toEqual({ x: 0, y: 0 });
   });
 
   it("is deterministic - the same impact time gives the same offset", () => {
-    const a = enhanced();
-    const b = enhanced();
+    const a = moving();
+    const b = moving();
     a.consume([BREAK], 1234);
     b.consume([BREAK], 1234);
     for (const at of [1234, 1290, 1400, 1489]) {
@@ -175,7 +173,7 @@ describe("Effects camera shake", () => {
   });
 
   it("decays to exactly zero and stays there", () => {
-    const effects = enhanced();
+    const effects = moving();
     effects.consume([BREAK], 0);
     const early = Math.abs(effects.shakeOffset(20).x) + Math.abs(effects.shakeOffset(20).y);
     const late = Math.abs(effects.shakeOffset(200).x) + Math.abs(effects.shakeOffset(200).y);
@@ -185,7 +183,7 @@ describe("Effects camera shake", () => {
   });
 
   it("never exceeds the impact amplitude", () => {
-    const effects = enhanced();
+    const effects = moving();
     effects.consume([{ t: "fx", id: "superBreak", x: 0, y: 955 }], 0);
     for (let at = 0; at < 260; at += 3) {
       const { x, y } = effects.shakeOffset(at);
@@ -195,7 +193,7 @@ describe("Effects camera shake", () => {
   });
 
   it("does not let a light bounce cut a superbounce short", () => {
-    const effects = enhanced();
+    const effects = moving();
     effects.consume([{ t: "fx", id: "superBreak", x: 0, y: 955 }], 0);
     const strong = effects.shakeOffset(30);
     effects.consume([{ t: "fx", id: "bounceFx", x: 0, y: 955 }], 30);
@@ -203,11 +201,11 @@ describe("Effects camera shake", () => {
   });
 
   it("shakes on a faceplant, which carries no fx cue of its own", () => {
-    const effects = enhanced();
+    const effects = moving();
     effects.consume([{ t: "shotDone", feet: 40, outcome: "faceplant" }], 0);
     expect(effects.shakeOffset(20)).not.toEqual({ x: 0, y: 0 });
 
-    const cheered = enhanced();
+    const cheered = moving();
     cheered.consume([{ t: "shotDone", feet: 40, outcome: "cheer" }], 0);
     expect(cheered.shakeOffset(20)).toEqual({ x: 0, y: 0 });
   });
@@ -215,7 +213,7 @@ describe("Effects camera shake", () => {
 
 describe("Effects shockwave", () => {
   it("starts at the impact, in world coordinates, and expands", () => {
-    const effects = new Effects({ enhanced: true });
+    const effects = new Effects();
     effects.consume([{ t: "fx", id: "superBreak", x: 1234, y: 955 }], 0);
 
     const early = effects.shockwave(40);
@@ -226,7 +224,7 @@ describe("Effects shockwave", () => {
   });
 
   it("ends cleanly and does not come back", () => {
-    const effects = new Effects({ enhanced: true });
+    const effects = new Effects();
     effects.consume([{ t: "fx", id: "break", x: 0, y: 955 }], 0);
     expect(effects.shockwave(259)).not.toBeNull();
     expect(effects.shockwave(260)).toBeNull();
@@ -234,7 +232,7 @@ describe("Effects shockwave", () => {
   });
 
   it("scales with the impact, and a light one cannot displace a hard one", () => {
-    const effects = new Effects({ enhanced: true });
+    const effects = new Effects();
     effects.consume([{ t: "fx", id: "bounceFx", x: 0, y: 955 }], 0);
     const light = effects.shockwave(10)?.amplitude ?? 0;
     effects.consume([{ t: "fx", id: "superBreak", x: 0, y: 955 }], 20);
@@ -245,19 +243,19 @@ describe("Effects shockwave", () => {
     expect(effects.shockwave(50)?.amplitude).toBe(hard);
   });
 
-  it("does not run in faithful mode - the original stage never warped", () => {
-    const faithful = new Effects();
-    faithful.consume([{ t: "fx", id: "break", x: 0, y: 955 }], 0);
-    expect(faithful.shockwave(40)).toBeNull();
-    expect(faithful.aberration(40)).toBe(0);
+  it("does not run with motion off", () => {
+    const still = new Effects({ motion: false });
+    still.consume([{ t: "fx", id: "break", x: 0, y: 955 }], 0);
+    expect(still.shockwave(40)).toBeNull();
+    expect(still.aberration(40)).toBe(0);
     // The impact clips are restoration, not addition, so they still play.
-    expect(faithful.active(0)).toHaveLength(1);
+    expect(still.active(0)).toHaveLength(1);
   });
 });
 
 describe("Effects at rest", () => {
   it("reports nothing running before anything has happened", () => {
-    const effects = new Effects({ enhanced: true });
+    const effects = new Effects();
     // performance.now() is small at boot; a wave keyed only on elapsed time
     // would read as live here and attach the filter for nothing.
     for (const at of [0, 1, 40, 259, 1000]) {
@@ -273,17 +271,17 @@ describe("Effects at rest", () => {
 const DUST_STEP = 50;
 
 describe("Effects particles", () => {
-  const enhanced = (): Effects => new Effects({ enhanced: true });
+  const moving = (): Effects => new Effects();
 
-  it("emits nothing in faithful mode", () => {
-    const effects = new Effects();
+  it("emits nothing with motion off", () => {
+    const effects = new Effects({ motion: false });
     effects.emitSkidDust(100, 950, 0);
     effects.consume([{ t: "pickup", kind: "speed" }], 0, { x: 100, y: 900 });
     expect(effects.particles(10)).toHaveLength(0);
   });
 
   it("throws skid grit backwards and lets it fall", () => {
-    const effects = enhanced();
+    const effects = moving();
     effects.emitSkidDust(100, 950, 0);
     const born = effects.particles(0);
     expect(born.length).toBeGreaterThan(0);
@@ -296,21 +294,21 @@ describe("Effects particles", () => {
   });
 
   it("rate-limits the skid so a long slide does not flood the field", () => {
-    const effects = enhanced();
+    const effects = moving();
     for (let at = 0; at < 40; at += 5) effects.emitSkidDust(100, 950, at);
     // 40 ms of ticks is under one emission interval, so only the first landed.
     expect(effects.particles(1)).toHaveLength(3);
   });
 
   it("drops particles once they have run out", () => {
-    const effects = enhanced();
+    const effects = moving();
     effects.emitSkidDust(100, 950, 0);
     expect(effects.particles(419).length).toBeGreaterThan(0);
     expect(effects.particles(420)).toHaveLength(0);
   });
 
   it("bursts sparks where the hamster was when the pickup fired", () => {
-    const effects = enhanced();
+    const effects = moving();
     effects.consume([{ t: "pickup", kind: "bounce" }], 0, { x: 640, y: 800 });
     const sparks = effects.particles(0);
     expect(sparks.length).toBeGreaterThan(4);
@@ -318,8 +316,8 @@ describe("Effects particles", () => {
   });
 
   it("is deterministic, so a replay scatters them identically", () => {
-    const a = enhanced();
-    const b = enhanced();
+    const a = moving();
+    const b = moving();
     for (const effects of [a, b]) {
       effects.emitSkidDust(100, 950, 0);
       effects.consume([{ t: "pickup", kind: "wind" }], 60, { x: 300, y: 700 });
@@ -328,7 +326,7 @@ describe("Effects particles", () => {
   });
 
   it("caps the field, however long the skid runs", () => {
-    const effects = enhanced();
+    const effects = moving();
     for (let at = 0; at < 20_000; at += DUST_STEP) effects.emitSkidDust(100, 950, at);
     expect(effects.particles(19_999).length).toBeLessThanOrEqual(160);
   });

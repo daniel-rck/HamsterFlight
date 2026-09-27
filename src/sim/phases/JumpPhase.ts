@@ -13,6 +13,8 @@ export function framesToTicks(frames: number): number {
 export const JUMP_WINDUP_TICKS = framesToTicks(C.JUMP_WINDUP_FRAMES);
 /** The tick `snd_jump` starts on - clip 52's frame 23. */
 export const JUMP_SFX_TICK = framesToTicks(C.JUMP_SFX_FRAMES);
+/** The tick the next hamster reaches the pad - clip 53's frame 15. */
+export const WALK_OUT_TICKS = framesToTicks(C.WALK_OUT_FRAMES);
 
 /**
  * The click: `hamster.gotoAndPlay("jump")` - Game.as:1024. The hamster stays on

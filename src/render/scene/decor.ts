@@ -1,7 +1,7 @@
 import type { SpriteId } from "@/assets/sprites.generated.ts";
-import { markerScale } from "@/render/units.ts";
+import { markerLabel, markerScale } from "@/render/units.ts";
 import { C } from "@/sim/constants.ts";
-import type { SimSnapshot } from "@/sim/state.ts";
+import type { CameraState, SimSnapshot } from "@/sim/state.ts";
 import type { PowerupKind } from "@/sim/types.ts";
 
 /**
@@ -99,10 +99,26 @@ export function skyColours(altitude: number): Sky {
   };
 }
 
+/**
+ * The star field's depth layers, far to near. Each drifts against the camera
+ * at its own fraction of the camera's speed, so up among the stars - where
+ * there is no ground, no bush and rarely a powerup to measure speed against -
+ * the sky itself still shows which way and how fast the hamster is going, and
+ * the layers sliding past each other read as depth. The nearer, the bigger.
+ */
+export const STAR_LAYERS = [
+  { parallax: 0.02, size: 0.8 },
+  { parallax: 0.06, size: 1 },
+  { parallax: 0.14, size: 1.35 },
+] as const;
+
 export interface Star {
+  /** Within the 600 x 400 tile the layer repeats on. */
   readonly x: number;
   readonly y: number;
   readonly r: number;
+  /** Index into `STAR_LAYERS`. */
+  readonly layer: number;
 }
 
 /** Deterministic from a cheap hash, so the field is stable without state. */
@@ -110,13 +126,177 @@ export function starField(stress: number): readonly Star[] {
   const out: Star[] = [];
   for (let i = 0; i < STAR_COUNT * stress; i++) {
     const h = Math.imul(i + 1, 0x9e3779b1) >>> 0;
+    const layer = i % STAR_LAYERS.length;
     out.push({
       x: ((h % 1000) / 1000) * C.VIEW_W,
       y: (((h >>> 10) % 1000) / 1000) * C.VIEW_H,
-      r: 0.6 + ((h >>> 20) % 3) * 0.35,
+      r: (0.6 + ((h >>> 20) % 3) * 0.35) * (STAR_LAYERS[layer]?.size ?? 1),
+      layer,
     });
   }
   return out;
+}
+
+/** `value` mod `span`, always in [0, span). */
+export function wrap(value: number, span: number): number {
+  const r = value % span;
+  return r < 0 ? r + span : r;
+}
+
+/**
+ * Where a star layer's tile starts on screen, in [0, VIEW_W) x [0, VIEW_H).
+ * The camera offsets are the world's own translation, so the layer moves the
+ * same way the world does, only slower: left as the hamster flies right, down
+ * as it climbs.
+ */
+export function starOffset(camera: CameraState, parallax: number): { x: number; y: number } {
+  return { x: wrap(camera.x * parallax, C.VIEW_W), y: wrap(camera.y * parallax, C.VIEW_H) };
+}
+
+/** A star's position on screen, with its layer drifted by the camera. */
+export function starAt(star: Star, camera: CameraState): { x: number; y: number } {
+  const off = starOffset(camera, STAR_LAYERS[star.layer]?.parallax ?? 0);
+  return { x: wrap(star.x + off.x, C.VIEW_W), y: wrap(star.y + off.y, C.VIEW_H) };
+}
+
+/** A puff: centre offset from the cloud's anchor, and radius, in cloud pixels. */
+export type Puff = readonly [dx: number, dy: number, r: number];
+
+export interface CloudShape {
+  /** The flat underside, left end and width, sitting on the anchor line. */
+  readonly base: readonly [x: number, width: number];
+  readonly puffs: readonly Puff[];
+}
+
+/**
+ * Three cloud outlines, drawn rather than taken from the atlas: the original's
+ * cloud clips are painted for its sunset backdrop, and gold and orange against
+ * this port's blue sky read as something other than weather. The anchor is the
+ * middle of the flat underside.
+ */
+export const CLOUD_SHAPES: readonly CloudShape[] = [
+  {
+    base: [-58, 116],
+    puffs: [
+      [-40, -8, 16],
+      [-16, -20, 24],
+      [14, -24, 28],
+      [42, -12, 18],
+    ],
+  },
+  {
+    base: [-40, 80],
+    puffs: [
+      [-22, -10, 16],
+      [2, -20, 22],
+      [26, -10, 15],
+    ],
+  },
+  {
+    base: [-76, 152],
+    puffs: [
+      [-58, -8, 15],
+      [-34, -18, 22],
+      [-4, -26, 28],
+      [28, -18, 22],
+      [56, -8, 16],
+    ],
+  },
+];
+
+/** Radius of the flat underside's rounded ends, and how far the shaded rim drops below. */
+export const CLOUD_BASE_H = 14;
+export const CLOUD_SHADE_DROP = 4;
+
+/** The lit tops and the shaded underside, before the fade into the sky. */
+export const CLOUD_WHITE: Rgb = [255, 255, 255];
+export const CLOUD_SHADE: Rgb = [214, 228, 242];
+
+/**
+ * The cloud layer: one plane behind the world, drifting at `parallax` of the
+ * camera's speed. It covers the blue part of the climb - the stretch between
+ * the bushes and the stars where the sky was a bare gradient - and scrolls out
+ * of view as the hamster climbs into the stars, where `STAR_LAYERS` take over.
+ * Layer units are screen pixels at the camera's rest position; `top` and
+ * `bottom` bound the band, a cloud per cell with probability `share`.
+ */
+export const CLOUD_LAYER = {
+  parallax: 0.45,
+  cellW: 240,
+  cellH: 150,
+  top: -1500,
+  bottom: 150,
+  share: 0.35,
+} as const;
+
+export interface CloudPlacement {
+  /** Index into `CLOUD_SHAPES`. */
+  readonly shape: number;
+  /** Screen position of the anchor. */
+  readonly x: number;
+  readonly y: number;
+  readonly scale: number;
+}
+
+/**
+ * The clouds on screen, drawn from a stable hash of their cell so no state is
+ * needed. `stress` packs the cells tighter, as it does the bushes.
+ */
+export function clouds(camera: CameraState, stress: number): readonly CloudPlacement[] {
+  const layer = CLOUD_LAYER;
+  const cellW = layer.cellW / Math.max(1, stress);
+  // The layer's own offset: how far it has slid since the camera's rest.
+  const dx = camera.x * layer.parallax;
+  const dy = (camera.y - C.CAM_Y_CLAMP) * layer.parallax;
+  const out: CloudPlacement[] = [];
+  // Margins for the widest cloud (about 160 px scaled up) and the jitter.
+  const firstCol = Math.floor((-dx - 220) / cellW);
+  const lastCol = Math.floor((-dx + C.VIEW_W + 100) / cellW);
+  const firstRow = Math.max(
+    Math.floor((-dy - 100) / layer.cellH),
+    Math.floor(layer.top / layer.cellH),
+  );
+  const lastRow = Math.min(
+    Math.floor((-dy + C.VIEW_H + 60) / layer.cellH),
+    Math.floor(layer.bottom / layer.cellH),
+  );
+  for (let row = firstRow; row <= lastRow; row++) {
+    for (let col = firstCol; col <= lastCol; col++) {
+      const h =
+        Math.imul(Math.imul(col, 0x27d4eb2f) ^ Math.imul(row + 7, 0x165667b1), 0x9e3779b1) >>> 0;
+      if ((h % 1000) / 1000 >= layer.share) continue;
+      out.push({
+        shape: (h >>> 10) % CLOUD_SHAPES.length,
+        x: col * cellW + (((h >>> 12) % 1000) / 1000) * cellW * 0.8 + dx,
+        y: row * layer.cellH + (((h >>> 22) % 100) / 100) * layer.cellH * 0.6 + dy,
+        scale: 0.7 + ((h >>> 5) % 50) / 100,
+      });
+    }
+  }
+  return out;
+}
+
+/**
+ * A cloud's two colours at screen height `y`, faded towards the sky behind it.
+ * Fading the colour rather than the alpha keeps the puffs opaque, so where they
+ * overlap they do not double up into darker seams. The shade is the lit colour
+ * multiplied by `CLOUD_SHADE`, which is exactly what a tint does to shade baked
+ * into WebGL geometry - so both renderers land on the same pixels.
+ */
+export function cloudColours(sky: Sky, y: number): { lit: Rgb; shade: Rgb } {
+  const behind = mix(sky.top, sky.bottom, clamp(y / C.VIEW_H, 0, 1));
+  const lit = mix(behind, CLOUD_WHITE, cloudAlpha(sky));
+  const shade: Rgb = [
+    Math.round((lit[0] * CLOUD_SHADE[0]) / 255),
+    Math.round((lit[1] * CLOUD_SHADE[1]) / 255),
+    Math.round((lit[2] * CLOUD_SHADE[2]) / 255),
+  ];
+  return { lit, shade };
+}
+
+/** Clouds give way to the night: gone once the stars are fully out. */
+export function cloudAlpha(sky: Sky): number {
+  return 1 - sky.starAlpha;
 }
 
 export interface BushPlacement {
@@ -150,8 +330,8 @@ export interface Markers {
 }
 
 /** Distance markers along the ground, so progress is readable without the HUD. */
-export function markers(cameraX: number, metric: boolean): Markers {
-  const scale = markerScale(C.PX_PER_FOOT, metric);
+export function markers(cameraX: number): Markers {
+  const scale = markerScale(C.PX_PER_FOOT);
   const every = scale.step * scale.labelEvery;
   const first = Math.max(0, Math.floor((-cameraX - 100) / scale.pixels / scale.step) * scale.step);
   const until = -cameraX + C.VIEW_W + 100;
@@ -161,7 +341,7 @@ export function markers(cameraX: number, metric: boolean): Markers {
     const x = at * scale.pixels;
     ticks.push(x);
     // No label at the origin: it says nothing, and it sat on the tower's leg.
-    if (at !== 0 && at % every === 0) labels.push({ x, text: `${at}${scale.suffix}` });
+    if (at !== 0 && at % every === 0) labels.push({ x, text: markerLabel(at) });
   }
   return { ticks, labels };
 }

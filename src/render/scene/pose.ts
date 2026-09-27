@@ -27,7 +27,11 @@ export function poseFor(s: SimSnapshot): SpriteId {
   const f = s.flags;
   if (f.slide && f.skidding) return "hamster/slide";
   if (f.skidding) return "hamster/skid";
-  if (f.bounce || f.superbounce) return "hamster/ball";
+  // Two clips, not one: `ball` (177) is the pink bounce, `superball` (330) the
+  // gold one, and each pickup shows its own and hides the other
+  // (Game.as:692-693, 707-708). The flags never both hold.
+  if (f.superbounce) return "hamster/superball";
+  if (f.bounce) return "hamster/ball";
   if (f.falling) return "hamster/drop";
   if (f.glide) return "hamster/glide";
   if (f.speed) return "hamster/blur";
@@ -97,7 +101,8 @@ const IDENTITY: Affine = [1, 0, 0, 1, 0, 0];
  * (display-lists.txt, sprite 331). Not every pose is authored the same way
  * round: `flying_mc` and `drop` are drawn facing right and placed a quarter
  * turn anticlockwise, `glide` is placed at 0.9 scale, and `wind`, `blur`,
- * `slide`, `skid` and `ball` are drawn pointing up and placed as they are.
+ * `slide`, `skid` and `ball` are drawn pointing up and placed as they are, and
+ * `superball` is placed a quarter turn clockwise at 0.71 scale.
  *
  * Subtracting the `+ 90` from every pose, as this used to, was right for
  * `flying_mc` alone: a skid or a skateboard slide - rotation pinned at 90 on
@@ -106,6 +111,20 @@ const IDENTITY: Affine = [1, 0, 0, 1, 0, 0];
  */
 export function posePlacement(meta: SpriteMeta): Affine {
   return meta.placement ?? IDENTITY;
+}
+
+/**
+ * The alpha that placement adds. Only the superball has one: clip 331 places it
+ * at depth 74 with a colour transform of 179/256 alpha, so the gold ball is
+ * translucent where the pink one's fills carry their own.
+ */
+export function poseAlpha(meta: SpriteMeta): number {
+  return meta.alpha ?? 1;
+}
+
+/** Either bounce ball - the poses the flier is drawn inside. */
+export function isBallPose(id: SpriteId): boolean {
+  return id === "hamster/ball" || id === "hamster/superball";
 }
 
 /** The hamster's hit box as the sim tests it: the flight core turns with the clip. */

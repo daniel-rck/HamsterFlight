@@ -16,6 +16,13 @@ export const POWERUP_KINDS = [
 
 export type PowerupKind = (typeof POWERUP_KINDS)[number];
 
+/** The two `arm` kinds: the pink ball and the gold one. */
+export type BallKind = "bounce" | "superbounce";
+
+export function isBall(kind: PowerupKind): kind is BallKind {
+  return kind === "bounce" || kind === "superbounce";
+}
+
 /**
  * How a powerup behaves on overlap. The distinction matters because the
  * original guards some kinds against re-triggering and others not:

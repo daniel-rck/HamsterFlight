@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { modeFromUrl, rendererFromUrl } from "@/app/GameMode.ts";
+import { rendererFromUrl } from "@/app/GameMode.ts";
 import {
   instructionsFromUrl,
   MAX_STRESS,
@@ -53,26 +53,24 @@ describe("the instructions board", () => {
   });
 });
 
-describe("?mode and ?renderer", () => {
-  it("defaults to enhanced on pixi", () => {
-    expect(modeFromUrl(q(""), silent)).toBe("enhanced");
-    expect(rendererFromUrl(q(""), "enhanced", silent)).toBe("pixi");
-    expect(rendererFromUrl(q(""), "faithful", silent)).toBe("canvas2d");
+describe("?renderer", () => {
+  it("defaults to pixi", () => {
+    expect(rendererFromUrl(q(""), silent)).toBe("pixi");
+    // The mode switch is gone; an old link carrying it gets the one game.
+    expect(rendererFromUrl(q("mode=faithful"), silent)).toBe("pixi");
   });
 
   it("warns on a typo and keeps the default rather than silently switching", () => {
     const warnings: string[] = [];
     const warn = (m: string) => warnings.push(m);
-    expect(modeFromUrl(q("mode=fatihful"), warn)).toBe("enhanced");
-    // A bad renderer value follows the mode, not a hard-coded backend.
-    expect(rendererFromUrl(q("renderer=pixijs"), "enhanced", warn)).toBe("pixi");
-    expect(rendererFromUrl(q("renderer="), "faithful", warn)).toBe("canvas2d");
-    expect(warnings).toHaveLength(3);
-    expect(warnings[0]).toContain("fatihful");
+    expect(rendererFromUrl(q("renderer=pixijs"), warn)).toBe("pixi");
+    expect(rendererFromUrl(q("renderer="), warn)).toBe("pixi");
+    expect(warnings).toHaveLength(2);
+    expect(warnings[0]).toContain("pixijs");
   });
 
   it("honours an explicit override", () => {
-    expect(rendererFromUrl(q("renderer=canvas2d"), "enhanced", silent)).toBe("canvas2d");
-    expect(rendererFromUrl(q("renderer=pixi"), "faithful", silent)).toBe("pixi");
+    expect(rendererFromUrl(q("renderer=canvas2d"), silent)).toBe("canvas2d");
+    expect(rendererFromUrl(q("renderer=pixi"), silent)).toBe("pixi");
   });
 });
