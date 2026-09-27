@@ -3,6 +3,7 @@ import {
   CanvasTextMetrics,
   Container,
   Graphics,
+  GraphicsContext,
   Matrix,
   Rectangle,
   Sprite,
@@ -32,6 +33,14 @@ import {
   altitudeOf,
   BUBBLE_ALPHA,
   bushes,
+  CLOUD_BASE_H,
+  CLOUD_SHADE,
+  CLOUD_SHADE_DROP,
+  CLOUD_SHAPES,
+  type CloudShape,
+  cloudAlpha,
+  cloudColours,
+  clouds,
   GROUND,
   markers,
   POWERUP_IDLE_FRAME,
@@ -39,9 +48,11 @@ import {
   rgbInt,
   SHADOW_ALPHA,
   SHADOW_MIN_SCALE,
+  STAR_LAYERS,
   shadowScale,
   skyColours,
   starField,
+  starOffset,
 } from "@/render/scene/decor.ts";
 import { BALL_BADGE, ballBadge, FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
 import {
@@ -93,7 +104,13 @@ export class PixiRenderer implements Renderer {
   readonly #skyBottom = solidRect();
   readonly #skyTop: Sprite;
   readonly #skyFade: Texture | null;
-  readonly #stars: Graphics;
+  /** One baked Graphics per `STAR_LAYERS` entry, moved as a whole each frame. */
+  readonly #stars: Graphics[];
+  readonly #starLayer = new Container();
+  readonly #clouds = new Container();
+  readonly #cloudPool: Graphics[] = [];
+  /** One baked outline per `CLOUD_SHAPES` entry, shared by every cloud drawn with it. */
+  readonly #cloudShapes = CLOUD_SHAPES.map(bakeCloud);
   /** Sky plus world. Filters hang here so the HUD is never blurred or tinted. */
   readonly #scene = new Container();
   readonly #world = new Container();
@@ -209,7 +226,8 @@ export class PixiRenderer implements Renderer {
       layer.width = C.VIEW_W;
       layer.height = C.VIEW_H;
     }
-    sky.addChild(this.#skyBottom, this.#skyTop, this.#stars);
+    this.#starLayer.addChild(...this.#stars);
+    sky.addChild(this.#skyBottom, this.#skyTop, this.#starLayer, this.#clouds);
     this.#scene.addChild(sky);
     // The filters centre their effects on screen fractions and the ground slab
     // always covers the view, so the scene's filter area is the viewport. Said
@@ -267,14 +285,28 @@ export class PixiRenderer implements Renderer {
 
   /**
    * The star field is a fixed hash, so it is geometry rather than per-frame
-   * work. One Graphics keeps it to a single batch however many stars there are.
+   * work: one Graphics per depth layer, each a single batch however many stars
+   * it holds. The parallax moves the Graphics, not the stars, so every star is
+   * baked four times - the layer's 600 x 400 tile and its neighbours right,
+   * below and diagonally - and the layer is placed a tile up and left of its
+   * wrapped offset, which keeps the screen covered wherever the offset falls.
    */
-  #bakeStars(): Graphics {
-    const g = new Graphics();
-    for (const star of starField(this.#stress)) g.circle(star.x, star.y, star.r);
-    g.fill(0xffffff);
-    g.visible = false;
-    return g;
+  #bakeStars(): Graphics[] {
+    const layers = STAR_LAYERS.map(() => new Graphics());
+    for (const star of starField(this.#stress)) {
+      const g = layers[star.layer];
+      if (g === undefined) continue;
+      for (const [tx, ty] of [
+        [0, 0],
+        [C.VIEW_W, 0],
+        [0, C.VIEW_H],
+        [C.VIEW_W, C.VIEW_H],
+      ] as const) {
+        g.circle(star.x + tx, star.y + ty, star.r);
+      }
+    }
+    for (const g of layers) g.fill(0xffffff);
+    return layers;
   }
 
   // -- lifecycle -------------------------------------------------------------
@@ -300,6 +332,7 @@ export class PixiRenderer implements Renderer {
     this.#filters.destroy(this.#scene);
     this.#textures.destroy();
     this.#skyFade?.destroy(true);
+    for (const shape of this.#cloudShapes) shape.destroy();
     this.#app.destroy({ removeView: false }, { children: true });
   }
 
@@ -339,8 +372,31 @@ export class PixiRenderer implements Renderer {
     // exactly - and without allocating a FillGradient every frame.
     this.#skyBottom.tint = rgbInt(sky.bottom);
     this.#skyTop.tint = rgbInt(sky.top);
-    this.#stars.visible = sky.starAlpha > 0;
-    if (sky.starAlpha > 0) this.#stars.alpha = sky.starAlpha;
+    this.#starLayer.visible = sky.starAlpha > 0;
+    if (sky.starAlpha > 0) {
+      this.#starLayer.alpha = sky.starAlpha;
+      for (const [i, g] of this.#stars.entries()) {
+        const off = starOffset(s.camera, STAR_LAYERS[i]?.parallax ?? 0);
+        g.position.set(off.x - C.VIEW_W, off.y - C.VIEW_H);
+      }
+    }
+
+    let used = 0;
+    if (cloudAlpha(sky) > 0) {
+      for (const cloud of clouds(s.camera, this.#stress)) {
+        const shape = this.#cloudShapes[cloud.shape];
+        if (shape === undefined) continue;
+        const g = poolAt(this.#cloudPool, used++, this.#clouds, () => new Graphics());
+        if (g.context !== shape) g.context = shape;
+        g.position.set(cloud.x, cloud.y);
+        g.scale.set(cloud.scale);
+        // The shade is baked as `CLOUD_SHADE`, so the tint lands it on
+        // `cloudColours().shade` - the Canvas2D colour - by multiplication.
+        g.tint = rgbInt(cloudColours(sky, cloud.y).lit);
+        g.visible = true;
+      }
+    }
+    hideFrom(this.#cloudPool, used);
   }
 
   #ground(s: SimSnapshot): void {
@@ -561,6 +617,20 @@ export class PixiRenderer implements Renderer {
       return label;
     });
   }
+}
+
+/** A cloud outline as reusable geometry: the shaded underside, then the lit top over it. */
+function bakeCloud(shape: CloudShape): GraphicsContext {
+  const g = new GraphicsContext();
+  const [x, width] = shape.base;
+  for (const [drop, colour] of [
+    [CLOUD_SHADE_DROP, rgbInt(CLOUD_SHADE)],
+    [0, 0xffffff],
+  ] as const) {
+    g.roundRect(x, drop - CLOUD_BASE_H, width, CLOUD_BASE_H, CLOUD_BASE_H / 2).fill(colour);
+    for (const [dx, dy, r] of shape.puffs) g.circle(dx, dy + drop, r).fill(colour);
+  }
+  return g;
 }
 
 export function createPixiRenderer(

@@ -8,6 +8,13 @@ import {
   altitudeOf,
   BUBBLE_ALPHA,
   bushes,
+  CLOUD_BASE_H,
+  CLOUD_SHADE_DROP,
+  CLOUD_SHAPES,
+  type CloudShape,
+  cloudAlpha,
+  cloudColours,
+  clouds,
   GROUND,
   markers,
   POWERUP_IDLE_FRAME,
@@ -18,6 +25,7 @@ import {
   type Star,
   shadowScale,
   skyColours,
+  starAt,
   starField,
 } from "@/render/scene/decor.ts";
 import {
@@ -49,6 +57,17 @@ import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
 const CHROME = `rgba(12,20,30,${HUD_COLOURS.chromeAlpha})`;
 const PROMPT_CHROME = `rgba(12,20,30,${HUD_COLOURS.promptAlpha})`;
 const MARKER_INK = `rgba(255,255,255,${HUD_COLOURS.markerAlpha})`;
+
+/** One path for the whole outline: every sub-shape winds the same way, so it fills as a union. */
+function cloudPath(ctx: CanvasRenderingContext2D, shape: CloudShape, drop: number): void {
+  const [x, width] = shape.base;
+  ctx.beginPath();
+  ctx.roundRect(x, drop - CLOUD_BASE_H, width, CLOUD_BASE_H, CLOUD_BASE_H / 2);
+  for (const [dx, dy, r] of shape.puffs) {
+    ctx.moveTo(dx + r, dy + drop);
+    ctx.arc(dx, dy + drop, r, 0, Math.PI * 2);
+  }
+}
 
 function hex(colour: number): string {
   return `#${colour.toString(16).padStart(6, "0")}`;
@@ -158,11 +177,30 @@ export class GameRenderer implements Renderer {
       ctx.globalAlpha = sky.starAlpha;
       ctx.fillStyle = "#fff";
       for (const star of this.#stars) {
+        const at = starAt(star, s.camera);
         ctx.beginPath();
-        ctx.arc(star.x, star.y, star.r, 0, Math.PI * 2);
+        ctx.arc(at.x, at.y, star.r, 0, Math.PI * 2);
         ctx.fill();
       }
       ctx.globalAlpha = 1;
+    }
+
+    if (cloudAlpha(sky) > 0) {
+      for (const cloud of clouds(s.camera, this.#stress)) {
+        const shape = CLOUD_SHAPES[cloud.shape];
+        if (shape === undefined) continue;
+        const colours = cloudColours(sky, cloud.y);
+        ctx.save();
+        ctx.translate(cloud.x, cloud.y);
+        ctx.scale(cloud.scale, cloud.scale);
+        cloudPath(ctx, shape, CLOUD_SHADE_DROP);
+        ctx.fillStyle = rgbCss(colours.shade);
+        ctx.fill();
+        cloudPath(ctx, shape, 0);
+        ctx.fillStyle = rgbCss(colours.lit);
+        ctx.fill();
+        ctx.restore();
+      }
     }
   }
 

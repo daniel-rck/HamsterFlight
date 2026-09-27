@@ -46,7 +46,9 @@ function recordingCanvas(
     fillText: () => undefined,
     strokeRect: () => undefined,
     beginPath: () => undefined,
+    moveTo: () => undefined,
     arc: () => undefined,
+    roundRect: () => undefined,
     fill: () => undefined,
     drawImage: (
       _image: unknown,

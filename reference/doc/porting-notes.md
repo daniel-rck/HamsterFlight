@@ -589,6 +589,16 @@ There was none. The simulation had emitted its cues all along - `sfx`,
   and the two breaks to 165 (Game.as:812, 831, 853). The port places them at
   the hamster's world x, which is the same point while the camera follows at
   its 150 px anchor and differs only left of x = 150.
+- **A parallax sky.** The original's backdrop (`background_mc`, 145) was a
+  still starfield, sunset bar and hills, and the port had kept only a gradient
+  with a screen-fixed star field - so above the bushes nothing on screen moved
+  and a flight at 60 px a tick looked like hovering. The stars now sit in
+  three depth layers drifting at 2, 6 and 14 % of the camera, and a cloud layer
+  at 45 % covers the blue stretch below them (`src/render/scene/decor.ts`).
+  The clouds are drawn, not the atlas's `cloud/*`: those clips are painted
+  gold for the original's sunset and look wrong against this sky. They fade
+  into the sky colour as the stars come in, rather than turning translucent,
+  so overlapping puffs stay seamless in both renderers.
 - **Metres.** The original scores in feet. The port shows every length - the
   shot, the total, the game-over line, the sign and the ground markers - in
   metres to two decimals (`src/render/units.ts`). The score is still whole feet, as

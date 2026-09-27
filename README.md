@@ -127,13 +127,18 @@ ones, and `check:bundle` fails the build when they grow past their budget.
 ## What is drawn, and what departs from the original
 
 Both renderers draw from `src/render/scene/`, so they show the same picture by
-construction rather than by keeping two copies in step. Three things are
+construction rather than by keeping two copies in step. Four things are
 presentation choices that the original stage did not make:
 
 - **Interpolation.** The physics snaps at 20 Hz; the picture does not. Each
   frame places the hamster and the camera between the last two ticks by how far
   into the current tick it falls. The original ran at 19 fps
   with no tweening. Nothing in the simulation or the scores is touched.
+- **A sky that moves.** The stars drift in three depth layers and white
+  clouds in one, each at its own fraction of the camera's speed, so the
+  sideways motion stays readable up where there is no ground to judge it by.
+  The original's sky was a still backdrop; its own clouds are painted for a
+  sunset and are not used.
 - **`prefers-reduced-motion`.** Camera shake, chromatic aberration, the
   shockwave, motion blur and the particles switch off when the OS asks for
   less motion. The rest of the presentation stays.
