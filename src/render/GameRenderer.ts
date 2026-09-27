@@ -226,9 +226,9 @@ export class GameRenderer implements Renderer {
 
   #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
     ctx.fillStyle = hex(GROUND.colour);
-    ctx.fillRect(GROUND.x, C.GROUND_Y, GROUND.width, GROUND.height);
+    ctx.fillRect(GROUND.x, GROUND.y, GROUND.width, GROUND.height);
     ctx.fillStyle = hex(GROUND.lipColour);
-    ctx.fillRect(GROUND.x, C.GROUND_Y, GROUND.width, GROUND.lip);
+    ctx.fillRect(GROUND.x, GROUND.y, GROUND.width, GROUND.lip);
 
     for (const bush of bushes(s.camera.x, this.#stress)) {
       const sprite = this.#assets.get(bush.sprite);
@@ -243,8 +243,8 @@ export class GameRenderer implements Renderer {
     const marks = markers(s.camera.x);
     ctx.fillStyle = MARKER_INK;
     ctx.font = FONTS.marker;
-    for (const x of marks.ticks) ctx.fillRect(x, C.GROUND_Y - 7, 1, 7);
-    for (const label of marks.labels) ctx.fillText(label.text, label.x + 3, C.GROUND_Y - 10);
+    for (const x of marks.ticks) ctx.fillRect(x, GROUND.y - 7, 1, 7);
+    for (const label of marks.labels) ctx.fillText(label.text, label.x + 3, GROUND.y - 10);
   }
 
   /** The record and the ghost's shot, planted where they came down. */

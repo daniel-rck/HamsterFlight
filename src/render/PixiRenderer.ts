@@ -264,8 +264,8 @@ export class PixiRenderer implements Renderer {
     // Ground is two slabs the width of the whole course; static, so built once.
     const ground = new Container();
     ground.addChild(
-      slab(GROUND.x, C.GROUND_Y, GROUND.width, GROUND.height, GROUND.colour),
-      slab(GROUND.x, C.GROUND_Y, GROUND.width, GROUND.lip, GROUND.lipColour),
+      slab(GROUND.x, GROUND.y, GROUND.width, GROUND.height, GROUND.colour),
+      slab(GROUND.x, GROUND.y, GROUND.width, GROUND.lip, GROUND.lipColour),
     );
 
     this.#shadowPivot.addChild(this.#shadow);
@@ -453,14 +453,14 @@ export class PixiRenderer implements Renderer {
     const marks = markers(s.camera.x);
     for (const [i, x] of marks.ticks.entries()) {
       const tick = this.#tickAt(i);
-      tick.position.set(x, C.GROUND_Y - 7);
+      tick.position.set(x, GROUND.y - 7);
       tick.visible = true;
     }
     hideFrom(this.#markerTicks, marks.ticks.length);
     for (const [i, label] of marks.labels.entries()) {
       const text = this.#labelAt(i);
       if (text.text !== label.text) text.text = label.text;
-      text.position.set(label.x + 3, C.GROUND_Y - 10 - this.#ascentMono10);
+      text.position.set(label.x + 3, GROUND.y - 10 - this.#ascentMono10);
       text.visible = true;
     }
     hideFrom(this.#markerLabels, marks.labels.length);

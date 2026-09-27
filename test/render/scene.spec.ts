@@ -211,7 +211,8 @@ describe("ground decoration", () => {
     expect(a.length).toBeGreaterThan(2);
     for (const bush of a) {
       expect(BUSHES).toContain(bush.sprite);
-      expect(bush.y).toBe(C.GROUND_Y);
+      // On the original's own line, Game.as:1268 - not the collision ground.
+      expect(bush.y).toBe(885);
     }
     // Neighbouring slots are a spacing apart, give or take the jitter.
     const xs = a.map((b) => b.x);
