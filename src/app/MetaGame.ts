@@ -125,8 +125,13 @@ export class MetaGame {
     return { mode: { kind: "free" }, badRun: false };
   }
 
-  /** The seed for the next game in this mode. */
+  /**
+   * The seed for the next game in this mode. `GameSession` asks for it on PLAY
+   * AGAIN, before this sees the restart - so a daily game begun after midnight
+   * has to become the new day's here, or it would play yesterday's seed.
+   */
   nextSeed(): number {
+    this.#refreshDay();
     const mode = this.#mode;
     if (mode.kind === "daily") return dailySeed(mode.day);
     if (mode.kind === "duel") return mode.ghost.seed;
@@ -227,12 +232,14 @@ export class MetaGame {
     this.#earned = [];
     this.#tracker.reset();
     this.#race?.reset();
-    // A daily game begun after midnight is the new day's.
-    if (this.#mode.kind === "daily" && this.#mode.day !== this.#o.today()) {
-      this.#mode = dailyMode(this.#progress, this.#o.today());
-      this.#race = raceFor(this.#mode);
-    }
     this.announce();
+  }
+
+  /** A daily challenge left open past midnight moves on to the new day, and its best. */
+  #refreshDay(): void {
+    if (this.#mode.kind !== "daily" || this.#mode.day === this.#o.today()) return;
+    this.#mode = dailyMode(this.#progress, this.#o.today());
+    this.#race = raceFor(this.#mode);
   }
 
   /** A burst where the hamster passes the record or the ghost's mark. */

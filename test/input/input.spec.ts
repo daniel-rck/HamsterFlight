@@ -38,7 +38,7 @@ function pointer(target: EventTarget, type: string, pointerId: number, button = 
   target.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { pointerId, button }));
 }
 
-function setup(extra: { onToggleMusic?: () => void } = {}) {
+function setup(extra: { onToggleMusic?: () => void; onToggleFullscreen?: () => void } = {}) {
   const canvas = fakeCanvas();
   const keys = new EventTarget();
   const page = fakePage();
@@ -215,6 +215,17 @@ describe("InputController", () => {
     pointer(canvas, "pointerdown", 1);
     key(keys, "keydown", " ");
     expect(kinds(input)).toEqual([]);
+  });
+});
+
+describe("full screen", () => {
+  it("toggles on F, as a callback rather than a command", () => {
+    let toggled = 0;
+    const { keys, input } = setup({ onToggleFullscreen: () => toggled++ });
+    key(keys, "keydown", "f");
+    key(keys, "keydown", "F");
+    expect(toggled).toBe(2);
+    expect(input.drain()).toEqual([]);
   });
 });
 

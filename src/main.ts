@@ -468,10 +468,14 @@ async function boot(): Promise<void> {
     if (el !== null) el.hidden = false;
   }
 
+  // Set below, once it is known the browser can do it at all.
+  let toggleFullscreen: (() => void) | null = null;
   input.attach(canvas, {
     onToggleHitboxes: () => renderer.toggleHitboxes(),
     onToggleMusic: toggleMusic,
     onToggleSfx: toggleSfx,
+    // The button is out of the tab order like the other corners, so it gets a key too.
+    onToggleFullscreen: () => toggleFullscreen?.(),
   });
   signal.addEventListener("abort", () => input.detach());
 
@@ -501,27 +505,24 @@ async function boot(): Promise<void> {
   };
   if (fullscreenButton !== null && document.fullscreenEnabled === true) {
     fullscreenButton.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
-    fullscreenButton.addEventListener(
-      "click",
-      () => {
-        if (document.fullscreenElement !== null) {
-          void document.exitFullscreen().catch(() => undefined);
-          return;
-        }
-        void document.documentElement
-          .requestFullscreen({ navigationUI: "hide" })
-          .then(() => {
-            // A phone held upright gets a third of the screen; ask for landscape.
-            const orientation = screen.orientation as ScreenOrientation & {
-              lock?: (o: string) => Promise<void>;
-            };
-            return touch ? orientation.lock?.("landscape") : undefined;
-          })
-          .catch(() => undefined)
-          .finally(() => canvas.focus({ preventScroll: true }));
-      },
-      { signal },
-    );
+    toggleFullscreen = (): void => {
+      if (document.fullscreenElement !== null) {
+        void document.exitFullscreen().catch(() => undefined);
+        return;
+      }
+      void document.documentElement
+        .requestFullscreen({ navigationUI: "hide" })
+        .then(() => {
+          // A phone held upright gets a third of the screen; ask for landscape.
+          const orientation = screen.orientation as ScreenOrientation & {
+            lock?: (o: string) => Promise<void>;
+          };
+          return touch ? orientation.lock?.("landscape") : undefined;
+        })
+        .catch(() => undefined)
+        .finally(() => canvas.focus({ preventScroll: true }));
+    };
+    fullscreenButton.addEventListener("click", toggleFullscreen, { signal });
     document.addEventListener("fullscreenchange", syncFullscreenButton, { signal });
     syncFullscreenButton();
     fullscreenButton.hidden = false;

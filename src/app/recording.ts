@@ -36,6 +36,16 @@ const FORMAT = 1;
  */
 export const MAX_RUN_STEPS = 100_000;
 
+/**
+ * The step cap bounds the replay's loop but not the commands inside one step,
+ * so a link could pack millions of them into step 0. The page never sends more
+ * than four to a step - press and confirm, release, a pause - and a real game
+ * encodes to a few kilobytes; these are well past both, and are checked before
+ * anything is built from the input.
+ */
+export const MAX_RUN_CHARS = 65_536;
+export const MAX_COMMANDS_PER_STEP = 8;
+
 const CODES: readonly InputCommand["kind"][] = [
   "press",
   "release",
@@ -103,6 +113,7 @@ export function encodeRun(run: Run): string {
 
 /** The run in `text`, or null for anything that is not one - it comes from a URL. */
 export function decodeRun(text: string): Run | null {
+  if (text.length > MAX_RUN_CHARS) return null;
   const bytes = fromBase64Url(text);
   if (bytes === null) return null;
   const reader = { bytes, at: 0 };
@@ -126,6 +137,7 @@ export function decodeRun(text: string): Run | null {
       if (step > endStep) return null;
       entries.push({ step, commands: [{ kind }] });
     } else {
+      if (previous.commands.length >= MAX_COMMANDS_PER_STEP) return null;
       previous.commands.push({ kind });
     }
   }

@@ -28,8 +28,8 @@ or the note button mutes the music (music only, as in the original), and
 <kbd>S</kbd> or the FX button the sound effects; <kbd>H</kbd> toggles the
 hitbox overlay. The keyboard works from the first keystroke; no click on the
 stage is needed first. A gamepad works too - the bottom face button is the
-button, <kbd>Start</kbd> pauses - and the corner arrow goes full screen where
-the browser allows it. Append `?seed=12345` to replay an exact run.
+button, <kbd>Start</kbd> pauses - and <kbd>F</kbd> or the corner arrow goes
+full screen where the browser allows it. Append `?seed=12345` to replay an exact run.
 
 | query parameter | effect |
 | --- | --- |

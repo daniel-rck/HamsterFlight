@@ -13,6 +13,8 @@ export interface InputOptions {
   readonly onToggleMusic?: () => void;
   /** `S` - the effects, the port's own switch. */
   readonly onToggleSfx?: () => void;
+  /** `F` - full screen, which only the page can ask for. */
+  readonly onToggleFullscreen?: () => void;
   readonly targets?: InputTargets;
 }
 
@@ -103,6 +105,8 @@ export class InputController {
         options.onToggleMusic?.();
       } else if (ev.key === "s" || ev.key === "S") {
         options.onToggleSfx?.();
+      } else if (ev.key === "f" || ev.key === "F") {
+        options.onToggleFullscreen?.();
       }
     });
     on<KeyboardEvent>(targets.keys, "keyup", (ev) => {

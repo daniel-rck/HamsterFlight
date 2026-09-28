@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { decodeRun, encodeRun, MAX_RUN_STEPS, type Run, RunRecorder } from "@/app/recording.ts";
+import {
+  decodeRun,
+  encodeRun,
+  MAX_COMMANDS_PER_STEP,
+  MAX_RUN_CHARS,
+  MAX_RUN_STEPS,
+  type Run,
+  RunRecorder,
+} from "@/app/recording.ts";
 import { replayRun } from "@/app/replay.ts";
 import type { InputCommand } from "@/sim/commands.ts";
 import { C } from "@/sim/constants.ts";
@@ -112,6 +120,30 @@ describe("decodeRun", () => {
   it("refuses a run too long to replay", () => {
     const run: Run = { seed: 1, entries: [], endStep: MAX_RUN_STEPS + 1 };
     expect(decodeRun(encodeRun(run))).toBeNull();
+  });
+
+  it("refuses a step stuffed with commands, before building the rest", () => {
+    const press = { kind: "press" } as const;
+    const ok: Run = { seed: 1, entries: [{ step: 0, commands: [press, press] }], endStep: 10 };
+    expect(decodeRun(encodeRun(ok))).toEqual(ok);
+    const stuffed: Run = {
+      seed: 1,
+      entries: [{ step: 0, commands: Array.from({ length: 100 }, () => press) }],
+      endStep: 10,
+    };
+    expect(decodeRun(encodeRun(stuffed))).toBeNull();
+    const atCap: Run = {
+      seed: 1,
+      entries: [{ step: 0, commands: Array.from({ length: MAX_COMMANDS_PER_STEP }, () => press) }],
+      endStep: 10,
+    };
+    expect(decodeRun(encodeRun(atCap))).toEqual(atCap);
+  });
+
+  it("refuses a link longer than any real game encodes to", () => {
+    expect(decodeRun("A".repeat(MAX_RUN_CHARS + 4))).toBeNull();
+    // A real game is a small fraction of the cap.
+    expect(encodeRun(playGame(5).run).length).toBeLessThan(MAX_RUN_CHARS / 8);
   });
 
   it("does not trust a run that does not end in a game over", () => {

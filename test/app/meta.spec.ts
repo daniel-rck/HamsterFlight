@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { AchievementTracker } from "@/app/achievements.ts";
+import { dailySeed } from "@/app/daily.ts";
 import { GhostRace } from "@/app/ghost.ts";
 import { vibrationFor } from "@/app/haptics.ts";
 import { ACHIEVEMENT_IDS, pickLang, STRINGS } from "@/app/i18n.ts";
@@ -183,13 +184,18 @@ describe("MetaGame, over a real session", () => {
     throw new Error("the game never ended");
   }
 
-  function metaGame(store: ProgressStore, mode: Mode, shown: ResultsModel[] = []): MetaGame {
+  function metaGame(
+    store: ProgressStore,
+    mode: Mode,
+    shown: ResultsModel[] = [],
+    today: () => string = () => "2026-09-27",
+  ): MetaGame {
     return new MetaGame(
       {
         store,
         strings: STRINGS.en,
         toasts: { show: () => undefined } as unknown as Toasts,
-        today: () => "2026-09-27",
+        today,
         randomSeed: () => 4,
         celebrate: () => undefined,
         share: async () => "copied",
@@ -235,6 +241,27 @@ describe("MetaGame, over a real session", () => {
     });
     expect(again).toBe(total);
     expect(seen).toBeGreaterThan(50);
+  });
+
+  it("plays the new day's seed when a daily game is replayed after midnight", () => {
+    let day = "2026-09-27";
+    const store = memoryStore();
+    const { mode } = MetaGame.modeFor(new URLSearchParams("daily"), emptyProgress(), day);
+    const meta = metaGame(store, mode, [], () => day);
+    const session = new GameSession({
+      seed: meta.nextSeed(),
+      nextSeed: () => meta.nextSeed(),
+      tuning: DEFAULT_TUNING,
+    });
+    expect(session.seed).toBe(dailySeed("2026-09-27"));
+    play(session, meta);
+    for (let i = 0; i < 200 && !session.snapshot.restartable; i++) meta.step(session.step([]));
+    day = "2026-09-28";
+    const restart = session.step([{ kind: "confirm" }]);
+    meta.step(restart);
+    expect(restart.restarted).toBe(true);
+    expect(session.seed).toBe(dailySeed("2026-09-28"));
+    expect(meta.mode).toMatchObject({ kind: "daily", day: "2026-09-28", ghost: null });
   });
 
   it("plants the record flag and shows the results once PLAY AGAIN is up", () => {
