@@ -37,8 +37,20 @@ export const BUSH_SPACING = 260;
 export const BUBBLE_ALPHA = 0.62;
 export const SHADOW_ALPHA = 0.45;
 
-/** The ground: two slabs the width of the whole course. */
+/**
+ * The ground: two slabs the width of the whole course.
+ *
+ * `y` is where the grass begins, and it is not the line the hamster lands on.
+ * The original's field is seen from a little above: its bushes stand on
+ * `_y = 885` (Game.as:1268), the tower's legs stop at 914 and 923, the wheel
+ * poles go into the grass at 975 and the queue's feet are at 987 - while the
+ * ground the simulation collides with is `C.GROUND_Y`, 950, down in the grass
+ * with them. Drawing the grass from 950 put its edge below the tower's feet and
+ * left the tower standing on air. Presentation only: nothing here moves
+ * `C.GROUND_Y`, the landing, the skid or the shadow.
+ */
 export const GROUND = {
+  y: 885,
   x: -2000,
   width: 400_000,
   height: 600,
@@ -318,7 +330,7 @@ export function bushes(cameraX: number, stress: number): readonly BushPlacement[
   const until = -cameraX + C.VIEW_W + 200;
   for (let x = from; x < until; x += spacing) {
     const h = Math.imul(Math.round(x) + 7919, 0x85ebca6b) >>> 0;
-    out.push({ sprite: BUSHES[h % BUSHES.length] ?? BUSHES[0], x: x + (h % 90), y: C.GROUND_Y });
+    out.push({ sprite: BUSHES[h % BUSHES.length] ?? BUSHES[0], x: x + (h % 90), y: GROUND.y });
   }
   return out;
 }

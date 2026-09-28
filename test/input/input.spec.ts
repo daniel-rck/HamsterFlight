@@ -38,7 +38,7 @@ function pointer(target: EventTarget, type: string, pointerId: number, button = 
   target.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { pointerId, button }));
 }
 
-function setup(extra: { onToggleMusic?: () => void } = {}) {
+function setup(extra: { onToggleMusic?: () => void; onToggleFullscreen?: () => void } = {}) {
   const canvas = fakeCanvas();
   const keys = new EventTarget();
   const page = fakePage();
@@ -215,5 +215,65 @@ describe("InputController", () => {
     pointer(canvas, "pointerdown", 1);
     key(keys, "keydown", " ");
     expect(kinds(input)).toEqual([]);
+  });
+});
+
+describe("full screen", () => {
+  it("toggles on F, as a callback rather than a command", () => {
+    let toggled = 0;
+    const { keys, input } = setup({ onToggleFullscreen: () => toggled++ });
+    key(keys, "keydown", "f");
+    key(keys, "keydown", "F");
+    expect(toggled).toBe(2);
+    expect(input.drain()).toEqual([]);
+  });
+});
+
+describe("gamepad", () => {
+  const pad = (button: boolean, start = false): Gamepad =>
+    ({
+      connected: true,
+      buttons: Array.from({ length: 10 }, (_, i) => ({
+        pressed: i === 0 ? button : i === 9 ? start : false,
+      })),
+    }) as unknown as Gamepad;
+
+  it("presses on the button's way down and releases on its way up, once each", () => {
+    const { input } = setup();
+    input.pollGamepads([pad(true)]);
+    input.pollGamepads([pad(true)]);
+    expect(input.drain().map((c) => c.kind)).toEqual(["press", "confirm"]);
+    expect(input.held).toBe(true);
+    input.pollGamepads([null, pad(false)]);
+    expect(input.drain().map((c) => c.kind)).toEqual(["release"]);
+    expect(input.held).toBe(false);
+  });
+
+  it("pauses on Start", () => {
+    const { input } = setup();
+    input.pollGamepads([pad(false, true)]);
+    input.pollGamepads([pad(false, true)]);
+    expect(input.drain().map((c) => c.kind)).toEqual(["togglePause"]);
+  });
+
+  it("does not press again for a button still down after the window went away", () => {
+    const { input, page } = setup();
+    input.pollGamepads([pad(true)]);
+    input.drain();
+    page.hide();
+    expect(input.drain().map((c) => c.kind)).toEqual(["release"]);
+    input.pollGamepads([pad(true)]);
+    expect(input.drain()).toEqual([]);
+    input.pollGamepads([pad(false)]);
+    input.pollGamepads([pad(true)]);
+    expect(input.drain().map((c) => c.kind)).toEqual(["press", "confirm"]);
+  });
+
+  it("is ignored while a key already holds the press", () => {
+    const { input, keys } = setup();
+    key(keys, "keydown", " ");
+    input.drain();
+    input.pollGamepads([pad(true)]);
+    expect(input.drain()).toEqual([]);
   });
 });

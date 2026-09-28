@@ -24,10 +24,12 @@ play sound. Press <kbd>Space</kbd> or click to jump, again to hit the pillow,
 then hold to glide. One swing per jump: miss it and the hamster lands back on
 the pad and you jump again, which costs nothing - only the pillow ends a turn.
 <kbd>P</kbd> or <kbd>Esc</kbd> pauses and a click or tap resumes; <kbd>M</kbd>
-or the note button mutes the music (music only, as in the original);
-<kbd>H</kbd> toggles the hitbox overlay. The keyboard works
-from the first keystroke; no click on the stage is needed first. Append
-`?seed=12345` to replay an exact run.
+or the note button mutes the music (music only, as in the original), and
+<kbd>S</kbd> or the FX button the sound effects; <kbd>H</kbd> toggles the
+hitbox overlay. The keyboard works from the first keystroke; no click on the
+stage is needed first. A gamepad works too - the bottom face button is the
+button, <kbd>Start</kbd> pauses - and <kbd>F</kbd> or the corner arrow goes
+full screen where the browser allows it. Append `?seed=12345` to replay an exact run.
 
 | query parameter | effect |
 | --- | --- |
@@ -37,6 +39,9 @@ from the first keystroke; no click on the stage is needed first. Append
 | `?stress=N` | multiply renderer-only decoration; profiling aid, never touches physics |
 | `?profile` | report draw-time percentiles to the console (skips the instructions board) |
 | `?instructions=0` | skip the instructions board |
+| `?run=…` | race the ghost of a shared game (what "Challenge a friend" links to) |
+| `?daily` | play today's daily challenge |
+| `?lang=en` \| `de` | pick the language; otherwise the saved choice, then the browser's |
 
 ## What makes this port unusual
 
@@ -151,6 +156,31 @@ one ball at most, and a second pickup is ignored or replaces the first. Here
 every pink or gold ball joins a queue and each ground contact bursts the oldest,
 with a `×N` beside the ball from two up. It is `Tuning.stackBalls`;
 `ORIGINAL_TUNING` turns it off. See `reference/doc/porting-notes.md`.
+
+## Beyond the original
+
+The original ended a game with its total and a PLAY AGAIN button. The port
+wraps a little more around it, none of which touches the simulation:
+
+- **Results and records.** After five hamsters a panel lists the shots, the
+  total and the personal record, which the page keeps in one `localStorage`
+  key. A flag on the ground marks the longest shot so far.
+- **Challenge a friend.** Every game is recorded as its seed and inputs, and
+  the results panel shares that as a link. Opening it replays the game - the
+  sender's score is recomputed, not trusted - and flies it as a translucent
+  ghost beside yours, shot for shot.
+- **Daily challenge.** One seed per local day, so everyone gets the same
+  powerups; each try races the day's best so far, and consecutive days count
+  as a streak.
+- **Achievements.** Fifteen goals, from a first cheer to beating a friend's
+  ghost, listed under the help button.
+- **German.** The port's own words follow the browser or the language picker;
+  the INSTRUCTIONS board is the original's art and stays English.
+
+PLAY AGAIN also works differently underneath: it builds a fresh simulation
+from a new seed rather than calling the original's `reset()`, whose random
+streams ran on across games. That is what makes each game replayable on its
+own. `docs/specs/00-hamsterflight.md` has the details.
 
 ## Assets
 

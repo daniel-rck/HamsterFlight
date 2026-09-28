@@ -87,10 +87,47 @@ export function totalFeet(s: SimSnapshot): number {
   return total;
 }
 
-export function panelLines(s: SimSnapshot): readonly [string, string] {
+/**
+ * Every word the canvas shows. English is the default and what the tests
+ * read; the page hands a renderer another set through `RendererOptions`.
+ * `tap` is whether the primary pointer is a finger.
+ */
+export interface HudStrings {
+  readonly tries: (turn: number, of: number) => string;
+  readonly totalLabel: string;
+  readonly glide: string;
+  readonly paused: (tap: boolean) => string;
+  readonly jump: (tap: boolean) => string;
+  readonly missed: string;
+  readonly getReady: string;
+  readonly swing: (tap: boolean) => string;
+  readonly hold: string;
+  readonly total: (distance: string) => string;
+  readonly playAgain: (distance: string, tap: boolean) => string;
+  readonly ghost: string;
+  readonly record: string;
+}
+
+export const EN_HUD: HudStrings = {
+  tries: (turn, of) => `try ${turn}/${of}`,
+  totalLabel: "total",
+  glide: "glide",
+  paused: (tap) => (tap ? "paused - tap to resume" : "paused - click, Space or P to resume"),
+  jump: (tap) => `${tap ? "tap" : "click"} to jump`,
+  missed: "missed - wait for the landing",
+  getReady: "get ready...",
+  swing: (tap) => `${tap ? "tap" : "click"} again to hit the pillow`,
+  hold: "hold to glide",
+  total: (distance) => `${distance} total`,
+  playAgain: (distance, tap) => `${distance} total - ${tap ? "tap" : "click"} to play again`,
+  ghost: "ghost",
+  record: "record",
+};
+
+export function panelLines(s: SimSnapshot, t: HudStrings = EN_HUD): readonly [string, string] {
   return [
-    `try ${Math.min(s.turn, C.TURNS)}/${C.TURNS}`,
-    `${metres(s.feet)}   total ${metres(totalFeet(s))}`,
+    t.tries(Math.min(s.turn, C.TURNS), C.TURNS),
+    `${metres(s.feet)}   ${t.totalLabel} ${metres(totalFeet(s))}`,
   ];
 }
 
@@ -117,28 +154,27 @@ export function debugLines(s: SimSnapshot): readonly [string, string, string] {
 }
 
 /** What to tell the player, or null when the picture says it all. */
-export function promptFor(s: SimSnapshot, touch = false): string | null {
+export function promptFor(s: SimSnapshot, touch = false, t: HudStrings = EN_HUD): string | null {
   // "Click" on a phone reads as a mouse-only game, and a phone has no P key.
-  const click = touch ? "tap" : "click";
-  if (s.paused) return touch ? "paused - tap to resume" : "paused - click, Space or P to resume";
+  if (s.paused) return t.paused(touch);
   switch (s.phaseKind) {
     case "ready":
       // Nothing to click for while the next hamster is still walking out.
-      return s.walkOut !== null ? null : `${click} to jump`;
+      return s.walkOut !== null ? null : t.jump(touch);
     case "jumping":
       // One swing per jump: after a whiff there is nothing left to click for,
       // and saying "click again" was an invitation to mash at a dead button.
-      if (s.swung) return "missed - wait for the landing";
+      if (s.swung) return t.missed;
       // Nothing can connect before clip 52 lifts off, and the swing is spent
       // on the first click - so do not ask for one while it is still winding up.
-      return s.windup !== null ? "get ready..." : `${click} again to hit the pillow`;
+      return s.windup !== null ? t.getReady : t.swing(touch);
     case "flying":
-      return s.flags.skidding ? null : "hold to glide";
+      return s.flags.skidding ? null : t.hold;
     case "gameOver":
       // Only once PLAY AGAIN is up: a click before that does nothing.
       return s.restartable
-        ? `${metres(totalFeet(s))} total - ${click} to play again`
-        : `${metres(totalFeet(s))} total`;
+        ? t.playAgain(metres(totalFeet(s)), touch)
+        : t.total(metres(totalFeet(s)));
     default:
       return null;
   }

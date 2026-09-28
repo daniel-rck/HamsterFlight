@@ -13,10 +13,12 @@ import type { TextureCache } from "@/render/pixi/TextureCache.ts";
 import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import {
   debugLines,
+  EN_HUD,
   FONTS,
   glideFill,
   HUD,
   HUD_COLOURS,
+  type HudStrings,
   panelLines,
   promptFor,
 } from "@/render/scene/hud.ts";
@@ -50,10 +52,17 @@ export class PixiHud {
   readonly #ascentSans17: number;
 
   readonly #touch: boolean;
+  #strings: HudStrings;
 
-  constructor(assets: AssetBundle, textures: TextureCache, touch = false) {
+  constructor(
+    assets: AssetBundle,
+    textures: TextureCache,
+    touch = false,
+    strings: HudStrings = EN_HUD,
+  ) {
     this.#assets = assets;
     this.#touch = touch;
+    this.#strings = strings;
     this.#textures = textures;
 
     this.#ascentMono12 = CanvasTextMetrics.measureFont(FONTS.hud).ascent;
@@ -70,11 +79,7 @@ export class PixiHud {
     );
 
     this.#glideLabel = monoText();
-    this.#glideLabel.text = "glide";
-    this.#glideLabel.position.set(
-      glide.x - this.#glideLabel.width - glide.labelGap,
-      glide.labelBaseline - this.#ascentMono12,
-    );
+    this.#placeGlideLabel();
     this.#glideFill.position.set(glide.x + 2, glide.fillY);
     this.#glideFill.height = glide.fillH;
 
@@ -117,6 +122,23 @@ export class PixiHud {
     );
   }
 
+  setStrings(strings: HudStrings): void {
+    this.#strings = strings;
+    this.#placeGlideLabel();
+    // Forces the prompt to re-measure on the next draw.
+    this.#promptText.text = "";
+  }
+
+  /** Right-aligned against the bar, so it is measured whenever it changes. */
+  #placeGlideLabel(): void {
+    const glide = HUD.glide;
+    this.#glideLabel.text = this.#strings.glide;
+    this.#glideLabel.position.set(
+      glide.x - this.#glideLabel.width - glide.labelGap,
+      glide.labelBaseline - this.#ascentMono12,
+    );
+  }
+
   draw(s: SimSnapshot, scene: PreLaunchLayout, showDebug: boolean): void {
     let used = 0;
     for (const at of scene.hud) {
@@ -144,7 +166,7 @@ export class PixiHud {
       this.#needle.rotation = needle.flipped ? Math.PI : 0;
     }
 
-    const lines = panelLines(s);
+    const lines = panelLines(s, this.#strings);
     setText(this.#panelLines[0], lines[0]);
     setText(this.#panelLines[1], lines[1]);
 
@@ -161,7 +183,7 @@ export class PixiHud {
       setText(this.#debugLines[2], text[2]);
     }
 
-    const prompt = promptFor(s, this.#touch);
+    const prompt = promptFor(s, this.#touch, this.#strings);
     const show = prompt !== null;
     this.#promptBg.visible = show;
     this.#promptText.visible = show;

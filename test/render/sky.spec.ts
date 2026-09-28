@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   CLOUD_LAYER,
   CLOUD_SHADE,
+  CLOUD_SHADE_DROP,
   cloudAlpha,
   cloudColours,
   clouds,
+  GROUND,
   STAR_LAYERS,
   skyColours,
   starAt,
@@ -69,8 +71,12 @@ describe("the cloud layer", () => {
   });
 
   it("stays clear of the ground at rest and is gone high up", () => {
-    const groundOnScreen = C.GROUND_Y + C.CAM_Y_CLAMP;
-    for (const cloud of clouds(REST, 1)) expect(cloud.y).toBeLessThan(groundOnScreen - 64);
+    // The grass's edge, not the collision line below it.
+    const grassOnScreen = GROUND.y + C.CAM_Y_CLAMP;
+    for (const cloud of clouds(REST, 1)) {
+      // The anchor is the base of the lit outline; the shade hangs a little lower.
+      expect(cloud.y + CLOUD_SHADE_DROP * cloud.scale).toBeLessThan(grassOnScreen - 16);
+    }
     expect(clouds({ x: 0, y: REST.y + 6000 }, 1)).toEqual([]);
   });
 

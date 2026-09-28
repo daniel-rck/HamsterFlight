@@ -31,6 +31,11 @@ const CHUNK_WARN_KB = 400;
  * After the timeline scripts - the jump wind-up, the outcome clips, the
  * timeline sound cues, and the audio wiring in main.ts - eager 19.1 kB gzip.
  * The player itself is a lazy chunk (about 2.4 kB gzip with its URL table).
+ * After the game around the game - the recorder and replay, records, the
+ * results panel, the daily challenge, the ghost, achievements, the gamepad
+ * and the German strings - eager 30.4 kB gzip, about 3 kB of it words. It
+ * stays eager: the mode decides the seed of the very first game, and the
+ * atlas download it would overlap with is the one thing the page waits on.
  * The sounds: 21 MP3s, 722 KiB, 489 of it the flight theme. The instructions
  * board and its button: 275 KiB of WebP over both densities, of which a
  * visitor fetches one density's worth.
@@ -43,7 +48,7 @@ const BUDGET_KB: {
   screens: number;
 } = {
   // Every visitor pays this.
-  eager: 22,
+  eager: 35,
   // The WebGL backend. Lazy in the bundle, but it is the default, so every
   // visitor with WebGL pays this too.
   lazy: 182,

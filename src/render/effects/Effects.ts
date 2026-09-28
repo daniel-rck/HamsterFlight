@@ -256,6 +256,14 @@ export class Effects {
     }
   }
 
+  /**
+   * The page's burst where the hamster passes a flag - the record, the ghost's
+   * mark. Motion, so it honours reduced motion like the rest.
+   */
+  celebrate(x: number, y: number, nowMs: number): void {
+    if (this.#motion) this.#emitSparks(x, y, nowMs);
+  }
+
   /** A burst where a powerup was taken. */
   #emitSparks(x: number, y: number, nowMs: number): void {
     for (let i = 0; i < 12; i++) {

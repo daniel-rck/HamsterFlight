@@ -101,6 +101,11 @@ async function unlocked(): Promise<{ player: AudioPlayer; ctx: FakeContext }> {
   return { player, ctx };
 }
 
+/** The player's master, music and effects buses come first; the channels follow. */
+const BUSES = 3;
+const channelGains = (ctx: FakeContext): number[] =>
+  ctx.gains.slice(BUSES).map((g) => g.gain.value);
+
 const started = (ctx: FakeContext, id: SoundId) =>
   ctx.sources.filter((s) => s.buffer !== null && s.startedAt !== null && sourceId(s) === id);
 
@@ -250,15 +255,49 @@ describe("AudioPlayer", () => {
       { t: "sfx", id: "prelude", gain: 80, loop: true },
       { t: "sfx", id: "fly", gain: 100, loop: true },
     ]);
-    expect(ctx.gains.map((g) => g.gain.value)).toEqual([0.8, 1]);
+    expect(channelGains(ctx)).toEqual([0.8, 1]);
     expect(player.toggleMusic()).toBe(true);
     // The prelude went to 0; the flight loop did not move.
-    expect(ctx.gains.map((g) => g.gain.value)).toEqual([0, 1]);
+    expect(channelGains(ctx)).toEqual([0, 1]);
     expect(player.toggleMusic()).toBe(false);
-    expect(ctx.gains.map((g) => g.gain.value)).toContain(0.6);
+    expect(channelGains(ctx)).toContain(0.6);
     // And later music starts at 60 too, not at the cue's 80.
     player.consume([{ t: "sfx", id: "ending", gain: 80 }]);
-    expect(ctx.gains.map((g) => g.gain.value).filter((v) => v === 0.6)).toHaveLength(2);
+    expect(channelGains(ctx).filter((v) => v === 0.6)).toHaveLength(2);
+  });
+
+  it("mutes the effects and sets the volume after each Sound's own gain", async () => {
+    const { player, ctx } = await unlocked();
+    player.consume([
+      { t: "sfx", id: "prelude", gain: 80, loop: true },
+      { t: "sfx", id: "fly", gain: 100, loop: true },
+    ]);
+    const [master, music, sfx] = ctx.gains;
+    player.setSfxMuted(true);
+    expect(sfx?.gain.value).toBe(0);
+    expect(music?.gain.value).toBe(1);
+    // The Flash volumes are untouched: unmuting brings back exactly what was set.
+    expect(channelGains(ctx)).toEqual([0.8, 1]);
+    player.setVolume(0.5);
+    expect(master?.gain.value).toBe(0.5);
+    player.setSfxMuted(false);
+    expect(sfx?.gain.value).toBe(1);
+  });
+
+  it("applies settings made before the first gesture once it can", async () => {
+    const ctx = new FakeContext();
+    const player = new AudioPlayer({
+      urls,
+      createContext: () => ctx as unknown as AudioContext,
+      fetchBytes: async (url) => new ArrayBuffer(IDS.indexOf(url as SoundId) + 1),
+    });
+    player.setVolume(0.25);
+    player.setSfxMuted(true);
+    player.unlock();
+    player.consume([{ t: "sfx", id: "fly", gain: 100, loop: true }]);
+    const [master, , sfx] = ctx.gains;
+    expect(master?.gain.value).toBe(0.25);
+    expect(sfx?.gain.value).toBe(0);
   });
 
   it("suspends and resumes with the game's pause", async () => {
