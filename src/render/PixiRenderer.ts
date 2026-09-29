@@ -381,6 +381,10 @@ export class PixiRenderer implements Renderer {
   }
 
   setStrings(strings: HudStrings): void {
+    // Pixi caches font metrics by font string, and the string is the same
+    // before and after a late face arrives - so the cache has to go, or every
+    // measurement below would still be the fallback's.
+    CanvasTextMetrics.clearMetrics();
     this.#hud.setStrings(strings);
     // Also the call that follows a late font: re-measure, and empty every
     // label so the next draw renders it again in the face now live.
