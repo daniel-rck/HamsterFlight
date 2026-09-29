@@ -36,6 +36,8 @@ export const BUSH_SPACING = 260;
 /** Enough bubble to still read as one, little enough to see the hamster. */
 export const BUBBLE_ALPHA = 0.62;
 export const SHADOW_ALPHA = 0.45;
+/** Dust is see-through even when fresh; sparks are not. */
+export const PARTICLE_DUST_ALPHA = 0.75;
 
 /**
  * The ground: two slabs the width of the whole course.
@@ -58,6 +60,54 @@ export const GROUND = {
   colour: 0x5d9b47,
   lipColour: 0x4b7f38,
 } as const;
+
+/**
+ * Bands of shade under the grass edge, so the field reads as turf receding
+ * rather than one flat slab. `dy` is measured down from `GROUND.y`; each band
+ * runs on to the next, the last to the bottom of the slab.
+ */
+export const GROUND_BANDS = [
+  { dy: GROUND.lip, colour: 0x69ab50 },
+  { dy: 18, colour: 0x5d9b47 },
+  { dy: 46, colour: 0x528d3d },
+  { dy: 84, colour: 0x477f34 },
+] as const;
+
+/** Grass tufts standing on the edge: one tile of them, repeated along the course. */
+export const TUFT_TILE = 600;
+const TUFT_COUNT = 26;
+
+export interface Tuft {
+  /** Within the tile. */
+  readonly x: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+export const TUFT_COLOUR = 0x4b7f38;
+
+/** A tuft's three blades as flat triangles, base on y = 0, rising to negative y. */
+export function tuftBlades({ x, w, h }: Tuft): readonly (readonly number[])[] {
+  return [
+    [x - w, 0, x - w * 0.2, -h * 0.7, x, 0],
+    [x - w * 0.4, 0, x + w * 0.1, -h, x + w * 0.5, 0],
+    [x, 0, x + w * 0.6, -h * 0.6, x + w, 0],
+  ];
+}
+
+/** Deterministic from a cheap hash, so the edge is stable without state. */
+export function tufts(): readonly Tuft[] {
+  const out: Tuft[] = [];
+  for (let i = 0; i < TUFT_COUNT; i++) {
+    const h = Math.imul(i + 3, 0x85ebca6b) >>> 0;
+    out.push({
+      x: (i + ((h % 100) / 100) * 0.8) * (TUFT_TILE / TUFT_COUNT),
+      w: 3 + ((h >>> 8) % 4),
+      h: 4 + ((h >>> 14) % 6),
+    });
+  }
+  return out;
+}
 
 export type Rgb = readonly [number, number, number];
 
@@ -309,6 +359,109 @@ export function cloudColours(sky: Sky, y: number): { lit: Rgb; shade: Rgb } {
 /** Clouds give way to the night: gone once the stars are fully out. */
 export function cloudAlpha(sky: Sky): number {
   return 1 - sky.starAlpha;
+}
+
+/**
+ * Rolling hills on the horizon, two planes deep. Each is a closed silhouette
+ * over one tile of `HILL_TILE` px, built from sines with a whole number of
+ * cycles per tile so the tile joins itself, then repeated along the camera. The
+ * far plane drifts slower and hazes towards the sky behind it, which is the
+ * depth cue; both stand on the horizon line and go with the ground as the
+ * hamster climbs away from it.
+ */
+export const HILL_TILE = 1200;
+/** How far the silhouette runs below the horizon, tucked under the grass. */
+export const HILL_SINK = 12;
+const HILL_STEP = 24;
+
+export interface HillLayer {
+  readonly parallax: number;
+  readonly colour: Rgb;
+  /** How much of the sky colour the hill is mixed with. */
+  readonly haze: number;
+  readonly height: number;
+  /** [cycles per tile, weight, phase]. */
+  readonly waves: readonly (readonly [number, number, number])[];
+}
+
+export const HILL_LAYERS: readonly HillLayer[] = [
+  {
+    parallax: 0.1,
+    colour: [104, 156, 132],
+    haze: 0.55,
+    height: 92,
+    waves: [
+      [2, 0.55, 0.4],
+      [5, 0.3, 2.1],
+      [9, 0.15, 4.7],
+    ],
+  },
+  {
+    parallax: 0.24,
+    colour: [84, 140, 84],
+    haze: 0.28,
+    height: 56,
+    waves: [
+      [3, 0.5, 1.3],
+      [7, 0.3, 3.6],
+      [12, 0.2, 0.9],
+    ],
+  },
+];
+
+/**
+ * The silhouette as a flat `[x0, y0, x1, y1, ...]` polygon, relative to the
+ * horizon: the ridge above it (negative y), then the two bottom corners.
+ */
+export function hillProfile(layer: HillLayer): readonly number[] {
+  const out: number[] = [];
+  for (let x = 0; x <= HILL_TILE; x += HILL_STEP) {
+    let lift = 0;
+    for (const [cycles, weight, phase] of layer.waves) {
+      lift += weight * Math.sin((2 * Math.PI * cycles * x) / HILL_TILE + phase);
+    }
+    // lift is in [-1, 1]; the ridge stays between 20% and 100% of the height.
+    out.push(x, -layer.height * (0.6 + 0.4 * lift));
+  }
+  out.push(HILL_TILE, HILL_SINK, 0, HILL_SINK);
+  return out;
+}
+
+export function hillColour(layer: HillLayer, sky: Sky): Rgb {
+  return mix(layer.colour, sky.bottom, layer.haze);
+}
+
+/** Screen x of the two copies of a tile that cover the view, for a layer drifting with the camera. */
+export function tileOrigins(cameraX: number, parallax: number, tile: number): [number, number] {
+  const start = wrap(cameraX * parallax, tile) - tile;
+  return [start, start + tile];
+}
+
+/** World x of the two copies of a tile that cover the view at full parallax. */
+export function worldTileOrigins(cameraX: number, tile: number): [number, number] {
+  const start = Math.floor(-cameraX / tile) * tile;
+  return [start, start + tile];
+}
+
+/** Where the horizon is on screen: the grass edge, seen through the camera. */
+export function horizonY(camera: CameraState): number {
+  return GROUND.y + camera.y;
+}
+
+/**
+ * The warm glow that hangs over the horizon on a clear day and burns off as
+ * the sky darkens. A band of `HORIZON_GLOW.height` px above the horizon,
+ * transparent at its top, `alpha` opaque at the horizon.
+ */
+export const HORIZON_GLOW = {
+  height: 130,
+  colour: [255, 208, 150] as Rgb,
+  alpha: 0.5,
+} as const;
+
+/** Full by day, gone by the time the stars are coming in. */
+export function horizonGlowAlpha(altitude: number): number {
+  return HORIZON_GLOW.alpha * (1 - clamp(altitude / STARS_FROM, 0, 1));
 }
 
 export interface BushPlacement {

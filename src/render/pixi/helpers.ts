@@ -2,6 +2,7 @@ import { type Container, type Graphics, Matrix, Sprite, Text, TextStyle, Texture
 import type { Sprite as SpriteAsset } from "@/assets/AssetLoader.ts";
 import { FONTS, HUD_COLOURS, type HudType } from "@/render/scene/hud.ts";
 import { posePlacement } from "@/render/scene/pose.ts";
+import { VIGNETTE, VIGNETTE_STOPS } from "@/render/scene/vignette.ts";
 
 /** Small Pixi conveniences with no renderer state, so they can be read alone. */
 
@@ -101,7 +102,10 @@ export function drawCard(
     .roundRect(x, y, w, h, radius)
     .fill({ color: HUD_COLOURS.chrome, alpha })
     .roundRect(x + 0.5, y + 0.5, w - 1, h - 1, Math.max(0, radius - 0.5))
-    .stroke({ color: HUD_COLOURS.rim, alpha: HUD_COLOURS.rimAlpha, width: 1 });
+    .stroke({ color: HUD_COLOURS.rim, alpha: HUD_COLOURS.rimAlpha, width: 1 })
+    .moveTo(x + radius, y + 1.5)
+    .lineTo(x + w - radius, y + 1.5)
+    .stroke({ color: HUD_COLOURS.rim, alpha: HUD_COLOURS.sheenAlpha, width: 1 });
 }
 
 /**
@@ -134,4 +138,32 @@ export function hideFrom(pool: readonly Container[], from: number): void {
     const item = pool[i];
     if (item !== undefined) item.visible = false;
   }
+}
+
+/**
+ * The vignette's ramp as a white texture, transparent in the middle and opaque
+ * at the corners, painted over the unit square and meant to be stretched to
+ * the stage and tinted. Null where there is no 2D context.
+ */
+export function vignetteTexture(): Texture | null {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx === null) return null;
+  const gradient = ctx.createRadialGradient(
+    size / 2,
+    size / 2,
+    VIGNETTE.inner * size,
+    size / 2,
+    size / 2,
+    VIGNETTE.outer * size,
+  );
+  for (const [offset, share] of VIGNETTE_STOPS) {
+    gradient.addColorStop(offset, `rgba(255,255,255,${share})`);
+  }
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return Texture.from(canvas);
 }

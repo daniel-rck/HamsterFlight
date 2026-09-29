@@ -7,9 +7,14 @@ import type { SimSnapshot } from "@/sim/state.ts";
  * or 120. Drawing the newer snapshot on every frame moved the hamster and the
  * camera in 50 ms steps while the sprites and the sky ran smoothly, which read
  * as judder on the most watched object on screen. This lerps the positions
- * only - velocities, flags and everything else are the new tick's - and only
+ * and the heading only - velocities, flags and everything else are the new
+ * tick's - and only
  * when the two snapshots are consecutive ticks of the same phase, so a launch,
  * a landing or a restart is never smeared across the transition.
+ *
+ * The heading takes the short way round and only while the sim is steering it
+ * on both ticks. A turn of more than a quarter circle in one tick is a bounce
+ * flipping the velocity, which is a cut, not a swing to be played back.
  *
  * Presentation only: nothing here reaches the simulation, and the scores are
  * the same whatever is drawn in between.
@@ -38,10 +43,24 @@ export function interpolate(
       ...next.hamster,
       x: lerp(prev.hamster.x, next.hamster.x),
       y: lerp(prev.hamster.y, next.hamster.y),
+      rotationDeg: heading(prev.hamster, next.hamster, t),
     },
     camera: {
       x: lerp(prev.camera.x, next.camera.x),
       y: lerp(prev.camera.y, next.camera.y),
     },
   };
+}
+
+/** Largest one-tick turn that is played back as a swing rather than cut. */
+const MAX_SWING_DEG = 90;
+
+type Hamster = SimSnapshot["hamster"];
+
+function heading(prev: Hamster, next: Hamster, t: number): number {
+  if (!prev.doRotation || !next.doRotation) return next.rotationDeg;
+  // Wrapped into (-180, 180], so a step across the 359 -> 0 seam is a small one.
+  const turn = ((((next.rotationDeg - prev.rotationDeg + 180) % 360) + 360) % 360) - 180;
+  if (Math.abs(turn) > MAX_SWING_DEG) return next.rotationDeg;
+  return next.rotationDeg - turn * (1 - t);
 }

@@ -16,6 +16,15 @@ import {
   cloudColours,
   clouds,
   GROUND,
+  GROUND_BANDS,
+  PARTICLE_DUST_ALPHA,
+  HILL_LAYERS,
+  HILL_TILE,
+  HORIZON_GLOW,
+  hillColour,
+  hillProfile,
+  horizonGlowAlpha,
+  horizonY,
   markers,
   POWERUP_IDLE_FRAME,
   POWERUP_SPRITE,
@@ -25,6 +34,12 @@ import {
   type Star,
   shadowScale,
   skyColours,
+  TUFT_COLOUR,
+  TUFT_TILE,
+  tileOrigins,
+  tuftBlades,
+  tufts,
+  worldTileOrigins,
   starAt,
   starField,
 } from "@/render/scene/decor.ts";
@@ -70,6 +85,9 @@ import {
   poseFor,
 } from "@/render/scene/pose.ts";
 import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
+import { TRAIL } from "@/render/scene/trail.ts";
+import { VIGNETTE, VIGNETTE_STOPS, vignetteAlpha } from "@/render/scene/vignette.ts";
+import { SOFT_DOT_SCALE, softDotCanvas } from "@/render/softDot.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -79,6 +97,7 @@ function rgba(colour: number, alpha: number): string {
 }
 
 const CHROME = rgba(HUD_COLOURS.chrome, HUD_COLOURS.chromeAlpha);
+const SHEEN = rgba(HUD_COLOURS.rim, HUD_COLOURS.sheenAlpha);
 const PROMPT_CHROME = rgba(HUD_COLOURS.chrome, HUD_COLOURS.promptAlpha);
 const RIM = rgba(HUD_COLOURS.rim, HUD_COLOURS.rimAlpha);
 const SHADOW = rgba(HUD_COLOURS.shadow, HUD_COLOURS.shadowAlpha);
@@ -118,6 +137,13 @@ function card(
   roundedPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, r - 0.5);
   ctx.strokeStyle = RIM;
   ctx.lineWidth = 1;
+  ctx.stroke();
+  // The sheen: a lit line along the top, between the rounded corners.
+  const corner = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + corner, y + 1.5);
+  ctx.lineTo(x + w - corner, y + 1.5);
+  ctx.strokeStyle = SHEEN;
   ctx.stroke();
 }
 
@@ -161,6 +187,10 @@ export class GameRenderer implements Renderer {
   /** A fixed hash, so it is built once; rebuilding it every frame allocated
    *  `70 * stress` objects per draw for a picture that never changes. */
   readonly #stars: readonly Star[];
+  readonly #tufts = tufts();
+  /** The soft dot for particles: undefined until first wanted, null where it cannot be painted. */
+  #dot: HTMLCanvasElement | null | undefined;
+  readonly #dots = new Map<number, HTMLCanvasElement>();
   #dpr = 1;
   #showHitboxes: boolean;
   readonly #touch: boolean;
@@ -239,10 +269,12 @@ export class GameRenderer implements Renderer {
     this.#powerups(ctx, s);
     this.#fx(ctx, now);
     this.#particles(ctx, now);
+    this.#trail(ctx, s);
     if (overlay.ghost !== null) this.#ghost(ctx, overlay.ghost);
     this.#hamster(ctx, s);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
+    this.#vignette(ctx, altitudeOf(s));
     this.#hud(ctx, s);
   }
 
@@ -285,13 +317,78 @@ export class GameRenderer implements Renderer {
         ctx.restore();
       }
     }
+
+    const horizon = horizonY(s.camera);
+    if (horizon <= 0) return;
+    const glow = horizonGlowAlpha(altitudeOf(s));
+    if (glow > 0 && horizon - HORIZON_GLOW.height < C.VIEW_H) {
+      const [r, g, b] = HORIZON_GLOW.colour;
+      const fade = ctx.createLinearGradient(0, horizon - HORIZON_GLOW.height, 0, horizon);
+      fade.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+      fade.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${glow})`);
+      ctx.fillStyle = fade;
+      ctx.fillRect(0, horizon - HORIZON_GLOW.height, C.VIEW_W, HORIZON_GLOW.height);
+    }
+    for (const layer of HILL_LAYERS) {
+      if (horizon - layer.height >= C.VIEW_H) continue;
+      const profile = hillProfile(layer);
+      ctx.fillStyle = rgbCss(hillColour(layer, sky));
+      for (const origin of tileOrigins(s.camera.x, layer.parallax, HILL_TILE)) {
+        ctx.beginPath();
+        for (let i = 0; i < profile.length; i += 2) {
+          const x = origin + (profile[i] ?? 0);
+          const y = horizon + (profile[i + 1] ?? 0);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
+  }
+
+  /** The corner darkening: the same radial ramp the WebGL backend stretches over the stage. */
+  #vignette(ctx: CanvasRenderingContext2D, altitude: number): void {
+    const [r, g, b] = VIGNETTE.colour;
+    const alpha = vignetteAlpha(altitude);
+    // The ramp is defined over the unit square, so draw it there and let the
+    // transform (already scaled by the density) stretch the circle into the
+    // stage's ellipse.
+    ctx.save();
+    ctx.scale(C.VIEW_W, C.VIEW_H);
+    const gradient = ctx.createRadialGradient(0.5, 0.5, VIGNETTE.inner, 0.5, 0.5, VIGNETTE.outer);
+    for (const [offset, share] of VIGNETTE_STOPS) {
+      gradient.addColorStop(offset, `rgba(${r}, ${g}, ${b}, ${share * alpha})`);
+    }
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.restore();
   }
 
   #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
     ctx.fillStyle = hex(GROUND.colour);
     ctx.fillRect(GROUND.x, GROUND.y, GROUND.width, GROUND.height);
+    for (const [i, band] of GROUND_BANDS.entries()) {
+      const end = GROUND_BANDS[i + 1]?.dy ?? GROUND.height;
+      ctx.fillStyle = hex(band.colour);
+      ctx.fillRect(GROUND.x, GROUND.y + band.dy, GROUND.width, end - band.dy);
+    }
     ctx.fillStyle = hex(GROUND.lipColour);
     ctx.fillRect(GROUND.x, GROUND.y, GROUND.width, GROUND.lip);
+
+    ctx.fillStyle = hex(TUFT_COLOUR);
+    ctx.beginPath();
+    for (const origin of worldTileOrigins(s.camera.x, TUFT_TILE)) {
+      for (const tuft of this.#tufts) {
+        for (const blade of tuftBlades(tuft)) {
+          ctx.moveTo(origin + (blade[0] ?? 0), GROUND.y + 1 + (blade[1] ?? 0));
+          ctx.lineTo(origin + (blade[2] ?? 0), GROUND.y + 1 + (blade[3] ?? 0));
+          ctx.lineTo(origin + (blade[4] ?? 0), GROUND.y + 1 + (blade[5] ?? 0));
+          ctx.closePath();
+        }
+      }
+    }
+    ctx.fill();
 
     for (const bush of bushes(s.camera.x, this.#stress)) {
       const sprite = this.#assets.get(bush.sprite);
@@ -362,12 +459,58 @@ export class GameRenderer implements Renderer {
 
   /** Skid grit and pickup sparks, fading as they age. */
   #particles(ctx: CanvasRenderingContext2D, now: number): void {
+    const dot = this.#dot === undefined ? (this.#dot = softDotCanvas()) : this.#dot;
     for (const p of this.#effects.particles(now)) {
-      ctx.globalAlpha = 1 - p.age;
-      ctx.fillStyle = hex(p.tint);
-      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      ctx.globalAlpha = p.glow ? 1 - p.age : PARTICLE_DUST_ALPHA * (1 - p.age);
+      ctx.globalCompositeOperation = p.glow ? "lighter" : "source-over";
+      if (dot === null) {
+        ctx.fillStyle = hex(p.tint);
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        continue;
+      }
+      const d = p.size * SOFT_DOT_SCALE;
+      ctx.drawImage(this.#tinted(dot, p.tint), p.x - d / 2, p.y - d / 2, d, d);
+    }
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+  }
+
+  /** The soft dot in one colour, painted the first time it is asked for. */
+  #tinted(dot: HTMLCanvasElement, tint: number): HTMLCanvasElement {
+    let canvas = this.#dots.get(tint);
+    if (canvas === undefined) {
+      canvas = document.createElement("canvas");
+      canvas.width = dot.width;
+      canvas.height = dot.height;
+      const c = canvas.getContext("2d");
+      if (c !== null) {
+        c.drawImage(dot, 0, 0);
+        c.globalCompositeOperation = "source-in";
+        c.fillStyle = hex(tint);
+        c.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      this.#dots.set(tint, canvas);
+    }
+    return canvas;
+  }
+
+  /** The streak behind a fast hamster, from where the last few ticks put it. */
+  #trail(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
+    if (s.phaseKind !== "flying") return;
+    const segments = this.#effects.trail(s.hamster);
+    if (segments.length === 0) return;
+    ctx.strokeStyle = hex(TRAIL.colour);
+    ctx.lineCap = "round";
+    for (const seg of segments) {
+      ctx.globalAlpha = seg.alpha;
+      ctx.lineWidth = seg.width;
+      ctx.beginPath();
+      ctx.moveTo(seg.x0, seg.y0);
+      ctx.lineTo(seg.x1, seg.y1);
+      ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    ctx.lineCap = "butt";
   }
 
   #powerups(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {

@@ -33,6 +33,7 @@ function recordingCanvas(
       transforms.push([a, b, c, d, e, f]);
     },
     createLinearGradient: () => ({ addColorStop: () => undefined }),
+    createRadialGradient: () => ({ addColorStop: () => undefined }),
     measureText: () => ({ width: 10 }),
     save: () => undefined,
     restore: () => undefined,
@@ -47,6 +48,8 @@ function recordingCanvas(
     strokeRect: () => undefined,
     beginPath: () => undefined,
     moveTo: () => undefined,
+    lineTo: () => undefined,
+    closePath: () => undefined,
     arc: () => undefined,
     roundRect: () => undefined,
     rect: () => undefined,

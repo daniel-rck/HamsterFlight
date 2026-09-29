@@ -338,6 +338,24 @@ describe("interpolate", () => {
     expect(interpolate(prev, next, 1.5).hamster.x).toBe(800);
   });
 
+  it("turns the heading the short way round, and cuts a bounce", () => {
+    const turned = (from: number, to: number, over = {}, alpha = 0.5) =>
+      interpolate(
+        flying({ tick: 9, hamster: { ...flying().hamster, rotationDeg: from, ...over } }),
+        flying({ hamster: { ...flying().hamster, rotationDeg: to } }),
+        alpha,
+      ).hamster.rotationDeg;
+    expect(turned(40, 60)).toBeCloseTo(50, 6);
+    // Across the seam: 350 -> 10 is a 20 degree turn, so the middle is 0, not 180.
+    expect(Math.abs(((turned(350, 10) + 180 + 360) % 360) - 180)).toBeLessThan(1e-6);
+    // Alpha 0 is the old heading, alpha 1 the new.
+    expect(turned(40, 60, {}, 0)).toBeCloseTo(40, 6);
+    expect(turned(40, 60, {}, 1)).toBeCloseTo(60, 6);
+    // A flip of the velocity, or a heading the sim is not steering: the new one.
+    expect(turned(20, 160)).toBe(160);
+    expect(turned(40, 60, { doRotation: false })).toBe(60);
+  });
+
   it("never smears across a phase change, a tick gap or a restart", () => {
     expect(interpolate({ ...prev, phaseKind: "jumping" }, next, 0.5)).toBe(next);
     expect(interpolate({ ...prev, tick: 7 }, next, 0.5)).toBe(next);

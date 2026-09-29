@@ -43,6 +43,14 @@ const CHUNK_WARN_KB = 400;
  * marks the pillow's reach, and an in-flight minimap of the powerups -
  * eager 35.4 kB gzip. It is the HUD, drawn by the Canvas2D fallback that
  * lives in the entry chunk, so it cannot be lazy; raised to 37.
+ * After the richer scene - hills, the horizon glow, banded turf with tufts,
+ * the speed streak, soft particles and impact dust - eager 37.1 kB gzip. All of
+ * it is drawn by both backends from the shared `scene/` modules, and the
+ * Canvas2D one is in the entry chunk; raised to 39.
+ * Even outlines: `scripts/normalize-outlines.py` redraws every ink stroke at
+ * one width, and the smooth antialiasing that leaves compresses worse than the
+ * brush-stroke edges it replaced - 1x 866 -> 984 kB, 2x 2 224 -> 2 772 kB.
+ * Raised to 1100 / 3050, the measured size plus 10%.
  * The typeface: Fredoka's two Latin subsets as variable woff2, 34 KiB, of
  * which a visitor fetches the 30 KiB Latin file and the rest only on demand.
  */
@@ -54,14 +62,14 @@ const BUDGET_KB: {
   fonts: number;
 } = {
   // Every visitor pays this.
-  eager: 37,
+  eager: 39,
   // The WebGL backend. Lazy in the bundle, but it is the default, so every
   // visitor with WebGL pays this too.
   lazy: 182,
   // Per atlas sheet, per density. Raised from 850/2250 for the gold ball
   // (`hamster/superball`, 11 frames of 175 x 219 - its pickup flash fills the
   // box), keeping the headroom the sheets had before it.
-  atlas: { 1: 925, 2: 2450 },
+  atlas: { 1: 1100, 2: 3050 },
   // Every sound, raw - MP3 does not gzip. Fetched after the first gesture.
   audio: 800,
   // The woff2 files, raw - already compressed.

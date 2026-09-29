@@ -9,7 +9,7 @@ import {
   Sprite,
   Text,
   TextStyle,
-  type Texture,
+  Texture,
 } from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
 import type { SpriteId } from "@/assets/sprites.generated.ts";
@@ -22,6 +22,7 @@ import {
   slab,
   solidRect,
   verticalFadeTexture,
+  vignetteTexture,
 } from "@/render/pixi/helpers.ts";
 import { PixiHud } from "@/render/pixi/PixiHud.ts";
 import { SceneFilters } from "@/render/pixi/SceneFilters.ts";
@@ -42,17 +43,33 @@ import {
   cloudColours,
   clouds,
   GROUND,
+  GROUND_BANDS,
+  HILL_LAYERS,
+  HILL_TILE,
+  HORIZON_GLOW,
+  type HillLayer,
+  hillColour,
+  hillProfile,
+  horizonGlowAlpha,
+  horizonY,
   markers,
   POWERUP_IDLE_FRAME,
   POWERUP_SPRITE,
   rgbInt,
   SHADOW_ALPHA,
+  PARTICLE_DUST_ALPHA,
   SHADOW_MIN_SCALE,
   STAR_LAYERS,
   shadowScale,
   skyColours,
   starField,
   starOffset,
+  TUFT_COLOUR,
+  tileOrigins,
+  tuftBlades,
+  tufts,
+  worldTileOrigins,
+  TUFT_TILE,
 } from "@/render/scene/decor.ts";
 import {
   BALL_BADGE,
@@ -84,6 +101,9 @@ import {
   poseFor,
 } from "@/render/scene/pose.ts";
 import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
+import { TRAIL } from "@/render/scene/trail.ts";
+import { VIGNETTE, vignetteAlpha } from "@/render/scene/vignette.ts";
+import { SOFT_DOT_SCALE, softDotCanvas } from "@/render/softDot.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -125,6 +145,8 @@ export class PixiRenderer implements Renderer {
   readonly #skyBottom = solidRect();
   readonly #skyTop: Sprite;
   readonly #skyFade: Texture | null;
+  /** The corner darkening, over the scene and under the HUD; null where it could not be painted. */
+  readonly #vignette: Sprite | null;
   /** One baked Graphics per `STAR_LAYERS` entry, moved as a whole each frame. */
   readonly #stars: Graphics[];
   readonly #starLayer = new Container();
@@ -132,6 +154,14 @@ export class PixiRenderer implements Renderer {
   readonly #cloudPool: Graphics[] = [];
   /** One baked outline per `CLOUD_SHAPES` entry, shared by every cloud drawn with it. */
   readonly #cloudShapes = CLOUD_SHAPES.map(bakeCloud);
+  /** The horizon's glow: the fade texture stood on its head, null where it could not be made. */
+  readonly #glow: Sprite | null;
+  readonly #hills = new Container();
+  /** Two tiles per `HILL_LAYERS` entry, sharing one baked silhouette. */
+  readonly #hillTiles: Graphics[][];
+  readonly #hillShapes = HILL_LAYERS.map(bakeHill);
+  readonly #tuftShape = bakeTufts();
+  readonly #tuftTiles = [new Graphics(this.#tuftShape), new Graphics(this.#tuftShape)];
   /** Sky plus world. Filters hang here so the HUD is never blurred or tinted. */
   readonly #scene = new Container();
   readonly #world = new Container();
@@ -140,6 +170,10 @@ export class PixiRenderer implements Renderer {
   readonly #powerups = new Container();
   readonly #fxLayer = new Container();
   readonly #particleLayer = new Container();
+  /** The speed streak, redrawn each frame from a handful of segments. */
+  readonly #trail = new Graphics();
+  /** The particles' soft dot; null where it could not be painted, and they are squares. */
+  readonly #dot: Texture | null;
   /** Follows the world but sits outside the filtered scene, like the Canvas2D overlay. */
   readonly #overlay = new Container();
   readonly #debugBoxes = new Graphics();
@@ -217,6 +251,12 @@ export class PixiRenderer implements Renderer {
     this.#skyFade = verticalFadeTexture();
     this.#skyTop = this.#skyFade === null ? solidRect() : new Sprite(this.#skyFade);
     this.#stars = this.#bakeStars();
+    const ramp = vignetteTexture();
+    this.#vignette = ramp === null ? null : new Sprite(ramp);
+    const dot = softDotCanvas();
+    this.#dot = dot === null ? null : Texture.from(dot);
+    this.#glow = this.#skyFade === null ? null : bakeGlow(this.#skyFade);
+    this.#hillTiles = this.#hillShapes.map((shape) => [new Graphics(shape), new Graphics(shape)]);
 
     this.#buildScene();
     this.resize();
@@ -268,7 +308,10 @@ export class PixiRenderer implements Renderer {
       layer.height = C.VIEW_H;
     }
     this.#starLayer.addChild(...this.#stars);
+    for (const tile of this.#hillTiles.flat()) this.#hills.addChild(tile);
     sky.addChild(this.#skyBottom, this.#skyTop, this.#starLayer, this.#clouds);
+    if (this.#glow !== null) sky.addChild(this.#glow);
+    sky.addChild(this.#hills);
     this.#scene.addChild(sky);
     // The filters centre their effects on screen fractions and the ground slab
     // always covers the view, so the scene's filter area is the viewport. Said
@@ -276,13 +319,22 @@ export class PixiRenderer implements Renderer {
     // bounds walk on every filtered frame.
     this.#scene.filterArea = new Rectangle(0, 0, C.VIEW_W, C.VIEW_H);
     stage.addChild(this.#scene);
+    if (this.#vignette !== null) {
+      this.#vignette.width = C.VIEW_W;
+      this.#vignette.height = C.VIEW_H;
+      this.#vignette.tint = rgbInt(VIGNETTE.colour);
+      stage.addChild(this.#vignette);
+    }
 
     // Ground is two slabs the width of the whole course; static, so built once.
     const ground = new Container();
-    ground.addChild(
-      slab(GROUND.x, GROUND.y, GROUND.width, GROUND.height, GROUND.colour),
-      slab(GROUND.x, GROUND.y, GROUND.width, GROUND.lip, GROUND.lipColour),
-    );
+    ground.addChild(slab(GROUND.x, GROUND.y, GROUND.width, GROUND.height, GROUND.colour));
+    for (const [i, band] of GROUND_BANDS.entries()) {
+      const end = GROUND_BANDS[i + 1]?.dy ?? GROUND.height;
+      ground.addChild(slab(GROUND.x, GROUND.y + band.dy, GROUND.width, end - band.dy, band.colour));
+    }
+    ground.addChild(slab(GROUND.x, GROUND.y, GROUND.width, GROUND.lip, GROUND.lipColour));
+    ground.addChild(...this.#tuftTiles);
 
     this.#shadowPivot.addChild(this.#shadow);
     for (let i = 0; i < 2; i++) {
@@ -310,6 +362,7 @@ export class PixiRenderer implements Renderer {
       this.#powerups,
       this.#fxLayer,
       this.#particleLayer,
+      this.#trail,
       this.#shadowPivot,
       this.#ghostPivot,
       this.#hamsterPivot,
@@ -409,6 +462,7 @@ export class PixiRenderer implements Renderer {
     this.#textures.destroy();
     for (const old of this.#retired.splice(0)) old.destroy();
     this.#skyFade?.destroy(true);
+    this.#vignette?.texture.destroy(true);
     for (const shape of this.#cloudShapes) shape.destroy();
     this.#clothShapes.record.destroy();
     this.#clothShapes.ghost.destroy();
@@ -423,6 +477,7 @@ export class PixiRenderer implements Renderer {
     this.#lastFrameTime = now;
 
     this.#sky(s);
+    if (this.#vignette !== null) this.#vignette.alpha = vignetteAlpha(altitudeOf(s));
     // Impact shake rides on the camera, so the HUD and the sky stay still.
     const shake = this.#effects.shakeOffset(now);
     const offsetX = s.camera.x + shake.x;
@@ -437,6 +492,7 @@ export class PixiRenderer implements Renderer {
     this.#drawPowerups(s);
     this.#drawFx(now);
     this.#drawParticles(now);
+    this.#drawTrail(s);
     this.#drawHamster(s);
     this.#hud.draw(s, this.#showHitboxes);
     this.#filters.apply(this.#scene, s, this.#effects, now, offsetX, offsetY);
@@ -479,9 +535,31 @@ export class PixiRenderer implements Renderer {
       }
     }
     hideFrom(this.#cloudPool, used);
+
+    const horizon = horizonY(s.camera);
+    if (this.#glow !== null) {
+      const alpha = horizonGlowAlpha(altitudeOf(s));
+      this.#glow.visible = alpha > 0 && horizon > 0 && horizon - HORIZON_GLOW.height < C.VIEW_H;
+      this.#glow.alpha = alpha;
+      this.#glow.position.set(0, horizon);
+    }
+    for (const [i, layer] of HILL_LAYERS.entries()) {
+      const origins = tileOrigins(s.camera.x, layer.parallax, HILL_TILE);
+      const colour = rgbInt(hillColour(layer, sky));
+      const visible = horizon - layer.height < C.VIEW_H && horizon > 0;
+      for (const [k, tile] of (this.#hillTiles[i] ?? []).entries()) {
+        tile.visible = visible;
+        tile.position.set(origins[k] ?? 0, horizon);
+        tile.tint = colour;
+      }
+    }
   }
 
   #ground(s: SimSnapshot): void {
+    const origins = worldTileOrigins(s.camera.x, TUFT_TILE);
+    for (const [k, tile] of this.#tuftTiles.entries())
+      tile.position.set(origins[k] ?? 0, GROUND.y + 1);
+
     let used = 0;
     for (const bush of bushes(s.camera.x, this.#stress)) {
       const asset = this.#assets.get(bush.sprite);
@@ -597,16 +675,33 @@ export class PixiRenderer implements Renderer {
    */
   #drawParticles(now: number): void {
     let used = 0;
+    const dot = this.#dot;
     for (const p of this.#effects.particles(now)) {
-      const sprite = poolAt(this.#particlePool, used++, this.#particleLayer, solidRect);
-      sprite.position.set(p.x - p.size / 2, p.y - p.size / 2);
-      sprite.width = p.size;
-      sprite.height = p.size;
+      const sprite = poolAt(this.#particlePool, used++, this.#particleLayer, () =>
+        dot === null ? solidRect() : new Sprite(dot),
+      );
+      const d = dot === null ? p.size : p.size * SOFT_DOT_SCALE;
+      sprite.position.set(p.x - d / 2, p.y - d / 2);
+      sprite.width = d;
+      sprite.height = d;
       sprite.tint = p.tint;
-      sprite.alpha = 1 - p.age;
+      sprite.blendMode = p.glow ? "add" : "normal";
+      sprite.alpha = p.glow ? 1 - p.age : PARTICLE_DUST_ALPHA * (1 - p.age);
       sprite.visible = true;
     }
     hideFrom(this.#particlePool, used);
+  }
+
+  /** The streak behind a fast hamster, from where the last few ticks put it. */
+  #drawTrail(s: SimSnapshot): void {
+    this.#trail.clear();
+    if (s.phaseKind !== "flying") return;
+    for (const seg of this.#effects.trail(s.hamster)) {
+      this.#trail
+        .moveTo(seg.x0, seg.y0)
+        .lineTo(seg.x1, seg.y1)
+        .stroke({ width: seg.width, color: TRAIL.colour, alpha: seg.alpha, cap: "round" });
+    }
   }
 
   #drawHamster(s: SimSnapshot): void {
@@ -771,6 +866,28 @@ function flagText(): Text {
       stroke: { color: FLAG.stroke, width: 3, join: "round" },
     }),
   });
+}
+
+/** One tile of a hill silhouette, white so a tint colours it. */
+function bakeHill(layer: HillLayer): GraphicsContext {
+  return new GraphicsContext().poly([...hillProfile(layer)]).fill(0xffffff);
+}
+
+/** One tile of grass tufts on the edge, in the edge's colour. */
+function bakeTufts(): GraphicsContext {
+  const g = new GraphicsContext();
+  for (const tuft of tufts()) {
+    for (const blade of tuftBlades(tuft)) g.poly([...blade]).fill(TUFT_COLOUR);
+  }
+  return g;
+}
+
+/** The glow sprite: opaque at the horizon, fading upwards, in the glow's colour. */
+function bakeGlow(fade: Texture): Sprite {
+  const glow = new Sprite(fade);
+  glow.tint = rgbInt(HORIZON_GLOW.colour);
+  glow.scale.set(C.VIEW_W / fade.width, -HORIZON_GLOW.height / fade.height);
+  return glow;
 }
 
 /** A cloud outline as reusable geometry: the shaded underside, then the lit top over it. */

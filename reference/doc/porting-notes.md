@@ -640,6 +640,30 @@ There was none. The simulation had emitted its cues all along - `sfx`,
   gold for the original's sunset and look wrong against this sky. They fade
   into the sky colour as the stars come in, rather than turning translucent,
   so overlapping puffs stay seamless in both renderers.
+- **A horizon.** Two planes of rolling hills stand on the grass edge at 10 and
+  24 % of the camera, hazed towards the sky behind them, with a warm glow above
+  the horizon that burns off by the time the stars come in. The turf is banded
+  in four shades and its edge carries grass tufts. The original's hills and
+  sunset bar are art of its own; these are drawn (`src/render/scene/decor.ts`),
+  so the hills follow the ground away as the hamster climbs.
+- **Heading between ticks.** `interpolate.ts` also turns the hamster's heading
+  between two consecutive ticks, the short way round; a turn of more than 90
+  degrees in one tick is a bounce flipping the velocity and stays a cut.
+- **A speed streak, soft particles, impact dust.** The streak behind a fast
+  hamster is its last eight tick positions (`src/render/scene/trail.ts`), so it
+  is the same at any refresh rate and on every replay. Particles are soft dots,
+  sparks add light, and each impact clip throws up dust. All of it is
+  `motion`: reduced motion turns it off.
+- **A vignette, and a glow that flares.** The corners darken a little more the
+  higher the sky (`src/render/scene/vignette.ts`), drawn as a radial ramp by
+  both renderers, not by the shader. The scene filter's glow gathers eight taps
+  on two rings and flares on a hard impact.
+- **Even outlines.** The original's ink lines are brush strokes, a hairline to
+  five pixels within one hamster. `scripts/normalize-outlines.py` redraws every
+  outline-weight stroke at one width (hairlines, filled areas, and the
+  launcher, HUD, fx and powerup sprites are left alone) and the sheets carry the
+  result: 1x 984 kB and 2x 2 772 kB, up from 866 and 2 224. The sprites are
+  otherwise the original's and the manifest is unchanged.
 - **Metres.** The original scores in feet. The port shows every length - the
   shot, the total, the game-over line, the sign and the ground markers - in
   metres to two decimals (`src/render/units.ts`). The score is still whole feet, as
