@@ -114,6 +114,13 @@ async function pickRenderer(
 }
 
 /**
+ * The words boot can say before - or without - a game: in the page's language
+ * from the first message on, not only once the game is up. Replaced as soon as
+ * the saved choice has been read.
+ */
+let bootText: Strings["boot"] = STRINGS.en.boot;
+
+/**
  * The boot panel stays in the document, hidden, so a failure after boot has
  * somewhere to report itself. Removing it used to leave late errors invisible.
  */
@@ -136,7 +143,7 @@ function showFailure(text: string): void {
   message.textContent = text;
   const reload = document.createElement("button");
   reload.type = "button";
-  reload.textContent = "Reload";
+  reload.textContent = bootText.reload;
   reload.addEventListener("click", () => window.location.reload());
   boot.replaceChildren(message, reload);
   boot.hidden = false;
@@ -188,24 +195,37 @@ function watchStageSize(
 }
 
 /**
- * The help and credits, over the stage from the corner button. Wired before
- * anything loads, so they open even on a page whose game failed to start.
- * `onOpen` lets the game pause itself once it exists.
+ * The help and credits, over the stage from the corner button or `I`. Wired
+ * before anything loads, so they open even on a page whose game failed to
+ * start. `onOpen` lets the game pause itself once it exists.
+ *
+ * A dialog: focus moves in and comes back to the stage, Tab stays inside, and
+ * Esc closes it - caught before the game's own Esc, which would pause.
  */
-function wireAbout(canvas: HTMLCanvasElement, signal: AbortSignal): { onOpen: () => void } {
-  const hooks = { onOpen: (): void => {} };
+function wireAbout(
+  canvas: HTMLCanvasElement,
+  signal: AbortSignal,
+): { onOpen: () => void; toggle: () => void } {
+  const hooks = { onOpen: (): void => {}, toggle: (): void => {} };
   const button = document.querySelector<HTMLButtonElement>("#info");
   const about = document.querySelector<HTMLElement>("#about");
-  if (button === null || about === null) return hooks;
+  const card = about?.querySelector<HTMLElement>(":scope > div");
+  if (button === null || about === null || card === null || card === undefined) return hooks;
   const show = (open: boolean): void => {
     about.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
-    if (open) hooks.onOpen();
-    else canvas.focus({ preventScroll: true });
+    if (open) {
+      hooks.onOpen();
+      card.focus({ preventScroll: true });
+    } else {
+      canvas.focus({ preventScroll: true });
+    }
   };
-  button.addEventListener("click", () => show(about.hasAttribute("hidden")), { signal });
-  // Anywhere on the overlay closes it - it is information, not a dialog -
-  // except the settings and the achievements, which are there to be used.
+  hooks.toggle = () => show(about.hasAttribute("hidden"));
+  button.addEventListener("click", hooks.toggle, { signal });
+  about.querySelector("#about-close")?.addEventListener("click", () => show(false), { signal });
+  // Anywhere on the overlay closes it - except the settings and the
+  // achievements, which are there to be used.
   about.addEventListener(
     "click",
     (event) => {
@@ -213,6 +233,34 @@ function wireAbout(canvas: HTMLCanvasElement, signal: AbortSignal): { onOpen: ()
       show(false);
     },
     { signal },
+  );
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (about.hasAttribute("hidden")) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        show(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [
+        ...card.querySelectorAll<HTMLElement>("button, input, select, [tabindex='0']"),
+      ].filter((el) => el.offsetParent !== null);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (first === undefined || last === undefined) return;
+      const inside = card.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || !inside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        first.focus();
+      }
+    },
+    { signal, capture: true },
   );
   return hooks;
 }
@@ -239,6 +287,13 @@ async function boot(): Promise<void> {
   const params = new URLSearchParams(window.location.search);
   const rendererName = rendererFromUrl(params);
 
+  const store = browserStore();
+  const saved = store.load();
+  let lang = pickLang(params.get("lang"), saved.settings.lang, navigator.languages ?? []);
+  let t: Strings = STRINGS[lang];
+  bootText = t.boot;
+  applyPage(document, lang);
+
   // How big the stage actually is decides which atlas is worth downloading -
   // a 1x screen showing a wide layout is already past 1:1.
   const scale = stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
@@ -258,7 +313,9 @@ async function boot(): Promise<void> {
   // sound before the first gesture anyway.
   const audioImport = startAudioImport();
   const progress = ({ loaded, total }: { loaded: number; total: number }): void => {
-    setBootMessage(total > 1 ? `loading ${Math.round((loaded / total) * 100)}%` : "loading…");
+    setBootMessage(
+      total > 1 ? bootText.loadingPercent(Math.round((loaded / total) * 100)) : bootText.loading,
+    );
   };
   let assets = await loadSprites(progress, densityFor(scale));
   if (assets.missing.length > 0 && assets.density !== 1) {
@@ -272,23 +329,32 @@ async function boot(): Promise<void> {
     // but an invisible one: sky and HUD, no hamster, clicks that seem to do
     // nothing. Say so instead of starting it.
     console.error("[hamsterflight] sprite sheets missing: %s", assets.missing.join(", "));
-    showFailure("Couldn't load the game art. Check your connection and reload.");
+    showFailure(bootText.noArt);
     return;
   }
 
-  const store = browserStore();
-  const saved = store.load();
-  let lang = pickLang(params.get("lang"), saved.settings.lang, navigator.languages ?? []);
-  let t: Strings = STRINGS[lang];
-  applyPage(document, lang);
   const touch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 
   const stress = stressFromUrl(params);
   // Shake, warp and particles honour the OS-level preference; the rest of the
   // presentation - the translucent bubble, the parallax sky - is not motion.
-  const reducedMotion =
-    typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // The opening screen, built once the loop exists; settings and the motion
+  // preference reach it through this.
+  let intro: Intro | null = null;
+  const motionQuery =
+    typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+  let reducedMotion = motionQuery?.matches ?? false;
   const effects = new Effects({ motion: !reducedMotion });
+  // The setting can change mid-game, from the OS or a browser's own toggle.
+  motionQuery?.addEventListener(
+    "change",
+    () => {
+      reducedMotion = motionQuery.matches;
+      effects.motion = !reducedMotion;
+      intro?.setMotion(!reducedMotion);
+    },
+    { signal },
+  );
   const fontLoaded = await fonts;
   const { renderer, backend } = await pickRenderer(await pixiImport, canvas, assets, effects, {
     showHitboxes: params.has("debug"),
@@ -418,8 +484,6 @@ async function boot(): Promise<void> {
     tuning: DEFAULT_TUNING,
   });
 
-  // Built below, once the loop exists; the settings reach it through this.
-  let intro: Intro | null = null;
   const introModule = await introImport;
   const saveSettings = (change: Partial<Settings>): void => meta.updateSettings(change);
   const toggleSfx = (): void => {
@@ -436,9 +500,9 @@ async function boot(): Promise<void> {
   }
 
   const haptics =
-    touch && !reducedMotion && typeof navigator.vibrate === "function"
+    touch && typeof navigator.vibrate === "function"
       ? (ms: number): void => {
-          if (ms > 0 && meta.progress.settings.haptics) navigator.vibrate(ms);
+          if (ms > 0 && !reducedMotion && meta.progress.settings.haptics) navigator.vibrate(ms);
         }
       : null;
 
@@ -503,6 +567,10 @@ async function boot(): Promise<void> {
     onToggleSfx: toggleSfx,
     // The button is out of the tab order like the other corners, so it gets a key too.
     onToggleFullscreen: () => toggleFullscreen?.(),
+    // Not over the opening screen, which has the same words and its own focus.
+    onToggleInfo: () => {
+      if (!(intro?.open ?? false)) about.toggle();
+    },
   });
   signal.addEventListener("abort", () => input.detach());
 
@@ -613,7 +681,7 @@ async function boot(): Promise<void> {
     },
     // The loop stops and rethrows, so the stack still reaches the console;
     // without this the picture just froze.
-    onError: () => showFailure("Something went wrong. Reload to play on."),
+    onError: () => showFailure(bootText.crashed),
   });
 
   // Until the opening screen is left the scene stands still behind it, as the
@@ -752,5 +820,5 @@ async function boot(): Promise<void> {
 
 boot().catch((error: unknown) => {
   console.error("[hamsterflight] boot failed", error);
-  showFailure("The game couldn't start in this browser. Reload to try again.");
+  showFailure(bootText.noStart);
 });

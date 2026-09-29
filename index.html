@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>HamsterFlight</title>
     <meta
       name="description"
@@ -42,6 +42,12 @@
         --corner: clamp(28px, 6.5%, 40px);
         --corner-gap: 6px;
         --corner-inset: 8px;
+      }
+      /* A finger needs 44 px, whatever the stage's width would give it. */
+      @media (pointer: coarse) {
+        :root {
+          --corner: clamp(44px, 6.5%, 48px);
+        }
       }
       * {
         box-sizing: border-box;
@@ -109,8 +115,12 @@
          take Space and Enter from the game. */
       .corner {
         position: absolute;
-        right: calc(var(--corner-inset) + var(--slot, 0) * (var(--corner) + var(--corner-gap)));
-        bottom: var(--corner-inset);
+        /* Clear of a notch or a home indicator when the stage fills the screen. */
+        right: calc(
+          max(var(--corner-inset), env(safe-area-inset-right)) + var(--slot, 0) *
+            (var(--corner) + var(--corner-gap))
+        );
+        bottom: max(var(--corner-inset), env(safe-area-inset-bottom));
         width: var(--corner);
         aspect-ratio: 1;
         display: grid;
@@ -536,6 +546,35 @@
         backdrop-filter: blur(6px);
         cursor: pointer;
       }
+      #about > div:focus {
+        outline: none;
+      }
+      #about-close {
+        position: sticky;
+        top: 0;
+        float: right;
+        display: grid;
+        place-items: center;
+        width: 2.2em;
+        height: 2.2em;
+        margin: -0.4em -0.6em 0 0.5em;
+        padding: 0;
+        border: 1px solid var(--glass-border);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 8%);
+        cursor: pointer;
+      }
+      #about-close:hover {
+        background: rgb(255 255 255 / 16%);
+      }
+      #about-close:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+      #about-close svg {
+        width: 55%;
+        height: 55%;
+      }
       #about > div {
         position: relative;
         max-width: 660px;
@@ -867,6 +906,7 @@
         height="400"
         tabindex="0"
         aria-label="Game stage"
+        data-i18n-label="stage"
         aria-describedby="how-to"
       ></canvas>
       <button id="pause" class="corner" type="button" tabindex="-1" aria-label="Pause" hidden>
@@ -1042,12 +1082,33 @@
       <div id="toast" role="status" aria-live="polite" hidden></div>
       <div id="boot" role="status" aria-live="polite">loading…</div>
       <noscript>This game needs JavaScript to run.</noscript>
-      <div id="about" hidden>
-        <div>
+      <div
+        id="about"
+        hidden
+        role="dialog"
+        aria-modal="true"
+        aria-label="Help and credits"
+        data-i18n-label="info"
+      >
+        <div tabindex="-1">
+          <button id="about-close" type="button" aria-label="Close" data-i18n-label="close">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.4"
+              stroke-linecap="round"
+              aria-hidden="true"
+            >
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </button>
           <p id="how-to" data-i18n="howTo">
             Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide.
             One swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner
-            button pauses; a click resumes. <kbd>M</kbd> or the note mutes the music.
+            button pauses; a click resumes. <kbd>M</kbd> or the note mutes the music,
+            <kbd>S</kbd> the sound effects; <kbd>F</kbd> goes full screen and <kbd>I</kbd> opens
+            this help. A gamepad works too: <kbd>A</kbd> is the button, <kbd>Start</kbd> pauses.
           </p>
           <section id="settings" hidden>
             <h3 data-i18n="settings">Settings</h3>

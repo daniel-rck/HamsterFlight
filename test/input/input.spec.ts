@@ -38,7 +38,13 @@ function pointer(target: EventTarget, type: string, pointerId: number, button = 
   target.dispatchEvent(Object.assign(new Event(type, { cancelable: true }), { pointerId, button }));
 }
 
-function setup(extra: { onToggleMusic?: () => void; onToggleFullscreen?: () => void } = {}) {
+function setup(
+  extra: {
+    onToggleMusic?: () => void;
+    onToggleFullscreen?: () => void;
+    onToggleInfo?: () => void;
+  } = {},
+) {
   const canvas = fakeCanvas();
   const keys = new EventTarget();
   const page = fakePage();
@@ -224,6 +230,17 @@ describe("full screen", () => {
     const { keys, input } = setup({ onToggleFullscreen: () => toggled++ });
     key(keys, "keydown", "f");
     key(keys, "keydown", "F");
+    expect(toggled).toBe(2);
+    expect(input.drain()).toEqual([]);
+  });
+});
+
+describe("help", () => {
+  it("toggles on I, and leaves the game's commands alone", () => {
+    let toggled = 0;
+    const { keys, input } = setup({ onToggleInfo: () => toggled++ });
+    key(keys, "keydown", "i");
+    key(keys, "keydown", "I");
     expect(toggled).toBe(2);
     expect(input.drain()).toEqual([]);
   });

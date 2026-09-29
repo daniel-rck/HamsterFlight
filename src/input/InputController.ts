@@ -15,6 +15,8 @@ export interface InputOptions {
   readonly onToggleSfx?: () => void;
   /** `F` - full screen, which only the page can ask for. */
   readonly onToggleFullscreen?: () => void;
+  /** `I` - the help and credits; the corner button is out of the tab order. */
+  readonly onToggleInfo?: () => void;
   readonly targets?: InputTargets;
 }
 
@@ -107,6 +109,8 @@ export class InputController {
         options.onToggleSfx?.();
       } else if (ev.key === "f" || ev.key === "F") {
         options.onToggleFullscreen?.();
+      } else if (ev.key === "i" || ev.key === "I") {
+        options.onToggleInfo?.();
       }
     });
     on<KeyboardEvent>(targets.keys, "keyup", (ev) => {

@@ -126,13 +126,14 @@ export type PageKey =
   | "itemsTab"
   | "introSettings"
   | "music"
-  | "stage";
+  | "stage"
+  | "close";
 
 const EN: Strings = {
   hud: EN_HUD,
   page: {
     howTo:
-      "Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide. One swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner button pauses; a click resumes. <kbd>M</kbd> or the note mutes the music, <kbd>S</kbd> the sound effects; <kbd>F</kbd> goes full screen. A gamepad works too: <kbd>A</kbd> is the button, <kbd>Start</kbd> pauses.",
+      "Click or <kbd>Space</kbd> to jump, click again to hit the pillow, then hold to glide. One swing per jump; a miss costs no turn. <kbd>P</kbd>, <kbd>Esc</kbd> or the corner button pauses; a click resumes. <kbd>M</kbd> or the note mutes the music, <kbd>S</kbd> the sound effects; <kbd>F</kbd> goes full screen and <kbd>I</kbd> opens this help. A gamepad works too: <kbd>A</kbd> is the button, <kbd>Start</kbd> pauses.",
     physics: "Physics runs at a fixed 20&nbsp;Hz, as the original did.",
     credits:
       "A fan reimplementation built from bytecode analysis of the original Flash game. Not affiliated with the original publisher. Sprites are extracted from the original SWF and remain the property of their respective owners.",
@@ -151,6 +152,7 @@ const EN: Strings = {
     introSettings: "Sound and language",
     music: "Music",
     stage: "Game stage",
+    close: "Close",
   },
   pause: "Pause",
   resume: "Resume",
@@ -291,7 +293,7 @@ const DE: Strings = {
   hud: DE_HUD,
   page: {
     howTo:
-      "Klick oder <kbd>Leertaste</kbd> zum Springen, nochmal klicken, um das Kissen zu treffen, dann halten zum Gleiten. Ein Schlag pro Sprung; ein Fehlschlag kostet keinen Versuch. <kbd>P</kbd>, <kbd>Esc</kbd> oder der Eck-Knopf pausieren; ein Klick spielt weiter. <kbd>M</kbd> oder die Note schaltet die Musik stumm, <kbd>S</kbd> die Soundeffekte; <kbd>F</kbd> schaltet auf Vollbild. Ein Gamepad geht auch: <kbd>A</kbd> ist der Knopf, <kbd>Start</kbd> pausiert.",
+      "Klick oder <kbd>Leertaste</kbd> zum Springen, nochmal klicken, um das Kissen zu treffen, dann halten zum Gleiten. Ein Schlag pro Sprung; ein Fehlschlag kostet keinen Versuch. <kbd>P</kbd>, <kbd>Esc</kbd> oder der Eck-Knopf pausieren; ein Klick spielt weiter. <kbd>M</kbd> oder die Note schaltet die Musik stumm, <kbd>S</kbd> die Soundeffekte; <kbd>F</kbd> schaltet auf Vollbild und <kbd>I</kbd> öffnet diese Hilfe. Ein Gamepad geht auch: <kbd>A</kbd> ist der Knopf, <kbd>Start</kbd> pausiert.",
     physics: "Die Physik läuft mit festen 20&nbsp;Hz, wie im Original.",
     credits:
       "Eine Fan-Neuumsetzung auf Grundlage einer Bytecode-Analyse des originalen Flash-Spiels. Nicht mit dem ursprünglichen Herausgeber verbunden. Die Grafiken stammen aus dem originalen SWF und gehören ihren jeweiligen Eigentümern.",
@@ -310,6 +312,7 @@ const DE: Strings = {
     introSettings: "Ton und Sprache",
     music: "Musik",
     stage: "Spielfeld",
+    close: "Schließen",
   },
   pause: "Pause",
   resume: "Weiter",
