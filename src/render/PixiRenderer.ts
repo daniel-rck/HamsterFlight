@@ -61,6 +61,7 @@ import {
   HUD_COLOURS,
   HUD_TYPE,
   type HudStrings,
+  launchZones,
 } from "@/render/scene/hud.ts";
 import {
   FLAG,
@@ -202,7 +203,13 @@ export class PixiRenderer implements Renderer {
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
-    this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false, options.strings);
+    this.#hud = new PixiHud(
+      assets,
+      this.#textures,
+      launchZones(this.#tuning),
+      options.touch ?? false,
+      options.strings,
+    );
     this.#markerAscent = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
     this.#signAscent = CanvasTextMetrics.measureFont(SIGN_TEXT.font).ascent;
     this.#flagAscent = CanvasTextMetrics.measureFont(FLAG.font).ascent;
@@ -431,7 +438,7 @@ export class PixiRenderer implements Renderer {
     this.#drawFx(now);
     this.#drawParticles(now);
     this.#drawHamster(s);
-    this.#hud.draw(s, scene, this.#showHitboxes);
+    this.#hud.draw(s, this.#showHitboxes);
     this.#filters.apply(this.#scene, s, this.#effects, now, offsetX, offsetY);
     if (this.#showHitboxes) this.#drawHitboxes(s);
     else this.#debugBoxes.clear();

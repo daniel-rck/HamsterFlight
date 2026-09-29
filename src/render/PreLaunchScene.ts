@@ -1,7 +1,6 @@
 import { SPRITES, type SpriteId } from "@/assets/sprites.generated.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimEvent } from "@/sim/events.ts";
-import { launchMeterValue } from "@/sim/phases/JumpPhase.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 
 /**
@@ -76,18 +75,6 @@ function walkFrame(walkOut: number | null, run: readonly [number, number]): numb
   return frame > run[1] ? -1 : frame;
 }
 
-/** `_root.launchMeter`, placed on the main timeline at (78.05, 3). */
-const METER_X = 78.05;
-const METER_Y = 3;
-/** `arrow._x` is never written, so the needle keeps its placement inside. */
-const NEEDLE_X = 15;
-/** The five `shotStatusN_mc`, likewise straight off the main timeline. */
-const PIP_X = [16.05, 16.2, 16.2, 16.2, 16.2] as const;
-const PIP_Y = [10.35, 30.3, 50.25, 70.2, 90.15] as const;
-/** Frame 1 is labelled `off`, frame 2 `on`. */
-const PIP_OFF = 0;
-const PIP_ON = 1;
-
 export interface Placement {
   readonly sprite: SpriteId;
   readonly frame: number;
@@ -95,18 +82,13 @@ export interface Placement {
   readonly y: number;
 }
 
-export interface Needle extends Placement {
-  /** `arrow._rotation = 180` while the hamster is on the way down. */
-  readonly flipped: boolean;
-}
-
 export interface PreLaunchLayout {
-  /** World space, back to front. */
+  /**
+   * World space, back to front. The original's stage-space art here - the
+   * launch dial and the five shot pips - is drawn by the port's HUD bar from
+   * the same state instead (`scene/hud.ts`).
+   */
   readonly world: readonly Placement[];
-  /** Stage space: the dial when it is up, then the five shot pips. */
-  readonly hud: readonly Placement[];
-  /** Stage space, drawn over the dial. Null whenever the dial is down. */
-  readonly needle: Needle | null;
 }
 
 /**
@@ -152,8 +134,6 @@ export class PreLaunchScene {
   layout(s: SimSnapshot, nowMs: number): PreLaunchLayout {
     return {
       world: [...this.#launcher(s, nowMs), ...this.#queue(s)],
-      hud: this.#hud(s),
-      needle: this.#needle(s),
     };
   }
 
@@ -247,45 +227,5 @@ export class PreLaunchScene {
       }
     }
     return out;
-  }
-
-  // -- stage ---------------------------------------------------------------
-
-  /**
-   * The meter is up from `init()` and every `nextHamster()` until `shoot()`
-   * takes it down. Game.as:154, 340, 992, 1157 - so it is up for exactly the
-   * two phases before the hamster is in the air.
-   */
-  #meterUp(s: SimSnapshot): boolean {
-    return s.phaseKind === "ready" || s.phaseKind === "jumping";
-  }
-
-  #hud(s: SimSnapshot): Placement[] {
-    const out: Placement[] = [];
-    if (this.#meterUp(s)) {
-      out.push({ sprite: "hud/launchMeter", frame: 0, x: METER_X, y: METER_Y });
-    }
-    for (const [at, y] of PIP_Y.entries()) {
-      out.push({
-        sprite: "hud/shotPip",
-        // `setScore()` lights the pip for the turn that just finished, so the
-        // lit count is exactly the number of shots on the board.
-        frame: at < s.shots.length ? PIP_ON : PIP_OFF,
-        x: PIP_X[at] ?? PIP_X[0] ?? 0,
-        y,
-      });
-    }
-    return out;
-  }
-
-  #needle(s: SimSnapshot): Needle | null {
-    if (!this.#meterUp(s)) return null;
-    return {
-      sprite: "hud/launchArrow",
-      frame: 0,
-      x: METER_X + NEEDLE_X,
-      y: METER_Y + launchMeterValue(s.hamster.y),
-      flipped: s.hamster.yvel > 0,
-    };
   }
 }

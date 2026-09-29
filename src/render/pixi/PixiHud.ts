@@ -1,16 +1,7 @@
 import { CanvasTextMetrics, Container, Graphics, Sprite, type Text } from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
-import {
-  drawCard,
-  hideFrom,
-  monoText,
-  place,
-  poolAt,
-  setText,
-  uiText,
-} from "@/render/pixi/helpers.ts";
+import { drawCard, monoText, place, setText, uiText } from "@/render/pixi/helpers.ts";
 import type { TextureCache } from "@/render/pixi/TextureCache.ts";
-import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import {
   debugLines,
   EN_HUD,
@@ -20,8 +11,14 @@ import {
   HUD_COLOURS,
   HUD_TYPE,
   type HudStrings,
+  ITEM_COLOURS,
+  type LaunchZones,
+  meterReading,
+  minimapModel,
   panelFields,
+  pipFrames,
   promptFor,
+  triesLabel,
 } from "@/render/scene/hud.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
@@ -57,24 +54,31 @@ interface Field {
 }
 
 /**
- * The stage-space layer: the original's own HUD art (launch meter, needle,
- * shot pips) plus this port's score card, glide bar, debug readout and
- * prompt. Geometry and strings come from `scene/hud.ts`; this only owns the
- * retained Pixi objects and updates the ones that changed.
+ * The stage-space layer: the bar across the top (tries, launch meter,
+ * distances, glide), the minimap, the debug readout and the prompt. Geometry
+ * and strings come from `scene/hud.ts`; this only owns the retained Pixi
+ * objects and updates the ones that changed.
  */
 export class PixiHud {
   readonly container = new Container();
   #assets: AssetBundle;
   #textures: TextureCache;
+  readonly #zones: LaunchZones;
 
-  readonly #sceneHud = new Container();
-  readonly #scenePool: Sprite[] = [];
-  readonly #needle = new Sprite();
-  readonly #fields: [Field, Field, Field];
+  readonly #triesLabel: Text;
+  readonly #pips: Sprite[] = [];
+  readonly #meter = new Container();
+  readonly #meterLabel: Text;
+  readonly #knob = new Graphics();
+  #knobAt = Number.NaN;
+  #knobLit = false;
+  readonly #fields: [Field, Field];
   readonly #glideLabel: Text;
   readonly #glideFill = new Graphics();
   #glideWidth = -1;
   #glideColour = -1;
+  readonly #map = new Container();
+  readonly #mapMarks = new Graphics();
   readonly #debugBg: Graphics;
   readonly #debugLines: [Text, Text, Text];
   readonly #promptShadow = new Graphics();
@@ -89,6 +93,7 @@ export class PixiHud {
   constructor(
     assets: AssetBundle,
     textures: TextureCache,
+    zones: LaunchZones,
     touch = false,
     strings: HudStrings = EN_HUD,
   ) {
@@ -96,19 +101,68 @@ export class PixiHud {
     this.#touch = touch;
     this.#strings = strings;
     this.#textures = textures;
+    this.#zones = zones;
     this.#ascents = measureAscents();
 
-    const { panel, glide, debug } = HUD;
+    const { bar, meter, glide, debug, minimap } = HUD;
+    const label = (): Text => uiText(HUD_TYPE.label, HUD_COLOURS.labelInk);
     const field = (big: boolean): Field => ({
-      label: uiText(HUD_TYPE.label, HUD_COLOURS.labelInk),
+      label: label(),
       value: uiText(
         big ? HUD_TYPE.value : HUD_TYPE.sub,
         big ? HUD_COLOURS.ink : HUD_COLOURS.subInk,
       ),
     });
-    this.#fields = [field(true), field(false), field(false)];
+    this.#triesLabel = label();
+    this.#meterLabel = label();
+    this.#fields = [field(true), field(false)];
+    this.#glideLabel = label();
+    for (let i = 0; i < C.TURNS; i++) this.#pips.push(new Sprite());
 
-    this.#glideLabel = uiText(HUD_TYPE.label, HUD_COLOURS.labelInk);
+    const frame = drawCard(new Graphics(), bar.x, bar.y, bar.w, bar.h, bar.radius);
+    for (const x of HUD.dividers) {
+      frame
+        .rect(x, bar.y + 9, 1, bar.h - 18)
+        .fill({ color: HUD_COLOURS.divider, alpha: HUD_COLOURS.dividerAlpha });
+    }
+
+    // The meter's track and bands never change, only the knob does.
+    const track = new Graphics()
+      .roundRect(meter.x, meter.y, meter.w, meter.h, meter.radius)
+      .fill({ color: 0x000000, alpha: 0.32 });
+    const bands = new Graphics();
+    const zone = (span: readonly [number, number] | null, colour: number, alpha: number): void => {
+      if (span === null) return;
+      bands
+        .rect(
+          meter.x + meter.w * Math.min(...span),
+          meter.y,
+          meter.w * Math.abs(span[1] - span[0]),
+          meter.h,
+        )
+        .fill({ color: colour, alpha });
+    };
+    zone(zones.band, HUD_COLOURS.meterBand, 0.8);
+    zone(zones.sweet, HUD_COLOURS.meterSweet, 0.9);
+    const clip = new Graphics()
+      .roundRect(meter.x, meter.y, meter.w, meter.h, meter.radius)
+      .fill(0xffffff);
+    bands.mask = clip;
+    this.#meter.addChild(this.#meterLabel, track, bands, clip, this.#knob);
+
+    this.#map.addChild(
+      drawCard(
+        new Graphics(),
+        minimap.x,
+        minimap.y,
+        minimap.w,
+        minimap.h,
+        minimap.radius,
+        HUD_COLOURS.mapAlpha,
+      ),
+      this.#mapMarks,
+    );
+    this.#map.visible = false;
 
     this.#debugBg = drawCard(new Graphics(), debug.x, debug.y, debug.w, debug.h, debug.radius);
     this.#debugLines = [
@@ -121,23 +175,17 @@ export class PixiHud {
     this.#layoutText();
 
     this.container.addChild(
-      this.#sceneHud,
-      this.#needle,
-      drawCard(new Graphics(), panel.x, panel.y, panel.w, panel.h, panel.radius),
+      frame,
+      this.#triesLabel,
+      ...this.#pips,
+      this.#meter,
       ...this.#fields.flatMap((f) => [f.label, f.value]),
-      drawCard(
-        new Graphics(),
-        glide.card.x,
-        glide.card.y,
-        glide.card.w,
-        glide.card.h,
-        glide.card.radius,
-      ),
       this.#glideLabel,
       new Graphics()
         .roundRect(glide.x, glide.y, glide.w, glide.h, glide.radius)
         .fill({ color: 0x000000, alpha: 0.32 }),
       this.#glideFill,
+      this.#map,
       this.#debugBg,
       this.#debugLines[0],
       this.#debugLines[1],
@@ -161,24 +209,27 @@ export class PixiHud {
     this.#ascents = measureAscents();
     this.#layoutText();
     // Forces the texts to re-render and the prompt to re-measure on the next draw.
-    for (const f of this.#fields) {
-      f.label.text = "";
-      f.value.text = "";
+    for (const text of [this.#triesLabel, ...this.#fields.flatMap((f) => [f.label, f.value])]) {
+      text.text = "";
     }
     this.#promptText.text = "";
   }
 
   /** Everything whose position depends on the ascents or the strings. */
   #layoutText(): void {
-    const { panel, glide, debug } = HUD;
+    const { tries, meter, panel, glide, debug, labelBaseline, valueBaseline } = HUD;
+    const top = labelBaseline - this.#ascents.label;
+    this.#triesLabel.position.set(tries.labelX, top);
+    this.#meterLabel.text = this.#strings.launchLabel.toUpperCase();
+    this.#meterLabel.position.set(meter.labelX, top);
     for (const [i, f] of this.#fields.entries()) {
-      const x = panel.columns[i] ?? panel.x;
-      f.label.position.set(x, panel.labelBaseline - this.#ascents.label);
+      const x = panel.columns[i] ?? panel.columns[0];
+      f.label.position.set(x, top);
       const ascent = i === 0 ? this.#ascents.value : this.#ascents.sub;
-      f.value.position.set(x, panel.valueBaseline - ascent);
+      f.value.position.set(x, valueBaseline - ascent);
     }
     this.#glideLabel.text = this.#strings.glide.toUpperCase();
-    this.#glideLabel.position.set(glide.labelX, glide.labelBaseline - this.#ascents.label);
+    this.#glideLabel.position.set(glide.labelX, top);
     for (const [i, line] of this.#debugLines.entries()) {
       line.position.set(debug.textX, debug.baseline + i * debug.lineHeight - this.#ascents.debug);
     }
@@ -207,32 +258,72 @@ export class PixiHud {
     }
   }
 
-  draw(s: SimSnapshot, scene: PreLaunchLayout, showDebug: boolean): void {
-    let used = 0;
-    for (const at of scene.hud) {
-      const asset = this.#assets.get(at.sprite);
-      if (asset === undefined) continue;
-      const sprite = poolAt(this.#scenePool, used++, this.#sceneHud, () => new Sprite());
-      const texture = this.#textures.get(asset, at.frame);
-      if (texture !== undefined) sprite.texture = texture;
-      place(sprite, asset, at.x, at.y);
-      sprite.visible = true;
+  #drawMeter(s: SimSnapshot): void {
+    const meter = HUD.meter;
+    const reading = meterReading(s, this.#zones);
+    this.#meter.alpha = reading.up ? 1 : 0.4;
+    this.#knob.visible = reading.up;
+    if (!reading.up) return;
+    const at = Math.round(reading.fraction * meter.w * 4) / 4;
+    if (at === this.#knobAt && reading.inBand === this.#knobLit) return;
+    this.#knobAt = at;
+    this.#knobLit = reading.inBand;
+    const x = meter.x + at;
+    const y = meter.y + meter.h / 2;
+    const g = this.#knob.clear();
+    if (reading.inBand) {
+      g.circle(x, y, meter.knob + 3).fill({ color: HUD_COLOURS.meterBand, alpha: 0.45 });
     }
-    hideFrom(this.#scenePool, used);
+    g.circle(x, y + 1, meter.knob).fill({
+      color: HUD_COLOURS.shadow,
+      alpha: HUD_COLOURS.shadowAlpha,
+    });
+    g.circle(x, y, meter.knob).fill(HUD_COLOURS.meterKnob);
+  }
 
-    const needle = scene.needle;
-    const arrow = needle === null ? undefined : this.#assets.get(needle.sprite);
-    this.#needle.visible = needle !== null && arrow !== undefined;
-    if (needle !== null && arrow !== undefined) {
-      const texture = this.#textures.get(arrow, needle.frame);
-      if (texture !== undefined) this.#needle.texture = texture;
-      // Rotation is about the registration point, so the offset has to ride on
-      // the pivot rather than on the position the way `place` does it.
-      this.#needle.position.set(needle.x, needle.y);
-      this.#needle.pivot.set(-arrow.meta.ox * arrow.density, -arrow.meta.oy * arrow.density);
-      this.#needle.scale.set(1 / arrow.density);
-      this.#needle.rotation = needle.flipped ? Math.PI : 0;
+  #drawMap(s: SimSnapshot): void {
+    const map = minimapModel(s);
+    this.#map.visible = map !== null;
+    if (map === null) return;
+    const m = HUD.minimap;
+    const g = this.#mapMarks.clear();
+    if (map.groundY !== null) {
+      g.rect(m.x + 2, map.groundY, m.w - 4, 1.5).fill({
+        color: HUD_COLOURS.mapGround,
+        alpha: 0.55,
+      });
     }
+    g.rect(map.view.x + 0.5, map.view.y + 0.5, map.view.w - 1, map.view.h - 1).stroke({
+      color: HUD_COLOURS.mapView,
+      alpha: HUD_COLOURS.mapViewAlpha,
+      width: 1,
+    });
+    for (const item of map.items) {
+      g.circle(item.x, item.y, m.dot).fill({
+        color: ITEM_COLOURS[item.kind],
+        alpha: item.beyond ? HUD_COLOURS.mapBeyondAlpha : 1,
+      });
+    }
+    g.circle(map.hamster.x, map.hamster.y, m.dot + 0.8)
+      .fill(HUD_COLOURS.mapHamster)
+      .stroke({ color: HUD_COLOURS.chrome, width: 1.2 });
+  }
+
+  draw(s: SimSnapshot, showDebug: boolean): void {
+    setText(this.#triesLabel, triesLabel(s, this.#strings));
+    const pip = this.#assets.get("hud/shotPip");
+    const tries = HUD.tries;
+    for (const [i, frame] of pipFrames(s).entries()) {
+      const sprite = this.#pips[i];
+      if (sprite === undefined) continue;
+      const texture = pip === undefined ? undefined : this.#textures.get(pip, frame);
+      sprite.visible = texture !== undefined;
+      if (pip === undefined || texture === undefined) continue;
+      sprite.texture = texture;
+      place(sprite, pip, tries.pipX + i * tries.pipStep - pip.meta.ox, tries.pipY - pip.meta.oy);
+    }
+
+    this.#drawMeter(s);
 
     for (const [i, f] of panelFields(s, this.#strings).entries()) {
       const target = this.#fields[i];
@@ -243,6 +334,7 @@ export class PixiHud {
 
     const fill = glideFill(s);
     this.#drawGlide(fill.fraction, fill.colour);
+    this.#drawMap(s);
 
     this.#debugBg.visible = showDebug;
     for (const line of this.#debugLines) line.visible = showDebug;

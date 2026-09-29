@@ -611,6 +611,17 @@ There was none. The simulation had emitted its cues all along - `sfx`,
 
 ## Presentation departures, recorded
 
+- **One HUD bar.** The original drew the shot pips down the left edge and the
+  launch dial beside them as art of their own (`shotStatusN_mc`,
+  `_root.launchMeter`). The port draws the same state in a bar across the top:
+  the pips in a row, the dial on its side with the pillow's reach marked on it
+  (y in [694.7, 776.4], from the boxes above), shown dimmed rather than taken
+  away while the hamster is in the air.
+- **A minimap.** Not in the original. It shows the powerups the simulation
+  already holds - spawned 200 px past the right edge, culled 100 px past the
+  left - including those above or below the view. It reveals nothing the
+  simulation has not yet rolled.
+
 - **Interpolation between ticks.** The original stage ran at 19 fps with no
   tweening. This port places the hamster and the camera between the last two
   ticks on every frame, in both modes, for consecutive ticks of the same phase

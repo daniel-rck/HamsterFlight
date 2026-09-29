@@ -179,7 +179,10 @@ wraps a little more around it, none of which touches the simulation:
   picker, the opening screen included.
 - **A look of its own.** The HUD, the opening screen and every overlay share
   one self-hosted typeface (Fredoka) and one palette, drawn the same way by
-  both backends.
+  both backends. The HUD is one bar across the top - tries, a launch meter
+  that marks where a swing reaches the pillow, distances, glide.
+- **A minimap.** In flight, a card under the bar shows the powerups around the
+  view - ahead, above and below - as dots in each item's colour.
 
 PLAY AGAIN also works differently underneath: it builds a fresh simulation
 from a new seed rather than calling the original's `reset()`, whose random

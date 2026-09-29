@@ -472,9 +472,27 @@
         background: rgb(255 255 255 / 7%);
       }
       .items strong {
+        display: inline;
         font-size: 1em;
       }
+      .items .map-dot {
+        display: inline-block;
+        width: 0.6em;
+        height: 0.6em;
+        margin-right: 0.4em;
+        border-radius: 50%;
+        box-shadow: 0 0 0 1px rgb(0 0 0 / 35%);
+        vertical-align: 0.05em;
+      }
       .items div > span {
+        display: block;
+      }
+      .items div > span {
+        font-size: 0.9em;
+      }
+      .items-hint {
+        margin: 0.9em 0 0;
+        color: var(--ink-soft);
         font-size: 0.9em;
       }
       .intro-settings {
@@ -1084,6 +1102,9 @@
             </div>
             <div id="panel-items" class="panel" role="tabpanel" aria-labelledby="tab-items" hidden>
               <ul id="intro-items" class="items"></ul>
+              <p class="items-hint" data-i18n="itemsHint">
+                In flight, the map at the top right shows where they are - dots in these colours.
+              </p>
             </div>
             <div class="intro-settings" role="group" aria-labelledby="intro-settings-label">
               <span id="intro-settings-label" class="visually-hidden" data-i18n="introSettings">

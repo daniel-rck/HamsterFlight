@@ -39,6 +39,10 @@ const CHUNK_WARN_KB = 400;
  * The sounds: 21 MP3s, 722 KiB, 489 of it the flight theme. The instructions
  * board and its button were 275 KiB of WebP over both densities; the opening
  * screen that replaced them is HTML, drawn with sprites from the atlas.
+ * After the HUD became one bar - the pips in a row, a launch meter that
+ * marks the pillow's reach, and an in-flight minimap of the powerups -
+ * eager 35.4 kB gzip. It is the HUD, drawn by the Canvas2D fallback that
+ * lives in the entry chunk, so it cannot be lazy; raised to 37.
  * The typeface: Fredoka's two Latin subsets as variable woff2, 34 KiB, of
  * which a visitor fetches the 30 KiB Latin file and the rest only on demand.
  */
@@ -50,7 +54,7 @@ const BUDGET_KB: {
   fonts: number;
 } = {
   // Every visitor pays this.
-  eager: 35,
+  eager: 37,
   // The WebGL backend. Lazy in the bundle, but it is the default, so every
   // visitor with WebGL pays this too.
   lazy: 182,

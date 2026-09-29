@@ -128,7 +128,8 @@ export type PageKey =
   | "music"
   | "stage"
   | "close"
-  | "copyLink";
+  | "copyLink"
+  | "itemsHint";
 
 const EN: Strings = {
   hud: EN_HUD,
@@ -155,6 +156,8 @@ const EN: Strings = {
     stage: "Game stage",
     close: "Close",
     copyLink: "Link to copy",
+    itemsHint:
+      "In flight, the map at the top right shows where they are - dots in these colours, faded at the edge when they are further out.",
   },
   pause: "Pause",
   resume: "Resume",
@@ -276,6 +279,7 @@ const DE_HUD: HudStrings = {
   distanceLabel: "Weite",
   totalLabel: "gesamt",
   triesLabel: "Versuch",
+  launchLabel: "Absprung",
   glide: "Gleiten",
   paused: (tap) =>
     tap ? "Pause - tippen zum Weiterspielen" : "Pause - Klick, Leertaste oder P zum Weiterspielen",
@@ -316,6 +320,8 @@ const DE: Strings = {
     stage: "Spielfeld",
     close: "Schließen",
     copyLink: "Link zum Kopieren",
+    itemsHint:
+      "Im Flug zeigt die Karte oben rechts, wo sie liegen - Punkte in diesen Farben, blass am Rand, wenn sie weiter weg sind.",
   },
   pause: "Pause",
   resume: "Weiter",

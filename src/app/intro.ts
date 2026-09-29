@@ -3,6 +3,7 @@ import type { Mode } from "@/app/MetaGame.ts";
 import { liveStreak, type Progress } from "@/app/progress.ts";
 import type { AssetBundle, Sprite } from "@/assets/AssetLoader.ts";
 import type { SpriteId } from "@/assets/sprites.generated.ts";
+import { ITEM_COLOURS } from "@/render/scene/hud.ts";
 import { metres } from "@/render/units.ts";
 import type { PowerupKind } from "@/sim/types.ts";
 
@@ -334,7 +335,14 @@ export class Intro {
           const canvas = document.createElement("canvas");
           canvas.setAttribute("aria-hidden", "true");
           const body = document.createElement("div");
-          body.append(document.createElement("strong"), document.createElement("span"));
+          // The item's minimap colour, so the dots out there can be read.
+          const dot = document.createElement("i");
+          dot.className = "map-dot";
+          dot.setAttribute("aria-hidden", "true");
+          dot.style.background = `#${ITEM_COLOURS[kind].toString(16).padStart(6, "0")}`;
+          const name = document.createElement("strong");
+          body.append(name, document.createElement("span"));
+          name.before(dot);
           li.append(canvas, body);
           return li;
         }),
@@ -345,6 +353,7 @@ export class Intro {
       if (kind === undefined) continue;
       const [name, what] = i.items[kind];
       const strong = li.querySelector("strong");
+      // The dot sits before the name, outside it, so a rename keeps it.
       const span = li.querySelector("div > span");
       if (strong !== null) strong.textContent = name;
       if (span !== null) span.textContent = what;

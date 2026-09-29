@@ -58,30 +58,31 @@ describe("languages", () => {
     expect(pickLang("xx", null, ["fr"])).toBe("en");
   });
 
-  it("keeps the canvas text inside the HUD card, in every language", () => {
+  it("keeps every section of the top bar inside its room, in every language", () => {
     // Fredoka 600 sets figures at about 0.5 em and capitals at about 0.62 em;
     // a label also carries its letter spacing. Generous estimates, so a word
     // that fails here is too long in the real face as well.
-    const { panel, glide } = HUD;
+    const { bar, dividers, tries, meter, panel, glide } = HUD;
     const capitals = (text: string): number =>
       text.length * (0.66 * HUD_TYPE.label.size + HUD_TYPE.label.letterSpacing);
     const figures = (text: string, size: number): number => text.length * 0.55 * size;
-    const right = panel.x + panel.w - 8;
-    const [a, b, c] = panel.columns;
-    const widths: [number, number, number] = [b - a - 6, c - b - 6, right - c];
+    const [d1, d2, d3] = dividers;
+    const [a, b] = panel.columns;
+    const right = bar.x + bar.w - 8;
     for (const t of Object.values(STRINGS)) {
-      const labels = [t.hud.distanceLabel, t.hud.totalLabel, t.hud.triesLabel];
-      const values = [figures("999.99 m", 18), figures("9999.99 m", 14), figures("5/5", 14)];
-      for (const [i, label] of labels.entries()) {
-        const room = widths[i] ?? 0;
-        expect(capitals(label), label).toBeLessThan(room);
-        expect(values[i] ?? 0).toBeLessThan(room);
-      }
-      expect(capitals(t.hud.glide)).toBeLessThan(glide.card.w - 20);
+      const h = t.hud;
+      expect(tries.labelX + capitals(`${h.triesLabel} 5/5`), h.triesLabel).toBeLessThan(d1 - 4);
+      expect(tries.pipX + 5 * tries.pipStep).toBeLessThan(d1 - 2);
+      expect(meter.labelX + capitals(h.launchLabel), h.launchLabel).toBeLessThan(d2 - 4);
+      expect(meter.x + meter.w).toBeLessThan(d2 - 4);
+      expect(a + capitals(h.distanceLabel)).toBeLessThan(b - 6);
+      expect(a + figures("999.99 m", HUD_TYPE.value.size)).toBeLessThan(b - 6);
+      expect(b + capitals(h.totalLabel)).toBeLessThan(d3 - 4);
+      expect(b + figures("9999.99 m", HUD_TYPE.sub.size)).toBeLessThan(d3 - 4);
+      expect(glide.labelX + capitals(h.glide)).toBeLessThan(right);
     }
-    // Side by side, not overlapping, and both inside the stage.
-    expect(panel.x + panel.w).toBeLessThan(glide.card.x);
-    expect(glide.card.x + glide.card.w).toBeLessThanOrEqual(600);
+    expect(glide.x + glide.w).toBeLessThanOrEqual(right + 2);
+    expect(bar.x + bar.w).toBeLessThanOrEqual(600);
   });
 });
 

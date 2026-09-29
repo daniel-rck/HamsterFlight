@@ -51,6 +51,7 @@ function recordingCanvas(
     roundRect: () => undefined,
     rect: () => undefined,
     stroke: () => undefined,
+    clip: () => undefined,
     fill: () => undefined,
     drawImage: (
       _image: unknown,

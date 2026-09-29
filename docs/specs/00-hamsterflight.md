@@ -66,6 +66,17 @@ The HUD's geometry and type sizes live in `scene/hud.ts`, so both backends
 draw the same cards. The distance signs are world art and keep their stand-in
 for the original's font.
 
+The HUD is one bar across the top: the tries (the original's five
+`hud/shotPip`s, in a row), the launch meter on its side, this shot and the
+total, and the glide meter. The launch meter reads the original's needle
+(`launchMeterValue`) and adds the band a swing reaches the pillow in, worked
+out from the same boxes `attemptLaunch` tests, plus its fastest part. During a
+flight a minimap under the bar's right end shows every powerup the simulation
+knows about - 100 px behind the view to 200 px ahead, at any height - around
+the view at a fixed scale, with items beyond its edge pinned there, faded.
+All of it is presentation read off the snapshot (`scene/hud.ts`); none of it
+feeds back.
+
 ### Around the game
 
 The port adds a layer the original did not have - records, a results panel,
