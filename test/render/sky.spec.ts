@@ -7,12 +7,25 @@ import {
   cloudColours,
   clouds,
   GROUND,
+  GROUND_BANDS,
+  HILL_LAYERS,
+  HILL_SINK,
+  HILL_TILE,
+  horizonGlowAlpha,
+  horizonY,
   STAR_LAYERS,
   skyColours,
   starAt,
   starField,
   starOffset,
+  TUFT_TILE,
+  tileOrigins,
+  tuftBlades,
+  tufts,
   wrap,
+  worldTileOrigins,
+  hillColour,
+  hillProfile,
 } from "@/render/scene/decor.ts";
 import { C } from "@/sim/constants.ts";
 
@@ -89,5 +102,98 @@ describe("the cloud layer", () => {
     // The underside is the lit colour times the shade, as a WebGL tint makes it.
     const { lit, shade } = cloudColours(skyColours(0.2), 200);
     expect(shade).toEqual(lit.map((v, i) => Math.round((v * (CLOUD_SHADE[i] ?? 0)) / 255)));
+  });
+});
+
+describe("the hills", () => {
+  it("join themselves, so repeating a tile leaves no seam", () => {
+    for (const layer of HILL_LAYERS) {
+      const profile = hillProfile(layer);
+      // The ridge starts and ends at the same height; the last four numbers close the base.
+      expect(profile[1]).toBeCloseTo(profile[profile.length - 5] ?? NaN, 6);
+      expect(profile[profile.length - 6]).toBe(HILL_TILE);
+      for (let i = 1; i < profile.length - 4; i += 2) {
+        expect(profile[i]).toBeLessThan(0);
+        expect(profile[i]).toBeGreaterThanOrEqual(-layer.height);
+      }
+      expect(profile[profile.length - 3]).toBe(HILL_SINK);
+    }
+  });
+
+  it("cover the view with two tiles wherever the camera is", () => {
+    for (const layer of HILL_LAYERS) {
+      for (const x of [0, -1, -777.7, -123_456.7, 5000]) {
+        const [a, b] = tileOrigins(x, layer.parallax, HILL_TILE);
+        expect(a).toBeLessThanOrEqual(0);
+        expect(b).toBe(a + HILL_TILE);
+        expect(b + HILL_TILE).toBeGreaterThanOrEqual(C.VIEW_W);
+      }
+    }
+  });
+
+  it("drift left with the camera, the far plane slower", () => {
+    for (const layer of HILL_LAYERS) {
+      const before = tileOrigins(0, layer.parallax, HILL_TILE)[0];
+      const after = tileOrigins(-300, layer.parallax, HILL_TILE)[0];
+      // 300 px of flight moves the tile by parallax * 300 to the left, modulo the tile.
+      expect(wrap(before - after, HILL_TILE)).toBeCloseTo(300 * layer.parallax, 6);
+    }
+    const parallax = HILL_LAYERS.map((l) => l.parallax);
+    expect(parallax).toEqual([...parallax].sort((a, b) => a - b));
+  });
+
+  it("haze towards the sky behind them, the far plane more", () => {
+    const sky = skyColours(0);
+    const gap = (colour: readonly number[]) =>
+      colour.reduce((sum, v, i) => sum + Math.abs(v - (sky.bottom[i] ?? 0)), 0);
+    const gaps = HILL_LAYERS.map((l) => gap(hillColour(l, sky)));
+    for (const [i, layer] of HILL_LAYERS.entries()) {
+      expect(gaps[i]).toBeLessThan(gap(layer.colour));
+    }
+    // Later layers are nearer, so they haze less and sit further from the sky colour.
+    expect(gaps).toEqual([...gaps].sort((a, b) => a - b));
+    // Up in the dark the hills darken with the sky.
+    for (const layer of HILL_LAYERS) {
+      expect(hillColour(layer, skyColours(1))).not.toEqual(hillColour(layer, sky));
+    }
+  });
+
+  it("stand on the horizon, which is the grass edge and leaves with the ground", () => {
+    expect(horizonY(REST)).toBe(GROUND.y + C.CAM_Y_CLAMP);
+    expect(horizonY({ x: 0, y: REST.y + 500 })).toBe(horizonY(REST) + 500);
+  });
+});
+
+describe("the horizon glow", () => {
+  it("is full by day and gone as the stars come in", () => {
+    expect(horizonGlowAlpha(0)).toBeGreaterThan(0);
+    expect(horizonGlowAlpha(0.2)).toBeLessThan(horizonGlowAlpha(0));
+    expect(horizonGlowAlpha(0.35)).toBe(0);
+    expect(horizonGlowAlpha(1)).toBe(0);
+  });
+});
+
+describe("the ground", () => {
+  it("has bands that step down from the lip to the bottom of the slab", () => {
+    let last = 0;
+    for (const band of GROUND_BANDS) {
+      expect(band.dy).toBeGreaterThanOrEqual(last);
+      last = band.dy;
+    }
+    expect(last).toBeLessThan(GROUND.height);
+  });
+
+  it("stands its tufts inside one tile, and two tiles cover the view", () => {
+    for (const tuft of tufts()) {
+      expect(tuft.x).toBeGreaterThanOrEqual(0);
+      expect(tuft.x + tuft.w).toBeLessThan(TUFT_TILE + 8);
+      for (const blade of tuftBlades(tuft)) expect(blade).toHaveLength(6);
+    }
+    for (const x of [0, -1, -599.5, -600, -123_456.7]) {
+      const [a, b] = worldTileOrigins(x, TUFT_TILE);
+      expect(a).toBeLessThanOrEqual(-x);
+      expect(b).toBe(a + TUFT_TILE);
+      expect(b + TUFT_TILE).toBeGreaterThanOrEqual(-x + C.VIEW_W);
+    }
   });
 });

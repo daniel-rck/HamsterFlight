@@ -16,6 +16,14 @@ import {
   cloudColours,
   clouds,
   GROUND,
+  GROUND_BANDS,
+  HILL_LAYERS,
+  HILL_TILE,
+  HORIZON_GLOW,
+  hillColour,
+  hillProfile,
+  horizonGlowAlpha,
+  horizonY,
   markers,
   POWERUP_IDLE_FRAME,
   POWERUP_SPRITE,
@@ -25,6 +33,12 @@ import {
   type Star,
   shadowScale,
   skyColours,
+  TUFT_COLOUR,
+  TUFT_TILE,
+  tileOrigins,
+  tuftBlades,
+  tufts,
+  worldTileOrigins,
   starAt,
   starField,
 } from "@/render/scene/decor.ts";
@@ -161,6 +175,7 @@ export class GameRenderer implements Renderer {
   /** A fixed hash, so it is built once; rebuilding it every frame allocated
    *  `70 * stress` objects per draw for a picture that never changes. */
   readonly #stars: readonly Star[];
+  readonly #tufts = tufts();
   #dpr = 1;
   #showHitboxes: boolean;
   readonly #touch: boolean;
@@ -285,13 +300,60 @@ export class GameRenderer implements Renderer {
         ctx.restore();
       }
     }
+
+    const horizon = horizonY(s.camera);
+    if (horizon <= 0) return;
+    const glow = horizonGlowAlpha(altitudeOf(s));
+    if (glow > 0 && horizon - HORIZON_GLOW.height < C.VIEW_H) {
+      const [r, g, b] = HORIZON_GLOW.colour;
+      const fade = ctx.createLinearGradient(0, horizon - HORIZON_GLOW.height, 0, horizon);
+      fade.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
+      fade.addColorStop(1, `rgba(${r}, ${g}, ${b}, ${glow})`);
+      ctx.fillStyle = fade;
+      ctx.fillRect(0, horizon - HORIZON_GLOW.height, C.VIEW_W, HORIZON_GLOW.height);
+    }
+    for (const layer of HILL_LAYERS) {
+      if (horizon - layer.height >= C.VIEW_H) continue;
+      const profile = hillProfile(layer);
+      ctx.fillStyle = rgbCss(hillColour(layer, sky));
+      for (const origin of tileOrigins(s.camera.x, layer.parallax, HILL_TILE)) {
+        ctx.beginPath();
+        for (let i = 0; i < profile.length; i += 2) {
+          const x = origin + (profile[i] ?? 0);
+          const y = horizon + (profile[i + 1] ?? 0);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+    }
   }
 
   #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
     ctx.fillStyle = hex(GROUND.colour);
     ctx.fillRect(GROUND.x, GROUND.y, GROUND.width, GROUND.height);
+    for (const [i, band] of GROUND_BANDS.entries()) {
+      const end = GROUND_BANDS[i + 1]?.dy ?? GROUND.height;
+      ctx.fillStyle = hex(band.colour);
+      ctx.fillRect(GROUND.x, GROUND.y + band.dy, GROUND.width, end - band.dy);
+    }
     ctx.fillStyle = hex(GROUND.lipColour);
     ctx.fillRect(GROUND.x, GROUND.y, GROUND.width, GROUND.lip);
+
+    ctx.fillStyle = hex(TUFT_COLOUR);
+    ctx.beginPath();
+    for (const origin of worldTileOrigins(s.camera.x, TUFT_TILE)) {
+      for (const tuft of this.#tufts) {
+        for (const blade of tuftBlades(tuft)) {
+          ctx.moveTo(origin + (blade[0] ?? 0), GROUND.y + 1 + (blade[1] ?? 0));
+          ctx.lineTo(origin + (blade[2] ?? 0), GROUND.y + 1 + (blade[3] ?? 0));
+          ctx.lineTo(origin + (blade[4] ?? 0), GROUND.y + 1 + (blade[5] ?? 0));
+          ctx.closePath();
+        }
+      }
+    }
+    ctx.fill();
 
     for (const bush of bushes(s.camera.x, this.#stress)) {
       const sprite = this.#assets.get(bush.sprite);
