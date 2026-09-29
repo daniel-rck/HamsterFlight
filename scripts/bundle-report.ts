@@ -37,18 +37,24 @@ const CHUNK_WARN_KB = 400;
  * stays eager: the mode decides the seed of the very first game, and the
  * atlas download it would overlap with is the one thing the page waits on.
  * The sounds: 21 MP3s, 722 KiB, 489 of it the flight theme. The instructions
- * board and its button: 275 KiB of WebP over both densities, of which a
- * visitor fetches one density's worth.
+ * board and its button were 275 KiB of WebP over both densities; the opening
+ * screen that replaced them is HTML, drawn with sprites from the atlas.
+ * After the HUD became one bar - the pips in a row, a launch meter that
+ * marks the pillow's reach, and an in-flight minimap of the powerups -
+ * eager 35.4 kB gzip. It is the HUD, drawn by the Canvas2D fallback that
+ * lives in the entry chunk, so it cannot be lazy; raised to 37.
+ * The typeface: Fredoka's two Latin subsets as variable woff2, 34 KiB, of
+ * which a visitor fetches the 30 KiB Latin file and the rest only on demand.
  */
 const BUDGET_KB: {
   eager: number;
   lazy: number;
   atlas: Record<number, number>;
   audio: number;
-  screens: number;
+  fonts: number;
 } = {
   // Every visitor pays this.
-  eager: 35,
+  eager: 37,
   // The WebGL backend. Lazy in the bundle, but it is the default, so every
   // visitor with WebGL pays this too.
   lazy: 182,
@@ -58,8 +64,8 @@ const BUDGET_KB: {
   atlas: { 1: 925, 2: 2450 },
   // Every sound, raw - MP3 does not gzip. Fetched after the first gesture.
   audio: 800,
-  // The instructions board and Play Now!, both densities, raw.
-  screens: 310,
+  // The woff2 files, raw - already compressed.
+  fonts: 45,
 };
 
 interface Row {
@@ -182,11 +188,12 @@ async function main(): Promise<void> {
     audioBytes += (await readFile(join(ASSETS, name))).byteLength;
   }
   if (audioBytes > 0) console.log(`\naudio - fetched after the first gesture\n${kb(audioBytes)}`);
-  let screenBytes = 0;
-  for (const name of names.filter((item) => item.endsWith(".webp"))) {
-    screenBytes += (await readFile(join(ASSETS, name))).byteLength;
+
+  let fontBytes = 0;
+  for (const name of names.filter((item) => item.endsWith(".woff2"))) {
+    fontBytes += (await readFile(join(ASSETS, name))).byteLength;
   }
-  if (screenBytes > 0) console.log(`\ninstructions board - both densities\n${kb(screenBytes)}`);
+  if (fontBytes > 0) console.log(`\nfonts - every subset\n${kb(fontBytes)}`);
 
   if (!process.argv.includes("--check")) return;
 
@@ -205,7 +212,7 @@ async function main(): Promise<void> {
     budget(sheet.name, sheet.raw, limit);
   }
   budget("audio", audioBytes, BUDGET_KB.audio);
-  budget("instructions board", screenBytes, BUDGET_KB.screens);
+  budget("fonts", fontBytes, BUDGET_KB.fonts);
 
   console.log("");
   if (over.length === 0) {

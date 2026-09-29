@@ -150,6 +150,20 @@ describe("Effects with motion off", () => {
   it("moves by default", () => {
     expect(new Effects().motion).toBe(true);
   });
+
+  it("stops what is already moving when motion is switched off mid-game", () => {
+    const effects = new Effects();
+    effects.consume([{ t: "fx", id: "superBreak", x: 0, y: 955 }], 0);
+    effects.emitSkidDust(100, 950, 0);
+    expect(effects.shakeOffset(20)).not.toEqual({ x: 0, y: 0 });
+    effects.motion = false;
+    expect(effects.shakeOffset(20)).toEqual({ x: 0, y: 0 });
+    expect(effects.shockwave(20)).toBeNull();
+    expect(effects.aberration(20)).toBe(0);
+    expect(effects.particles(20)).toHaveLength(0);
+    effects.motion = true;
+    expect(effects.motion).toBe(true);
+  });
 });
 
 describe("Effects camera shake", () => {

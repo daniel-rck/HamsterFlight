@@ -170,9 +170,10 @@ async function check(
 }
 
 /**
- * What a first visit sees: the INSTRUCTIONS board, which the `?profile` runs
- * above skip. Its art has to load, Play Now! has to take it away, and that
- * click - the first gesture - has to fetch every sound without a failure.
+ * What a first visit sees: the opening screen, which the `?profile` runs
+ * above skip. Its typeface has to load and its sprite pictures have to show,
+ * Play has to take it away, and that click - the first gesture - has to fetch
+ * every sound without a failure.
  */
 async function checkFirstVisit(browser: Browser, origin: string): Promise<Result> {
   const label = "first visit";
@@ -191,13 +192,38 @@ async function checkFirstVisit(browser: Browser, origin: string): Promise<Result
   try {
     await page.goto(`${origin}/?seed=${SEED}`, { waitUntil: "load" });
     await waitForBoot(page);
-    await page.waitForSelector("#instructions:not([hidden])", { timeout: 10_000 });
-    const loaded = await page.$$eval("#instructions img", (imgs) =>
-      imgs.every((img) => (img as HTMLImageElement).naturalWidth > 0 || img.className === "over"),
+    await page.waitForSelector("#intro:not([hidden])", { timeout: 10_000 });
+    // The typeface is what the HUD and the screen are set in; a CSP without
+    // font-src would quietly fall back to the system face.
+    const font = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return document.fonts.check('600 16px "Fredoka"');
+    });
+    if (!font) failures.push("the Fredoka face did not load");
+    // The pictures are cut from the atlas into canvases: a blank one means
+    // the cut went wrong, which no error would report.
+    await sleep(300);
+    const painted = await page.$$eval("#intro canvas", (canvases) =>
+      canvases
+        .filter((c) => (c as HTMLCanvasElement).offsetParent !== null)
+        .map((c) => {
+          const canvas = c as HTMLCanvasElement;
+          const ctx = canvas.getContext("2d");
+          if (ctx === null || canvas.width === 0) return 0;
+          const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          let n = 0;
+          for (let i = 3; i < data.length; i += 4) if ((data[i] ?? 0) > 16) n++;
+          return n;
+        }),
     );
-    if (!loaded) failures.push("the instructions art did not load");
-    await page.click("#play-now");
-    await page.waitForSelector("#instructions", { state: "hidden", timeout: 5_000 });
+    if (painted.length === 0 || painted.some((n) => n < 50)) {
+      failures.push(`an opening-screen picture is blank: ${painted.join(", ")}`);
+    }
+    await page.click("#tab-items");
+    const items = await page.$$eval("#intro-items li", (lis) => lis.length);
+    if (items !== 6) failures.push(`the items tab lists ${items} items, not 6`);
+    await page.click("#intro-play");
+    await page.waitForSelector("#intro", { state: "hidden", timeout: 5_000 });
     for (let waited = 0; sounds < SOUND_COUNT && waited < 15_000; waited += 250) {
       await sleep(250);
     }
@@ -207,7 +233,83 @@ async function checkFirstVisit(browser: Browser, origin: string): Promise<Result
     failures.push(await describe(page));
   }
   await page.close();
-  return { label, failures, note: `board, then ${sounds} sounds` };
+  return { label, failures, note: `opening screen, then ${sounds} sounds` };
+}
+
+/**
+ * The keyboard and the finger, which the runs above never use: `I` opens the
+ * help as a dialog and Esc closes it without also pausing the game (both
+ * listen to the same key); and on a phone held sideways the opening screen
+ * says "tap" and the corner buttons are big enough to hit.
+ */
+async function checkHelpAndTouch(browser: Browser, origin: string): Promise<Result> {
+  const label = "help and touch";
+  const failures: string[] = [];
+  const watch = (page: Page): void => {
+    page.on("pageerror", (error) => failures.push(`uncaught: ${error.message}`));
+    page.on("console", (message) => {
+      if (message.type() === "error") failures.push(`console.error: ${message.text()}`);
+    });
+    watchRequests(page, failures);
+  };
+
+  const desk = await browser.newPage({ viewport: { width: 900, height: 600 } });
+  watch(desk);
+  try {
+    await desk.goto(`${origin}/?seed=${SEED}&instructions=0&lang=en`, { waitUntil: "load" });
+    await waitForBoot(desk);
+    await desk.keyboard.press("i");
+    await desk.waitForSelector("#about:not([hidden])", { timeout: 2_000 });
+    const dialog = await desk.evaluate(() => {
+      const about = document.querySelector("#about");
+      return {
+        modal: about?.getAttribute("aria-modal") === "true",
+        focused: about?.contains(document.activeElement) ?? false,
+      };
+    });
+    if (!dialog.modal) failures.push("the help is not an aria-modal dialog");
+    if (!dialog.focused) failures.push("opening the help did not move focus into it");
+    await desk.keyboard.press("Escape");
+    await desk.waitForSelector("#about", { state: "hidden", timeout: 2_000 });
+    // Two ticks for a leaked Esc to have reached the simulation.
+    await sleep(200);
+    const paused = await desk.evaluate(
+      () => document.querySelector<HTMLElement>("#pause")?.dataset["paused"] === "true",
+    );
+    if (paused) failures.push("Esc closed the help and paused the game as well");
+  } catch (error) {
+    failures.push(String(error).split("\n")[0] ?? String(error));
+    failures.push(await describe(desk));
+  }
+  await desk.close();
+
+  const phone = await browser.newContext({
+    viewport: { width: 844, height: 390 },
+    hasTouch: true,
+    isMobile: true,
+  });
+  const page = await phone.newPage();
+  watch(page);
+  try {
+    await page.goto(`${origin}/?seed=${SEED}&lang=en`, { waitUntil: "load" });
+    await waitForBoot(page);
+    await page.waitForSelector("#intro:not([hidden])", { timeout: 10_000 });
+    const steps = (await page.textContent("#intro-steps")) ?? "";
+    if (!/tap/i.test(steps) || /click/i.test(steps)) {
+      failures.push(`a phone is told: ${steps.slice(0, 80)}`);
+    }
+    await page.tap("#intro-play");
+    await page.waitForSelector("#intro", { state: "hidden", timeout: 5_000 });
+    const size = await page.locator("#pause").boundingBox();
+    if (size === null || size.width < 44 || size.height < 44) {
+      failures.push(`the pause button is ${size?.width ?? 0} px on a touch screen`);
+    }
+  } catch (error) {
+    failures.push(String(error).split("\n")[0] ?? String(error));
+    failures.push(await describe(page));
+  }
+  await phone.close();
+  return { label, failures, note: "I, Esc, tap and 44 px" };
 }
 
 async function main(): Promise<void> {
@@ -219,6 +321,8 @@ async function main(): Promise<void> {
     }
     process.stderr.write("checking the first visit...\n");
     out.push(await checkFirstVisit(browser, origin));
+    process.stderr.write("checking help and touch...\n");
+    out.push(await checkHelpAndTouch(browser, origin));
     return out;
   });
 

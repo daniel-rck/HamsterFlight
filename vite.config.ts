@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 
 /**
  * What is running, stamped in at build time.
@@ -46,7 +46,23 @@ function buildStamp(): { commit: string; date: string } {
   };
 }
 
+/**
+ * Link previews want an absolute image URL, and the page does not know where
+ * it is deployed. `SITE_ORIGIN` (e.g. `https://hamsterflight.example`) is set
+ * in the deploy's build environment; without it the tags carry root-relative
+ * paths, which some crawlers resolve and others ignore - a preview without a
+ * picture, not a broken page.
+ */
+function siteOrigin(): Plugin {
+  const origin = (process.env.SITE_ORIGIN ?? "").replace(/\/+$/, "");
+  return {
+    name: "site-origin",
+    transformIndexHtml: (html) => html.replaceAll("%SITE_ORIGIN%", origin),
+  };
+}
+
 export default defineConfig({
+  plugins: [siteOrigin()],
   define: {
     __BUILD__: JSON.stringify(buildStamp()),
   },
@@ -70,7 +86,7 @@ export default defineConfig({
     // them. As separate files they are content-hashed and cached immutably,
     // and the entry chunk stays small enough to parse instantly.
     assetsInlineLimit: 0,
-    // A warning only; the gate that fails is `npm run check:bundle`, whose
+    // A warning only; the gate that fails is `bun run check:bundle`, whose
     // budgets live in scripts/bundle-report.ts. This number is echoed there.
     chunkSizeWarningLimit: 400,
   },

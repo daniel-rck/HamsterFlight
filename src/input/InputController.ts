@@ -15,6 +15,8 @@ export interface InputOptions {
   readonly onToggleSfx?: () => void;
   /** `F` - full screen, which only the page can ask for. */
   readonly onToggleFullscreen?: () => void;
+  /** `I` - the help and credits; the corner button is out of the tab order. */
+  readonly onToggleInfo?: () => void;
   readonly targets?: InputTargets;
 }
 
@@ -107,6 +109,8 @@ export class InputController {
         options.onToggleSfx?.();
       } else if (ev.key === "f" || ev.key === "F") {
         options.onToggleFullscreen?.();
+      } else if (ev.key === "i" || ev.key === "I") {
+        options.onToggleInfo?.();
       }
     });
     on<KeyboardEvent>(targets.keys, "keyup", (ev) => {
@@ -200,11 +204,10 @@ export class InputController {
   }
 }
 
-/** Space in a text field is a space, not a jump. */
 /**
  * A control that has the keys to itself: a text field, or a focused button -
- * Play Now! on the instructions board, which Space and Enter must press
- * rather than jump past.
+ * Play on the opening screen, which Space and Enter must press rather than
+ * jump past.
  */
 function isTyping(target: EventTarget | null): boolean {
   if (target === null || typeof target !== "object" || !("tagName" in target)) return false;

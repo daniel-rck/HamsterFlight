@@ -43,8 +43,16 @@ export interface Sprite {
 }
 
 export interface LoadProgress {
+  /** Sheets finished, of all wanted. */
   readonly loaded: number;
   readonly total: number;
+  /**
+   * How far the download is, 0 to 1, by bytes - or null while a sheet's size
+   * is unknown (no Content-Length, or a body the browser will not stream).
+   * The page's one atlas is ~2 MB at 2x, so sheets finished alone would say
+   * nothing until it was all there.
+   */
+  readonly fraction: number | null;
 }
 
 export interface AssetBundle {
@@ -65,7 +73,42 @@ function sheetUrl(index: number, density: number): string | undefined {
 /** A stalled connection used to leave "loading…" up forever. */
 const FETCH_TIMEOUT_MS = 20_000;
 
-async function loadSheet(url: string): Promise<ImageBitmap> {
+/**
+ * The response body as a blob, reporting bytes as they arrive. Falls back to
+ * a plain `blob()` - and no reports - when the size is not announced or the
+ * body cannot be streamed.
+ */
+async function readWithProgress(
+  response: Response,
+  onBytes: (loaded: number, total: number) => void,
+): Promise<Blob> {
+  const total = Number(response.headers.get("content-length") ?? "");
+  const body = response.body;
+  if (!(total > 0) || body === null || typeof body.getReader !== "function") {
+    return response.blob();
+  }
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let loaded = 0;
+  onBytes(0, total);
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    loaded += value.byteLength;
+    // An encoded response announces the encoded size and streams the decoded
+    // bytes, so the count may overshoot; the bar just stops at full.
+    onBytes(Math.min(loaded, total), total);
+  }
+  return new Blob(chunks as BlobPart[], {
+    type: response.headers.get("content-type") ?? "image/png",
+  });
+}
+
+async function loadSheet(
+  url: string,
+  onBytes: (loaded: number, total: number) => void = () => undefined,
+): Promise<ImageBitmap> {
   // AbortController + setTimeout rather than `AbortSignal.timeout`, which
   // older browsers lack; a missing static would throw before the fetch and
   // before the 1x retry ever got a chance.
@@ -74,7 +117,7 @@ async function loadSheet(url: string): Promise<ImageBitmap> {
   try {
     const response = await fetch(url, { signal: controller.signal });
     if (!response.ok) throw new Error(`${response.status} ${response.statusText}`);
-    return await createImageBitmap(await response.blob());
+    return await createImageBitmap(await readWithProgress(response, onBytes));
   } finally {
     clearTimeout(timer);
   }
@@ -83,7 +126,7 @@ async function loadSheet(url: string): Promise<ImageBitmap> {
 /**
  * Loads the atlas sheets the manifest refers to.
  *
- * The 382 frames used to be 382 files fetched one request each - and, worse,
+ * The frames used to be one file each, fetched one request apiece - and, worse,
  * awaited sequentially within each sprite, so `hamster/jump` loaded its 36
  * frames one after another. They are one packed sheet now, so this is a single
  * request; several sheets would load in parallel.
@@ -99,6 +142,20 @@ export async function loadSprites(
   const wanted = [...new Set(ids.map((id) => SPRITES[id].sheet))].sort((a, b) => a - b);
   const missing: string[] = [];
   let loaded = 0;
+  // Bytes per sheet as they arrive; a sheet with no entry has not said its size.
+  const bytes = new Map<number, { loaded: number; total: number }>();
+  const fraction = (): number | null => {
+    if (loaded === wanted.length) return 1;
+    let done = 0;
+    let all = 0;
+    for (const index of wanted) {
+      const b = bytes.get(index);
+      if (b === undefined) return null;
+      done += b.loaded;
+      all += b.total;
+    }
+    return all > 0 ? done / all : null;
+  };
 
   const sheets = await Promise.all(
     wanted.map(async (index) => {
@@ -108,13 +165,16 @@ export async function loadSprites(
         missing.push(`sheet-${index} (not in bundle)`);
       } else {
         try {
-          bitmap = await loadSheet(url);
+          bitmap = await loadSheet(url, (done, total) => {
+            bytes.set(index, { loaded: done, total });
+            onProgress?.({ loaded, total: wanted.length, fraction: fraction() });
+          });
         } catch (error) {
           missing.push(`sheet-${index} (${String(error)})`);
         }
       }
       loaded++;
-      onProgress?.({ loaded, total: wanted.length });
+      onProgress?.({ loaded, total: wanted.length, fraction: fraction() });
       return bitmap;
     }),
   );

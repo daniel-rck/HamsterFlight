@@ -1,6 +1,6 @@
-import { type Container, Matrix, Sprite, Text, TextStyle, Texture } from "pixi.js";
+import { type Container, type Graphics, Matrix, Sprite, Text, TextStyle, Texture } from "pixi.js";
 import type { Sprite as SpriteAsset } from "@/assets/AssetLoader.ts";
-import { FONTS, HUD_COLOURS } from "@/render/scene/hud.ts";
+import { FONTS, HUD_COLOURS, type HudType } from "@/render/scene/hud.ts";
 import { posePlacement } from "@/render/scene/pose.ts";
 
 /** Small Pixi conveniences with no renderer state, so they can be read alone. */
@@ -42,13 +42,6 @@ export function slab(x: number, y: number, w: number, h: number, tint: number): 
   return sprite;
 }
 
-/** Translucent HUD chrome at the given rectangle. */
-export function chrome(x: number, y: number, w: number, h: number, alpha: number): Sprite {
-  const sprite = slab(x, y, w, h, HUD_COLOURS.chrome);
-  sprite.alpha = alpha;
-  return sprite;
-}
-
 /**
  * Opaque at the top, transparent at the bottom. Built once, tinted per frame.
  * Returns null where there is no 2D context to paint it with, so the caller
@@ -73,6 +66,42 @@ export function monoText(fill: string = HUD_COLOURS.ink): Text {
     text: "",
     style: new TextStyle({ fontFamily: FONTS.mono, fontSize: 12, fontWeight: "600", fill }),
   });
+}
+
+/** HUD text in the port's typeface, at one of the shared `HUD_TYPE` sizes. */
+export function uiText(type: HudType, fill: string = HUD_COLOURS.ink): Text {
+  return new Text({
+    text: "",
+    style: new TextStyle({
+      fontFamily: FONTS.ui,
+      fontSize: type.size,
+      fontWeight: type.weight,
+      letterSpacing: type.letterSpacing,
+      fill,
+    }),
+  });
+}
+
+/**
+ * A HUD card into `g`: translucent chrome with a hairline rim, as vector
+ * geometry so it stays crisp at any resolution. `g` is cleared first.
+ */
+export function drawCard(
+  g: Graphics,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  alpha: number = HUD_COLOURS.chromeAlpha,
+): Graphics {
+  const radius = Math.min(r, w / 2, h / 2);
+  return g
+    .clear()
+    .roundRect(x, y, w, h, radius)
+    .fill({ color: HUD_COLOURS.chrome, alpha })
+    .roundRect(x + 0.5, y + 0.5, w - 1, h - 1, Math.max(0, radius - 0.5))
+    .stroke({ color: HUD_COLOURS.rim, alpha: HUD_COLOURS.rimAlpha, width: 1 });
 }
 
 /**

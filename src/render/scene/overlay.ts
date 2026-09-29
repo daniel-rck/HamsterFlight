@@ -1,4 +1,5 @@
 import type { SpriteId } from "@/assets/sprites.generated.ts";
+import { FONTS } from "@/render/scene/hud.ts";
 import { C } from "@/sim/constants.ts";
 
 /**
@@ -41,7 +42,7 @@ export const FLAG = {
   /** Label baseline above the ground, right of the pole. */
   labelDx: 5,
   labelDy: 40,
-  font: "bold 10px ui-monospace, monospace",
+  font: `700 10px ${FONTS.ui}`,
   fontSize: 10,
   colour: { record: 0xffd166, ghost: 0xc9a7ff } satisfies Record<FlagKind, number>,
   ink: "#ffffff",

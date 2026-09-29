@@ -53,6 +53,17 @@ export class GameSession {
     this.#snapshot = this.#sim.snapshot();
   }
 
+  /**
+   * Starts over on `seed`, as if built with it - for a change of mode before
+   * anything was played (the opening screen's second button). Nothing is
+   * recorded for the game it replaces.
+   */
+  reset(seed: number): void {
+    this.#sim = new Simulation({ seed, tuning: this.#tuning });
+    this.#recorder = new RunRecorder(seed);
+    this.#snapshot = this.#sim.snapshot();
+  }
+
   get seed(): number {
     return this.#recorder.seed;
   }

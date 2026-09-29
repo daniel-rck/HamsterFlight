@@ -43,6 +43,7 @@
     "check:cf": "node scripts/check-cloudflare.ts",
     "bundle:report": "node scripts/bundle-report.ts",
     "smoke": "node scripts/smoke.ts",
+    "images": "node scripts/share-images.ts",
     "bench": "node scripts/bench-strategies.ts",
     "bench:renderers": "node scripts/bench-renderers.ts",
     "audit": "bun audit",
@@ -58,9 +59,10 @@
     "typescript": "~7.0.2",
     "vite": "^8.3.0",
     "vitest": "^5.0.1",
-    "wrangler": "^4.136.3"
+    "wrangler": "^4.143.1"
   },
   "dependencies": {
+    "@fontsource-variable/fredoka": "^5.3.0",
     "pixi.js": "^8.21.0"
   },
   "webBase": {

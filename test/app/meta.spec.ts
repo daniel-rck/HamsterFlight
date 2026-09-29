@@ -10,6 +10,7 @@ import { encodeRun } from "@/app/recording.ts";
 import type { Replay } from "@/app/replay.ts";
 import { GameSession, type SessionStep } from "@/app/session.ts";
 import type { Toasts } from "@/app/toast.ts";
+import { HUD, HUD_TYPE } from "@/render/scene/hud.ts";
 import type { InputCommand } from "@/sim/commands.ts";
 import type { SimEvent } from "@/sim/events.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
@@ -57,12 +58,31 @@ describe("languages", () => {
     expect(pickLang("xx", null, ["fr"])).toBe("en");
   });
 
-  it("keeps the canvas text inside the HUD panel", () => {
-    // `HUD.panel` is sized for this line in English; 12 px mono is ~7.3 px a glyph.
+  it("keeps every section of the top bar inside its room, in every language", () => {
+    // Fredoka 600 sets figures at about 0.5 em and capitals at about 0.62 em;
+    // a label also carries its letter spacing. Generous estimates, so a word
+    // that fails here is too long in the real face as well.
+    const { bar, dividers, tries, meter, panel, glide } = HUD;
+    const capitals = (text: string): number =>
+      text.length * (0.66 * HUD_TYPE.label.size + HUD_TYPE.label.letterSpacing);
+    const figures = (text: string, size: number): number => text.length * 0.55 * size;
+    const [d1, d2, d3] = dividers;
+    const [a, b] = panel.columns;
+    const right = bar.x + bar.w - 8;
     for (const t of Object.values(STRINGS)) {
-      const line = `999.99 m   ${t.hud.totalLabel} 9999.99 m`;
-      expect(line.length * 7.3).toBeLessThan(212 - 8);
+      const h = t.hud;
+      expect(tries.labelX + capitals(`${h.triesLabel} 5/5`), h.triesLabel).toBeLessThan(d1 - 4);
+      expect(tries.pipX + 5 * tries.pipStep).toBeLessThan(d1 - 2);
+      expect(meter.labelX + capitals(h.launchLabel), h.launchLabel).toBeLessThan(d2 - 4);
+      expect(meter.x + meter.w).toBeLessThan(d2 - 4);
+      expect(a + capitals(h.distanceLabel)).toBeLessThan(b - 6);
+      expect(a + figures("999.99 m", HUD_TYPE.value.size)).toBeLessThan(b - 6);
+      expect(b + capitals(h.totalLabel)).toBeLessThan(d3 - 4);
+      expect(b + figures("9999.99 m", HUD_TYPE.sub.size)).toBeLessThan(d3 - 4);
+      expect(glide.labelX + capitals(h.glide)).toBeLessThan(right);
     }
+    expect(glide.x + glide.w).toBeLessThanOrEqual(right + 2);
+    expect(bar.x + bar.w).toBeLessThanOrEqual(600);
   });
 });
 

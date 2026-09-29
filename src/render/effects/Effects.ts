@@ -198,7 +198,7 @@ export class Effects {
    * `motion` gate, and for the same reason: it is what the original did.
    */
   readonly poses = new PoseClock();
-  readonly #motion: boolean;
+  #motion: boolean;
   #live: LiveFx[] = [];
   #shakeStartedMs = 0;
   #shakeAmplitude = 0;
@@ -219,6 +219,20 @@ export class Effects {
   /** Whether anything may shake, warp, blur or scatter. */
   get motion(): boolean {
     return this.#motion;
+  }
+
+  /**
+   * Follows the OS setting when it changes mid-game. Turning motion off also
+   * stops what is already moving - a shake or a spray of particles in flight
+   * would otherwise play out after the player asked for stillness.
+   */
+  set motion(on: boolean) {
+    this.#motion = on;
+    if (on) return;
+    this.#shakeAmplitude = 0;
+    this.#aberrationStrength = 0;
+    this.#waveAmplitude = 0;
+    this.#particles = [];
   }
 
   /**

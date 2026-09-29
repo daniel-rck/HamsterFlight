@@ -376,9 +376,10 @@ hanging sideways. The port had read the flight convention (art facing right,
 drew them unrotated, which stood the hamster on its nose against a vertical
 ground line. `hamsterRotation` returns the quarter turn for `settling` now.
 
-**Rendering snaps rather than interpolating.** The original stage ran at 19 fps
-with no tweening, so snapping to the 20 Hz simulation is the faithful look, and
-it means about 20 draws per second instead of 60.
+**Rendering interpolates between ticks.** The original stage ran at 19 fps
+with no tweening, and the port first snapped to the 20 Hz simulation to match.
+It draws every display frame now, placing the hamster and the camera between
+the last two ticks - see *Presentation departures, recorded* below.
 
 ## Determinism policy
 
@@ -538,7 +539,17 @@ given, so `[press, togglePause]` no longer drops the press; and the shot driver
 in `src/sim/drive.ts` is the single one behind the golden tests and the bench,
 which used to disagree on their tick budgets.
 
-## The instructions board
+## The instructions board - replaced
+
+*No longer reproduced.* The port now opens on its own screen (`src/app/intro.ts`):
+the board was a raster picture of English text, soft at every size above
+600 x 400 and silent about touch, keys and gamepads, and the port had grown
+things to say on it - the daily challenge, records, sound and language. It
+keeps the board's place (over a still of the scene, before the `Game` is
+built, once per page load, skipped by `?profile` and `?instructions=0`) and
+its content (the three steps and the six items, as the original's sprites).
+`tools/build_screens.py` still renders the board, unused. What follows is how
+the board worked.
 
 Root frame 6 lays the INSTRUCTIONS board over the whole scene: `chalkboard_mc`
 (a half-transparent green sheet in a frame of planks), the text - DefineText
@@ -599,6 +610,17 @@ There was none. The simulation had emitted its cues all along - `sfx`,
   channels.
 
 ## Presentation departures, recorded
+
+- **One HUD bar.** The original drew the shot pips down the left edge and the
+  launch dial beside them as art of their own (`shotStatusN_mc`,
+  `_root.launchMeter`). The port draws the same state in a bar across the top:
+  the pips in a row, the dial on its side with the pillow's reach marked on it
+  (y in [694.7, 776.4], from the boxes above), shown dimmed rather than taken
+  away while the hamster is in the air.
+- **A minimap.** Not in the original. It shows the powerups the simulation
+  already holds - spawned 200 px past the right edge, culled 100 px past the
+  left - including those above or below the view. It reveals nothing the
+  simulation has not yet rolled.
 
 - **Interpolation between ticks.** The original stage ran at 19 fps with no
   tweening. This port places the hamster and the camera between the last two

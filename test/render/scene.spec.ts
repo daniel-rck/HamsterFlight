@@ -14,7 +14,16 @@ import {
   skyColours,
   starField,
 } from "@/render/scene/decor.ts";
-import { debugLines, glideFill, panelLines, promptFor, totalFeet } from "@/render/scene/hud.ts";
+import {
+  debugLines,
+  glideFill,
+  HUD,
+  minimapModel,
+  panelFields,
+  promptFor,
+  totalFeet,
+  triesLabel,
+} from "@/render/scene/hud.ts";
 import {
   castsShadow,
   hamsterRotation,
@@ -261,12 +270,16 @@ describe("hud strings", () => {
   it("sums the board and formats the panel", () => {
     const s = flying();
     expect(totalFeet(s)).toBe(165);
-    expect(panelLines(s)).toEqual(["try 2/5", "2.44 m   total 50.29 m"]);
-    expect(panelLines(flying({ turn: 6 }))[0]).toBe("try 5/5");
+    expect(panelFields(s).map((f) => [f.label, f.value, f.big])).toEqual([
+      ["DISTANCE", "2.44 m", true],
+      ["TOTAL", "50.29 m", false],
+    ]);
+    expect(triesLabel(s)).toBe("TRY 2/5");
+    expect(triesLabel(flying({ turn: 6 }))).toBe("TRY 5/5");
   });
 
   it("fills the glide bar by the meter and turns red when empty", () => {
-    expect(glideFill(flying({ glidePoints: 50 }))).toEqual({ fraction: 0.5, colour: 0xffd166 });
+    expect(glideFill(flying({ glidePoints: 50 }))).toEqual({ fraction: 0.5, colour: 0xffb13b });
     expect(glideFill(flying({ glidePoints: 0 }))).toEqual({ fraction: 0, colour: 0xff6b6b });
     expect(glideFill(flying({ glidePoints: 250 })).fraction).toBe(1);
   });
@@ -330,5 +343,65 @@ describe("interpolate", () => {
     expect(interpolate({ ...prev, tick: 7 }, next, 0.5)).toBe(next);
     expect(interpolate({ ...prev, turn: 1 }, next, 0.5)).toBe(next);
     expect(interpolate(null, next, 0.5)).toBe(next);
+  });
+});
+
+describe("the minimap", () => {
+  const m = HUD.minimap;
+  const inside = (p: { x: number; y: number }): boolean =>
+    p.x >= m.x && p.x <= m.x + m.w && p.y >= m.y && p.y <= m.y + m.h;
+
+  it("is only up while a hamster is in the air", () => {
+    expect(minimapModel(flying())).not.toBeNull();
+    expect(minimapModel(flying({ phaseKind: "ready" }))).toBeNull();
+    expect(minimapModel(flying({ phaseKind: "gameOver" }))).toBeNull();
+  });
+
+  it("shows the items not yet taken, and keeps every mark on the card", () => {
+    const s = flying({
+      camera: { x: -1000, y: -500 },
+      hamster: { ...flying().hamster, x: 1150, y: 700 },
+      powerups: [
+        // Ahead of the view, far above it, and one taken.
+        { kind: "speed", x: 1750, y: 100, taken: false, activeTicksLeft: 0 },
+        { kind: "bounce", x: 1300, y: -300, taken: false, activeTicksLeft: 0 },
+        { kind: "wind", x: 1200, y: 600, taken: true, activeTicksLeft: 0 },
+        // Way out of range: clamped to the edge rather than drawn off the card.
+        { kind: "slide", x: 99_999, y: 99_999, taken: false, activeTicksLeft: 0 },
+      ],
+    });
+    const map = minimapModel(s);
+    expect(map?.items.map((i) => i.kind)).toEqual(["speed", "bounce", "slide"]);
+    for (const p of [...(map?.items ?? []), map?.hamster ?? { x: -1, y: -1 }]) {
+      expect(inside(p)).toBe(true);
+    }
+    // Ahead is to the right of the hamster, above is above it.
+    const [speed, bounce] = map?.items ?? [];
+    expect(speed?.x ?? 0).toBeGreaterThan(map?.hamster.x ?? 0);
+    expect(bounce?.y ?? 0).toBeLessThan(map?.hamster.y ?? 0);
+    // The view frame sits inside the card, the hamster inside the view.
+    const v = map?.view ?? { x: 0, y: 0, w: 0, h: 0 };
+    expect(map?.hamster.x ?? 0).toBeGreaterThanOrEqual(v.x);
+    expect(map?.hamster.x ?? 0).toBeLessThanOrEqual(v.x + v.w);
+  });
+  it("keeps the view frame the same size however high the flight goes", () => {
+    const at = (cameraY: number) =>
+      minimapModel(
+        flying({
+          camera: { x: -1000, y: cameraY },
+          hamster: { ...flying().hamster, x: 1150, y: -cameraY + 200 },
+          powerups: [{ kind: "rebound", x: 1400, y: 950, taken: false, activeTicksLeft: 0 }],
+        }),
+      );
+    const low = at(-600);
+    const high = at(6000);
+    expect(high?.view.h).toBeCloseTo(low?.view.h ?? 0, 6);
+    expect(high?.view.y).toBeCloseTo(low?.view.y ?? 0, 6);
+    // Down on the ground, far below: pinned to the bottom edge, faded, and
+    // the ground itself is off the map.
+    expect(low?.items[0]?.beyond).toBe(false);
+    expect(high?.items[0]?.beyond).toBe(true);
+    expect(high?.items[0]?.y).toBeCloseTo(m.y + m.h - m.pad, 6);
+    expect(high?.groundY).toBeNull();
   });
 });

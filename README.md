@@ -18,9 +18,10 @@ bun run verify       # lint, sim purity, atlas, typecheck, tests, build, bundle 
 Bun is the package manager, like the other apps in this family
 (`daniel-rck/web-base`); Node runs the scripts under `scripts/`.
 
-The game opens on the original's INSTRUCTIONS board; Play Now! (or
-<kbd>Enter</kbd>) starts it, and that first press is also what lets the browser
-play sound. Press <kbd>Space</kbd> or click to jump, again to hit the pillow,
+The game opens on a screen of its own - how to play for your device, what the
+items do, the daily challenge, your record, sound and language - where the
+original showed its INSTRUCTIONS board. Play (or <kbd>Enter</kbd>) starts it,
+and that first press is also what lets the browser play sound. Press <kbd>Space</kbd> or click to jump, again to hit the pillow,
 then hold to glide. One swing per jump: miss it and the hamster lands back on
 the pad and you jump again, which costs nothing - only the pillow ends a turn.
 <kbd>P</kbd> or <kbd>Esc</kbd> pauses and a click or tap resumes; <kbd>M</kbd>
@@ -37,8 +38,8 @@ full screen where the browser allows it. Append `?seed=12345` to replay an exact
 | `?debug` | hitboxes and a state readout (<kbd>H</kbd> toggles) |
 | `?renderer=pixi` \| `canvas2d` | pick a backend explicitly (Canvas2D is the no-WebGL fallback) |
 | `?stress=N` | multiply renderer-only decoration; profiling aid, never touches physics |
-| `?profile` | report draw-time percentiles to the console (skips the instructions board) |
-| `?instructions=0` | skip the instructions board |
+| `?profile` | report draw-time percentiles to the console (skips the opening screen) |
+| `?instructions=0` | skip the opening screen |
 | `?run=…` | race the ghost of a shared game (what "Challenge a friend" links to) |
 | `?daily` | play today's daily challenge |
 | `?lang=en` \| `de` | pick the language; otherwise the saved choice, then the browser's |
@@ -174,8 +175,14 @@ wraps a little more around it, none of which touches the simulation:
   as a streak.
 - **Achievements.** Fifteen goals, from a first cheer to beating a friend's
   ghost, listed under the help button.
-- **German.** The port's own words follow the browser or the language picker;
-  the INSTRUCTIONS board is the original's art and stays English.
+- **German.** Every word on the page follows the browser or the language
+  picker, the opening screen included.
+- **A look of its own.** The HUD, the opening screen and every overlay share
+  one self-hosted typeface (Fredoka) and one palette, drawn the same way by
+  both backends. The HUD is one bar across the top - tries, a launch meter
+  that marks where a swing reaches the pillow, distances, glide.
+- **A minimap.** In flight, a card under the bar shows the powerups around the
+  view - ahead, above and below - as dots in each item's colour.
 
 PLAY AGAIN also works differently underneath: it builds a fresh simulation
 from a new seed rather than calling the original's `reset()`, whose random
@@ -236,8 +243,9 @@ The sounds under `src/assets/sounds/` come out the same way, by
 `reference/tools/build_sounds.py`: all 21 the game uses - the 14 `Game` plays
 and the 7 its clip timelines start - as the SWF's own MP3 data, no transcoding,
 with each sound's encoder latency and length in `src/assets/sounds.generated.ts`
-so loops run on the sound's real extent. The instructions board and its button
-are rendered from root frame 6 by `reference/tools/build_screens.py`.
+so loops run on the sound's real extent. `reference/tools/build_screens.py`
+renders the original's INSTRUCTIONS board from root frame 6; the port no
+longer shows it (see *porting-notes*), and the command stays for the record.
 
 ```sh
 python3 reference/tools/build_sounds.py path/to/OCybCA4ADbpTKT.swf src/assets/sounds
@@ -301,6 +309,12 @@ bun run verify && bun run smoke && bun run check:cf
 bun run worker:deploy                  # wrangler deploy
 bun run build && bun run worker:dev    # serve dist/ through wrangler locally, real header and 404 semantics
 ```
+
+Set `SITE_ORIGIN` (the public origin, no trailing slash) in the build
+environment so the link-preview tags carry an absolute image URL; see
+[SETUP.md](SETUP.md). The preview picture and the Apple touch icon in
+`public/` are rendered from the built page by `bun run build && bun run images`
+and committed - rerun it when the opening screen changes.
 
 The build emits source maps but does not reference them from the bundle
 (`sourcemap: 'hidden'`), so a deployed stack trace can be mapped by hand

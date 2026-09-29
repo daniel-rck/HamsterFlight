@@ -1,10 +1,19 @@
 import { versionLabel } from "@/app/build.ts";
 import { dayKey } from "@/app/daily.ts";
 import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
+import { fontsReady, loadFonts } from "@/app/fonts.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
 import { type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
 import { vibrationFor } from "@/app/haptics.ts";
-import { ACHIEVEMENT_IDS, applyPage, pickLang, STRINGS, type Strings } from "@/app/i18n.ts";
+import {
+  ACHIEVEMENT_IDS,
+  applyPage,
+  type InputDevice,
+  pickLang,
+  STRINGS,
+  type Strings,
+} from "@/app/i18n.ts";
+import type { Intro } from "@/app/intro.ts";
 import { achievementCount, MetaGame } from "@/app/MetaGame.ts";
 import {
   instructionsFromUrl,
@@ -16,14 +25,14 @@ import {
 import { browserStore, type Progress, type Settings } from "@/app/progress.ts";
 import { resultsView } from "@/app/results.ts";
 import { GameSession } from "@/app/session.ts";
+import { browserShareEnv, shareLink } from "@/app/share.ts";
 import { Toasts } from "@/app/toast.ts";
-import { type AssetBundle, densityFor, loadSprites } from "@/assets/AssetLoader.ts";
-import boardUrl from "@/assets/screens/instructions.webp?url";
-import board2xUrl from "@/assets/screens/instructions@2x.webp?url";
-import playOverUrl from "@/assets/screens/play-over.webp?url";
-import playOver2xUrl from "@/assets/screens/play-over@2x.webp?url";
-import playUpUrl from "@/assets/screens/play-up.webp?url";
-import playUp2xUrl from "@/assets/screens/play-up@2x.webp?url";
+import {
+  type AssetBundle,
+  densityFor,
+  type LoadProgress,
+  loadSprites,
+} from "@/assets/AssetLoader.ts";
 import type { AudioPlayer } from "@/audio/AudioPlayer.ts";
 import { InputController } from "@/input/InputController.ts";
 import { Effects } from "@/render/effects/Effects.ts";
@@ -49,22 +58,6 @@ function webglAvailable(): boolean {
 }
 
 type PixiModule = typeof import("@/render/PixiRenderer.ts");
-
-/** Root frame 6's art, at the density the page will show it at. */
-function showInstructions(panel: HTMLElement, button: HTMLButtonElement): void {
-  const board = panel.querySelector<HTMLImageElement>(":scope > img");
-  const up = button.querySelector<HTMLImageElement>(".up");
-  const over = button.querySelector<HTMLImageElement>(".over");
-  const set = (img: HTMLImageElement | null, x1: string, x2: string): void => {
-    if (img === null) return;
-    img.src = x1;
-    img.srcset = `${x1} 1x, ${x2} 2x`;
-  };
-  set(board, boardUrl, board2xUrl);
-  set(up, playUpUrl, playUp2xUrl);
-  set(over, playOverUrl, playOver2xUrl);
-  panel.hidden = false;
-}
 
 /**
  * The player and its sound URLs, in a chunk of their own. A failure here is a
@@ -127,13 +120,26 @@ async function pickRenderer(
 }
 
 /**
+ * The words boot can say before - or without - a game: in the page's language
+ * from the first message on, not only once the game is up. Replaced as soon as
+ * the saved choice has been read.
+ */
+let bootText: Strings["boot"] = STRINGS.en.boot;
+
+/**
  * The boot panel stays in the document, hidden, so a failure after boot has
  * somewhere to report itself. Removing it used to leave late errors invisible.
  */
-function setBootMessage(text: string): void {
+function setBootMessage(text: string, fraction: number | null = null): void {
   const boot = document.querySelector<HTMLElement>("#boot");
   if (boot === null) return;
-  boot.textContent = text;
+  const line = boot.querySelector<HTMLElement>("#boot-text");
+  if (line !== null) line.textContent = text;
+  const bar = boot.querySelector<HTMLElement>(".boot-bar");
+  if (bar !== null) {
+    bar.toggleAttribute("data-known", fraction !== null);
+    if (fraction !== null) bar.style.setProperty("--p", String(fraction));
+  }
   boot.hidden = false;
 }
 
@@ -146,12 +152,14 @@ function showFailure(text: string): void {
   const boot = document.querySelector<HTMLElement>("#boot");
   if (boot === null) return;
   const message = document.createElement("p");
+  message.setAttribute("role", "alert");
   message.textContent = text;
   const reload = document.createElement("button");
   reload.type = "button";
-  reload.textContent = "Reload";
+  reload.textContent = bootText.reload;
   reload.addEventListener("click", () => window.location.reload());
-  boot.replaceChildren(message, reload);
+  const logo = boot.querySelector(".boot-logo");
+  boot.replaceChildren(...(logo === null ? [] : [logo]), message, reload);
   boot.hidden = false;
   reload.focus();
 }
@@ -201,24 +209,37 @@ function watchStageSize(
 }
 
 /**
- * The help and credits, over the stage from the corner button. Wired before
- * anything loads, so they open even on a page whose game failed to start.
- * `onOpen` lets the game pause itself once it exists.
+ * The help and credits, over the stage from the corner button or `I`. Wired
+ * before anything loads, so they open even on a page whose game failed to
+ * start. `onOpen` lets the game pause itself once it exists.
+ *
+ * A dialog: focus moves in and comes back to the stage, Tab stays inside, and
+ * Esc closes it - caught before the game's own Esc, which would pause.
  */
-function wireAbout(canvas: HTMLCanvasElement, signal: AbortSignal): { onOpen: () => void } {
-  const hooks = { onOpen: (): void => {} };
+function wireAbout(
+  canvas: HTMLCanvasElement,
+  signal: AbortSignal,
+): { onOpen: () => void; toggle: () => void } {
+  const hooks = { onOpen: (): void => {}, toggle: (): void => {} };
   const button = document.querySelector<HTMLButtonElement>("#info");
   const about = document.querySelector<HTMLElement>("#about");
-  if (button === null || about === null) return hooks;
+  const card = about?.querySelector<HTMLElement>(":scope > div");
+  if (button === null || about === null || card === null || card === undefined) return hooks;
   const show = (open: boolean): void => {
     about.hidden = !open;
     button.setAttribute("aria-expanded", String(open));
-    if (open) hooks.onOpen();
-    else canvas.focus({ preventScroll: true });
+    if (open) {
+      hooks.onOpen();
+      card.focus({ preventScroll: true });
+    } else {
+      canvas.focus({ preventScroll: true });
+    }
   };
-  button.addEventListener("click", () => show(about.hasAttribute("hidden")), { signal });
-  // Anywhere on the overlay closes it - it is information, not a dialog -
-  // except the settings and the achievements, which are there to be used.
+  hooks.toggle = () => show(about.hasAttribute("hidden"));
+  button.addEventListener("click", hooks.toggle, { signal });
+  about.querySelector("#about-close")?.addEventListener("click", () => show(false), { signal });
+  // Anywhere on the overlay closes it - except the settings and the
+  // achievements, which are there to be used.
   about.addEventListener(
     "click",
     (event) => {
@@ -227,7 +248,48 @@ function wireAbout(canvas: HTMLCanvasElement, signal: AbortSignal): { onOpen: ()
     },
     { signal },
   );
+  window.addEventListener(
+    "keydown",
+    (event) => {
+      if (about.hasAttribute("hidden")) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        show(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const focusable = [
+        ...card.querySelectorAll<HTMLElement>("button, input, select, [tabindex='0']"),
+      ].filter((el) => el.offsetParent !== null);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (first === undefined || last === undefined) return;
+      const inside = card.contains(document.activeElement);
+      if (event.shiftKey && (document.activeElement === first || !inside)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
+        event.preventDefault();
+        first.focus();
+      }
+    },
+    { signal, capture: true },
+  );
   return hooks;
+}
+
+/**
+ * The link, selected in a field on the results card, for when neither the
+ * share sheet nor the clipboard would take it.
+ */
+function showShareLink(url: string): void {
+  const field = document.querySelector<HTMLInputElement>("#results-link");
+  if (field === null) return;
+  field.value = url;
+  field.hidden = false;
+  field.focus({ preventScroll: true });
+  field.select();
 }
 
 /** Today, locally - the daily challenge's day. */
@@ -252,15 +314,36 @@ async function boot(): Promise<void> {
   const params = new URLSearchParams(window.location.search);
   const rendererName = rendererFromUrl(params);
 
+  const store = browserStore();
+  const saved = store.load();
+  let lang = pickLang(params.get("lang"), saved.settings.lang, navigator.languages ?? []);
+  let t: Strings = STRINGS[lang];
+  bootText = t.boot;
+  applyPage(document, lang);
+
   // How big the stage actually is decides which atlas is worth downloading -
   // a 1x screen showing a wide layout is already past 1:1.
   const scale = stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
+  // The HUD is canvas text, so the face is waited for - alongside the atlas,
+  // not after it, and never for long: the fallback stack is a fine HUD too.
+  const fonts = loadFonts();
   const pixiImport = startPixiImport(rendererName);
+  // The opening screen is a chunk of its own, fetched alongside the atlas:
+  // it is shown once per visit and never at all under `?instructions=0`.
+  const introImport = instructionsFromUrl(params)
+    ? import("@/app/intro.ts").catch((error: unknown) => {
+        console.warn("[hamsterflight] no opening screen: %o", error);
+        return null;
+      })
+    : Promise.resolve(null);
   // Its own chunk: every visitor pays for the eager bundle, and nothing can
   // sound before the first gesture anyway.
   const audioImport = startAudioImport();
-  const progress = ({ loaded, total }: { loaded: number; total: number }): void => {
-    setBootMessage(total > 1 ? `loading ${Math.round((loaded / total) * 100)}%` : "loading…");
+  const progress = ({ fraction }: LoadProgress): void => {
+    setBootMessage(
+      fraction === null ? bootText.loading : bootText.loadingPercent(Math.round(fraction * 100)),
+      fraction,
+    );
   };
   let assets = await loadSprites(progress, densityFor(scale));
   if (assets.missing.length > 0 && assets.density !== 1) {
@@ -274,23 +357,33 @@ async function boot(): Promise<void> {
     // but an invisible one: sky and HUD, no hamster, clicks that seem to do
     // nothing. Say so instead of starting it.
     console.error("[hamsterflight] sprite sheets missing: %s", assets.missing.join(", "));
-    showFailure("Couldn't load the game art. Check your connection and reload.");
+    showFailure(bootText.noArt);
     return;
   }
 
-  const store = browserStore();
-  const saved = store.load();
-  let lang = pickLang(params.get("lang"), saved.settings.lang, navigator.languages ?? []);
-  let t: Strings = STRINGS[lang];
-  applyPage(document, lang);
   const touch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
 
   const stress = stressFromUrl(params);
   // Shake, warp and particles honour the OS-level preference; the rest of the
   // presentation - the translucent bubble, the parallax sky - is not motion.
-  const reducedMotion =
-    typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  // The opening screen, built once the loop exists; settings and the motion
+  // preference reach it through this.
+  let intro: Intro | null = null;
+  const motionQuery =
+    typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : null;
+  let reducedMotion = motionQuery?.matches ?? false;
   const effects = new Effects({ motion: !reducedMotion });
+  // The setting can change mid-game, from the OS or a browser's own toggle.
+  motionQuery?.addEventListener(
+    "change",
+    () => {
+      reducedMotion = motionQuery.matches;
+      effects.motion = !reducedMotion;
+      intro?.setMotion(!reducedMotion);
+    },
+    { signal },
+  );
+  const fontLoaded = await fonts;
   const { renderer, backend } = await pickRenderer(await pixiImport, canvas, assets, effects, {
     showHitboxes: params.has("debug"),
     stress,
@@ -298,13 +391,22 @@ async function boot(): Promise<void> {
     touch,
     strings: t.hud,
   });
+  if (!fontLoaded) {
+    // Arrived after the timeout: re-set the strings, which re-measures them
+    // in the face that has now loaded.
+    void fontsReady().then(() => renderer.setStrings(t.hud));
+  }
   const audio = await audioImport;
   audio?.setVolume(saved.settings.volume);
   audio?.setSfxMuted(saved.settings.sfxMuted);
   const musicButton = document.querySelector<HTMLButtonElement>("#music");
   const sfxButton = document.querySelector<HTMLButtonElement>("#sfx");
+  const introMusic = document.querySelector<HTMLButtonElement>("#intro-music");
+  const introSfx = document.querySelector<HTMLButtonElement>("#intro-sfx");
   const syncSoundButtons = (): void => {
     const music = audio?.musicMuted ?? false;
+    introMusic?.setAttribute("aria-pressed", String(!music));
+    introSfx?.setAttribute("aria-pressed", String(!(audio?.sfxMuted ?? false)));
     musicButton?.setAttribute("aria-pressed", String(music));
     musicButton?.setAttribute("aria-label", music ? t.unmuteMusic : t.muteMusic);
     const sfx = audio?.sfxMuted ?? false;
@@ -329,6 +431,10 @@ async function boot(): Promise<void> {
   }
   if (musicButton !== null && audio !== null) {
     musicButton.addEventListener("click", toggleMusic, { signal });
+  }
+  if (audio !== null) {
+    introMusic?.addEventListener("click", toggleMusic, { signal });
+    if (introMusic !== null) introMusic.hidden = false;
   }
 
   const toasts = new Toasts(document.querySelector<HTMLElement>("#toast"));
@@ -366,19 +472,9 @@ async function boot(): Promise<void> {
         audio?.consume([{ t: "sfx", id: "pickup", gain: C.SFX_VOLUME }]);
       },
       share: async (url, text) => {
-        try {
-          if (typeof navigator.share === "function") {
-            await navigator.share({ title: "HamsterFlight", text, url });
-            return "shared";
-          }
-          await navigator.clipboard.writeText(url);
-          return "copied";
-        } catch (error) {
-          // Cancelled by the player, or no clipboard: offer the link to copy by hand.
-          if (error instanceof DOMException && error.name === "AbortError") return "failed";
-          window.prompt(text, url);
-          return "failed";
-        }
+        const outcome = await shareLink(browserShareEnv(), url, text);
+        if (outcome === "manual") showShareLink(url);
+        return outcome === "shared" || outcome === "copied" ? outcome : "failed";
       },
       baseUrl: () => `${window.location.origin}${window.location.pathname}`,
       results: resultsView(document.querySelector<HTMLElement>("#results"), {
@@ -406,6 +502,7 @@ async function boot(): Promise<void> {
     tuning: DEFAULT_TUNING,
   });
 
+  const introModule = await introImport;
   const saveSettings = (change: Partial<Settings>): void => meta.updateSettings(change);
   const toggleSfx = (): void => {
     if (audio === null) return;
@@ -415,11 +512,15 @@ async function boot(): Promise<void> {
     syncSettings();
   };
   sfxButton?.addEventListener("click", toggleSfx, { signal });
+  if (audio !== null) {
+    introSfx?.addEventListener("click", toggleSfx, { signal });
+    if (introSfx !== null) introSfx.hidden = false;
+  }
 
   const haptics =
-    touch && !reducedMotion && typeof navigator.vibrate === "function"
+    touch && typeof navigator.vibrate === "function"
       ? (ms: number): void => {
-          if (ms > 0 && meta.progress.settings.haptics) navigator.vibrate(ms);
+          if (ms > 0 && !reducedMotion && meta.progress.settings.haptics) navigator.vibrate(ms);
         }
       : null;
 
@@ -428,12 +529,14 @@ async function boot(): Promise<void> {
   const setVolume = document.querySelector<HTMLInputElement>("#set-volume");
   const setHaptics = document.querySelector<HTMLInputElement>("#set-haptics");
   const setLang = document.querySelector<HTMLSelectElement>("#set-lang");
+  const introLang = document.querySelector<HTMLSelectElement>("#intro-lang");
   const syncSettings = (): void => {
     const settings = meta.progress.settings;
     if (setSfx !== null) setSfx.checked = !settings.sfxMuted;
     if (setVolume !== null) setVolume.value = String(Math.round(settings.volume * 100));
     if (setHaptics !== null) setHaptics.checked = settings.haptics;
     if (setLang !== null) setLang.value = settings.lang ?? "";
+    if (introLang !== null) introLang.value = settings.lang ?? "";
   };
   syncSettings();
   if (audio !== null) {
@@ -449,8 +552,8 @@ async function boot(): Promise<void> {
   const hapticsRow = document.querySelector<HTMLElement>("#set-haptics-row");
   if (hapticsRow !== null) hapticsRow.hidden = haptics === null;
   setHaptics?.addEventListener("change", () => saveSettings({ haptics: setHaptics.checked }));
-  setLang?.addEventListener("change", () => {
-    const choice = setLang.value === "en" || setLang.value === "de" ? setLang.value : null;
+  const changeLang = (value: string): void => {
+    const choice = value === "en" || value === "de" ? value : null;
     saveSettings({ lang: choice });
     lang = pickLang(null, choice, navigator.languages ?? []);
     t = STRINGS[lang];
@@ -462,7 +565,13 @@ async function boot(): Promise<void> {
     syncPauseButton(current.paused, true);
     syncFullscreenButton();
     syncSettings();
-  });
+    if (intro !== null && introModule !== null) {
+      intro.setStrings(t, introModule.introModel(t, meta.mode, meta.progress, today()));
+    }
+  };
+  for (const select of [setLang, introLang]) {
+    select?.addEventListener("change", () => changeLang(select.value), { signal });
+  }
   for (const section of ["#settings", "#achievements-panel"]) {
     const el = document.querySelector<HTMLElement>(section);
     if (el !== null) el.hidden = false;
@@ -476,6 +585,10 @@ async function boot(): Promise<void> {
     onToggleSfx: toggleSfx,
     // The button is out of the tab order like the other corners, so it gets a key too.
     onToggleFullscreen: () => toggleFullscreen?.(),
+    // Not over the opening screen, which has the same words and its own focus.
+    onToggleInfo: () => {
+      if (!(intro?.open ?? false)) about.toggle();
+    },
   });
   signal.addEventListener("abort", () => input.detach());
 
@@ -489,7 +602,7 @@ async function boot(): Promise<void> {
   const syncPauseButton = (paused: boolean, force = false): void => {
     if (pauseButton === null || (paused === shownPaused && !force)) return;
     shownPaused = paused;
-    pauseButton.textContent = paused ? "▶" : "II";
+    pauseButton.dataset.paused = String(paused);
     pauseButton.setAttribute("aria-label", paused ? t.resume : t.pause);
   };
 
@@ -586,18 +699,43 @@ async function boot(): Promise<void> {
     },
     // The loop stops and rethrows, so the stack still reaches the console;
     // without this the picture just froze.
-    onError: () => showFailure("Something went wrong. Reload to play on."),
+    onError: () => showFailure(bootText.crashed),
   });
 
-  // Until Play Now! the scene stands still behind the board, as frame 6 has
-  // no Game yet: one picture, redrawn whenever the stage is resized.
+  // Until the opening screen is left the scene stands still behind it, as the
+  // original's frame 6 had no Game yet: one picture, redrawn on every resize.
   let started = false;
   const drawStill = (): void => renderer.draw(current, performance.now(), meta.overlay(current, 1));
+  // The atlas was picked for the stage as it was at boot. A stage that grows
+  // past it - full screen, a larger window, a sharper monitor - fetches the
+  // denser sheet once, in the background, and swaps it in; a failure keeps
+  // the softer one, which draws the same game.
+  let upgrading = false;
+  const upgradeAtlas = (): void => {
+    const wanted = densityFor(
+      stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio),
+    );
+    if (upgrading || wanted <= assets.density) return;
+    upgrading = true;
+    void loadSprites(undefined, wanted).then((denser) => {
+      if (signal.aborted) return;
+      if (denser.missing.length > 0) {
+        console.warn("[hamsterflight] denser atlas unavailable: %s", denser.missing.join(", "));
+        return;
+      }
+      assets = denser;
+      renderer.setAssets(denser);
+      intro?.setAssets(denser);
+      if (!started) drawStill();
+      upgrading = false;
+    });
+  };
   watchStageSize(
     canvas,
     () => {
       renderer.resize();
       if (!started) drawStill();
+      upgradeAtlas();
     },
     signal,
   );
@@ -676,25 +814,39 @@ async function boot(): Promise<void> {
     meta.announce();
     loop.start();
   };
-  const instructions = document.querySelector<HTMLElement>("#instructions");
-  const playNow = document.querySelector<HTMLButtonElement>("#play-now");
-  if (instructionsFromUrl(params) && instructions !== null && playNow !== null) {
-    showInstructions(instructions, playNow);
-    drawStill();
-    playNow.focus({ preventScroll: true });
-    // Button 503: `chalkboard_mc._visible = false; nextFrame()` - frame 7
-    // builds the Game. Its `stopAllSounds()` has nothing to stop here: no
-    // sound can have started before this click, which is also the one that
-    // unlocks audio.
-    playNow.addEventListener(
-      "click",
-      () => {
-        instructions.hidden = true;
-        audio?.unlock();
-        start();
+  const introRoot = document.querySelector<HTMLElement>("#intro");
+  const stageBox = canvas.parentElement;
+  if (introModule !== null && introRoot !== null) {
+    const device = (): InputDevice =>
+      pads().some((pad) => pad !== null) ? "pad" : touch ? "touch" : "mouse";
+    const leave = (): void => {
+      intro?.hide();
+      stageBox?.classList.remove("intro-open");
+      audio?.unlock();
+      start();
+    };
+    intro = new introModule.Intro({
+      root: introRoot,
+      strings: t,
+      device: device(),
+      motion: !reducedMotion,
+      signal,
+      onPlay: leave,
+      onSecondary: () => {
+        // The other mode, and a game built for it: the session was seeded
+        // for the one the page opened in.
+        meta.switchMode();
+        session.reset(meta.nextSeed());
+        previous = null;
+        current = session.snapshot;
+        leave();
       },
-      { signal, once: true },
-    );
+    });
+    window.addEventListener("gamepadconnected", () => intro?.setDevice("pad"), { signal });
+    intro.setAssets(assets);
+    stageBox?.classList.add("intro-open");
+    drawStill();
+    intro.show(introModule.introModel(t, meta.mode, meta.progress, today()));
   } else {
     start();
   }
@@ -711,5 +863,5 @@ async function boot(): Promise<void> {
 
 boot().catch((error: unknown) => {
   console.error("[hamsterflight] boot failed", error);
-  showFailure("The game couldn't start in this browser. Reload to try again.");
+  showFailure(bootText.noStart);
 });

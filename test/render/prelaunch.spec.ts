@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { type Placement, PreLaunchScene } from "@/render/PreLaunchScene.ts";
+import { launchZones, meterFraction, meterReading, pipFrames } from "@/render/scene/hud.ts";
 import { C } from "@/sim/constants.ts";
 import type { Phase, SimSnapshot } from "@/sim/state.ts";
 import { noEffects } from "@/sim/types.ts";
@@ -166,9 +167,11 @@ describe("the hamster queue", () => {
 });
 
 describe("the launch meter", () => {
+  const zones = launchZones();
+  const reading = (setup: Setup) => meterReading(snap(setup), zones);
+
   it("is up before the shot and down once the hamster is away", () => {
-    const scene = new PreLaunchScene();
-    const up = (phase: Phase["kind"]): boolean => scene.layout(snap({ phase }), 0).needle !== null;
+    const up = (phase: Phase["kind"]): boolean => reading({ phase }).up;
     expect(up("ready")).toBe(true);
     expect(up("jumping")).toBe(true);
     expect(up("flying")).toBe(false);
@@ -176,35 +179,37 @@ describe("the launch meter", () => {
     expect(up("gameOver")).toBe(false);
   });
 
-  it("reads the needle off the hamster, clamped at both ends", () => {
-    const scene = new PreLaunchScene();
-    const y = (at: number): number =>
-      scene.layout(snap({ phase: "jumping", y: at }), 0).needle?.y ?? Number.NaN;
-    // 48 + 0.35417 * (y - 715), clamped to 10..100, on top of the meter's y = 3.
-    expect(y(715)).toBeCloseTo(3 + 48, 4);
-    expect(y(C.HAMSTER_START_Y)).toBeCloseTo(3 + 100, 4);
-    expect(y(600)).toBeCloseTo(3 + 10, 4);
+  it("reads the original's needle off the hamster, on its side and clamped", () => {
+    // 48 + 0.35417 * (y - 715), clamped to 10..100, as 0..1 along the track.
+    const at = (y: number): number => reading({ phase: "jumping", y }).fraction;
+    expect(at(715)).toBeCloseTo(38 / 90, 4);
+    expect(at(C.HAMSTER_START_Y)).toBeCloseTo(1, 4);
+    expect(at(600)).toBeCloseTo(0, 4);
   });
 
-  it("flips the needle on the way down", () => {
-    const scene = new PreLaunchScene();
-    const flipped = (yvel: number): boolean =>
-      scene.layout(snap({ phase: "jumping", yvel }), 0).needle?.flipped ?? false;
-    expect(flipped(-12)).toBe(false);
-    expect(flipped(0)).toBe(false);
-    expect(flipped(3)).toBe(true);
+  it("marks the band a swing reaches the pillow in - y 694.7 to 776.4", () => {
+    const band = zones.band ?? [Number.NaN, Number.NaN];
+    expect(band[0]).toBeCloseTo(meterFraction(694.7), 2);
+    expect(band[1]).toBeCloseTo(meterFraction(776.4), 2);
+    // The fastest launch sits inside it.
+    const sweet = zones.sweet ?? [Number.NaN, Number.NaN];
+    expect(sweet[0]).toBeGreaterThan(band[0]);
+    expect(sweet[1]).toBeLessThanOrEqual(band[1]);
+  });
+
+  it("lights up exactly while a swing would connect", () => {
+    const lit = (y: number): boolean => reading({ phase: "jumping", y }).inBand;
+    expect(lit(740)).toBe(true);
+    expect(lit(690)).toBe(false);
+    expect(lit(780)).toBe(false);
+    // On the pad, before the jump, nothing connects.
+    expect(reading({ phase: "ready", y: 740 }).inBand).toBe(false);
   });
 });
 
 describe("the shot pips", () => {
   it("lights one per shot on the board", () => {
-    const scene = new PreLaunchScene();
-    const lit = (shots: readonly number[]): number[] =>
-      scene
-        .layout(snap({ shots }), 0)
-        .hud.filter((at) => at.sprite === "hud/shotPip")
-        .map((at) => at.frame);
-
+    const lit = (shots: readonly number[]) => pipFrames(snap({ shots }));
     expect(lit([])).toEqual([0, 0, 0, 0, 0]);
     expect(lit([120, 0])).toEqual([1, 1, 0, 0, 0]);
     expect(lit([1, 2, 3, 4, 5])).toEqual([1, 1, 1, 1, 1]);

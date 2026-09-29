@@ -37,9 +37,17 @@ import {
   glideFill,
   HUD,
   HUD_COLOURS,
+  HUD_TYPE,
   type HudStrings,
-  panelLines,
+  ITEM_COLOURS,
+  launchZones,
+  type LaunchZones,
+  meterReading,
+  minimapModel,
+  panelFields,
+  pipFrames,
   promptFor,
+  triesLabel,
 } from "@/render/scene/hud.ts";
 import {
   FLAG,
@@ -66,9 +74,57 @@ import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
 
-const CHROME = `rgba(12,20,30,${HUD_COLOURS.chromeAlpha})`;
-const PROMPT_CHROME = `rgba(12,20,30,${HUD_COLOURS.promptAlpha})`;
+function rgba(colour: number, alpha: number): string {
+  return `rgba(${(colour >> 16) & 255},${(colour >> 8) & 255},${colour & 255},${alpha})`;
+}
+
+const CHROME = rgba(HUD_COLOURS.chrome, HUD_COLOURS.chromeAlpha);
+const PROMPT_CHROME = rgba(HUD_COLOURS.chrome, HUD_COLOURS.promptAlpha);
+const RIM = rgba(HUD_COLOURS.rim, HUD_COLOURS.rimAlpha);
+const SHADOW = rgba(HUD_COLOURS.shadow, HUD_COLOURS.shadowAlpha);
+const GLOSS = rgba(HUD_COLOURS.gloss, HUD_COLOURS.glossAlpha);
+const DIVIDER = rgba(HUD_COLOURS.divider, HUD_COLOURS.dividerAlpha);
+/** The glide track, darker than the card it sits in. */
+const TRACK = rgba(0x000000, 0.32);
 const MARKER_INK = `rgba(255,255,255,${HUD_COLOURS.markerAlpha})`;
+
+/** A rounded rectangle as the current path; a square one where roundRect is missing. */
+function roundedPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2));
+  else ctx.rect(x, y, w, h);
+}
+
+/** A HUD card: translucent chrome with a hairline rim. */
+function card(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill = CHROME,
+): void {
+  roundedPath(ctx, x, y, w, h, r);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  roundedPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, r - 0.5);
+  ctx.strokeStyle = RIM;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+/** Letter spacing where the canvas has it; older engines just set it tight. */
+function setSpacing(ctx: CanvasRenderingContext2D, px: number): void {
+  if ("letterSpacing" in ctx) ctx.letterSpacing = `${px}px`;
+}
 
 /** One path for the whole outline: every sub-shape winds the same way, so it fills as a union. */
 function cloudPath(ctx: CanvasRenderingContext2D, shape: CloudShape, drop: number): void {
@@ -97,9 +153,10 @@ function hex(colour: number): string {
 export class GameRenderer implements Renderer {
   readonly #ctx: CanvasRenderingContext2D;
   readonly #canvas: HTMLCanvasElement;
-  readonly #assets: AssetBundle;
+  #assets: AssetBundle;
   readonly #effects: Effects;
   readonly #tuning: Tuning;
+  readonly #zones: LaunchZones;
   readonly #stress: number;
   /** A fixed hash, so it is built once; rebuilding it every frame allocated
    *  `70 * stress` objects per draw for a picture that never changes. */
@@ -125,6 +182,7 @@ export class GameRenderer implements Renderer {
     this.#assets = assets;
     this.#effects = effects;
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
+    this.#zones = launchZones(this.#tuning);
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#touch = options.touch ?? false;
     this.#strings = options.strings ?? EN_HUD;
@@ -146,6 +204,11 @@ export class GameRenderer implements Renderer {
 
   toggleHitboxes(): void {
     this.#showHitboxes = !this.#showHitboxes;
+  }
+
+  setAssets(assets: AssetBundle): void {
+    // Immediate mode: the next frame simply draws from the new sheet.
+    this.#assets = assets;
   }
 
   setStrings(strings: HudStrings): void {
@@ -180,7 +243,7 @@ export class GameRenderer implements Renderer {
     this.#hamster(ctx, s);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
-    this.#hud(ctx, s, scene);
+    this.#hud(ctx, s);
   }
 
   // -- layers ---------------------------------------------------------------
@@ -437,51 +500,110 @@ export class GameRenderer implements Renderer {
 
   // -- HUD ------------------------------------------------------------------
 
-  #hud(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
-    for (const at of scene.hud) {
-      const sprite = this.#assets.get(at.sprite);
-      if (sprite !== undefined) this.#blit(ctx, sprite, at.frame, at.x, at.y);
-    }
-    const needle = scene.needle;
-    const arrow = needle === null ? undefined : this.#assets.get(needle.sprite);
-    if (needle !== null && arrow !== undefined) {
-      ctx.save();
-      ctx.translate(needle.x, needle.y);
-      if (needle.flipped) ctx.rotate(Math.PI);
-      this.#blit(ctx, arrow, needle.frame, 0, 0);
-      ctx.restore();
+  #hud(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
+    ctx.save();
+    const bar = HUD.bar;
+    card(ctx, bar.x, bar.y, bar.w, bar.h, bar.radius);
+    ctx.fillStyle = DIVIDER;
+    for (const x of HUD.dividers) ctx.fillRect(x, bar.y + 9, 1, bar.h - 18);
+    const label = (text: string, x: number): void => {
+      ctx.font = FONTS.label;
+      setSpacing(ctx, HUD_TYPE.label.letterSpacing);
+      ctx.fillStyle = HUD_COLOURS.labelInk;
+      ctx.fillText(text, x, HUD.labelBaseline);
+      setSpacing(ctx, 0);
+    };
+
+    // The tries: the original's five pips, in a row.
+    const tries = HUD.tries;
+    label(triesLabel(s, this.#strings), tries.labelX);
+    const pip = this.#assets.get("hud/shotPip");
+    if (pip !== undefined) {
+      for (const [i, frame] of pipFrames(s).entries()) {
+        const x = tries.pipX + i * tries.pipStep;
+        this.#blit(ctx, pip, frame, x - pip.meta.ox, tries.pipY - pip.meta.oy);
+      }
     }
 
-    ctx.font = FONTS.hud;
-
-    const panel = HUD.panel;
-    ctx.fillStyle = CHROME;
-    ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
-    ctx.fillStyle = HUD_COLOURS.ink;
-    for (const [i, line] of panelLines(s, this.#strings).entries()) {
-      ctx.fillText(line, panel.textX, panel.baseline + i * panel.lineHeight);
+    // The launch meter, dimmed while it is down.
+    const meter = HUD.meter;
+    const reading = meterReading(s, this.#zones);
+    // Dimmed in the colours rather than by globalAlpha: a partial-alpha fill
+    // is how a particle is told apart from the chrome.
+    const dim = reading.up ? 1 : 0.4;
+    ctx.globalAlpha = dim;
+    label(this.#strings.launchLabel.toUpperCase(), meter.labelX);
+    ctx.globalAlpha = 1;
+    roundedPath(ctx, meter.x, meter.y, meter.w, meter.h, meter.radius);
+    ctx.fillStyle = rgba(0x000000, 0.32 * dim);
+    ctx.fill();
+    ctx.save();
+    ctx.clip();
+    const zone = (span: readonly [number, number] | null, colour: number, alpha: number): void => {
+      if (span === null) return;
+      const from = meter.x + meter.w * Math.min(...span);
+      ctx.fillStyle = rgba(colour, alpha * dim);
+      ctx.fillRect(from, meter.y, meter.w * Math.abs(span[1] - span[0]), meter.h);
+    };
+    zone(this.#zones.band, HUD_COLOURS.meterBand, 0.8);
+    zone(this.#zones.sweet, HUD_COLOURS.meterSweet, 0.9);
+    ctx.restore();
+    if (reading.up) {
+      const kx = meter.x + meter.w * reading.fraction;
+      const ky = meter.y + meter.h / 2;
+      if (reading.inBand) {
+        ctx.beginPath();
+        ctx.arc(kx, ky, meter.knob + 3, 0, Math.PI * 2);
+        ctx.fillStyle = rgba(HUD_COLOURS.meterBand, 0.45);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.arc(kx, ky + 1, meter.knob, 0, Math.PI * 2);
+      ctx.fillStyle = SHADOW;
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(kx, ky, meter.knob, 0, Math.PI * 2);
+      ctx.fillStyle = hex(HUD_COLOURS.meterKnob);
+      ctx.fill();
     }
 
-    // Glide meter. The label sits beside the bar rather than on top of it, so
-    // the fill never covers it.
+    // This shot and the game so far.
+    for (const field of panelFields(s, this.#strings)) {
+      label(field.label, field.x);
+      ctx.font = field.big ? FONTS.value : FONTS.sub;
+      ctx.fillStyle = field.big ? HUD_COLOURS.ink : HUD_COLOURS.subInk;
+      ctx.fillText(field.value, field.x, HUD.valueBaseline);
+    }
+
+    // Glide meter: its label over the track.
     const glide = HUD.glide;
     const fill = glideFill(s);
-    ctx.fillStyle = HUD_COLOURS.ink;
-    const label = this.#strings.glide;
-    ctx.fillText(
-      label,
-      glide.x - ctx.measureText(label).width - glide.labelGap,
-      glide.labelBaseline,
-    );
-    ctx.fillStyle = CHROME;
-    ctx.fillRect(glide.x, glide.y, glide.w + 4, glide.h);
-    ctx.fillStyle = hex(fill.colour);
-    ctx.fillRect(glide.x + 2, glide.fillY, glide.w * fill.fraction, glide.fillH);
+    label(this.#strings.glide.toUpperCase(), glide.labelX);
+    roundedPath(ctx, glide.x, glide.y, glide.w, glide.h, glide.radius);
+    ctx.fillStyle = TRACK;
+    ctx.fill();
+    const inner = glide.w - glide.inset * 2;
+    const fillW = inner * fill.fraction;
+    if (fillW > 0.5) {
+      const fx = glide.x + glide.inset;
+      const fy = glide.y + glide.inset;
+      const fh = glide.h - glide.inset * 2;
+      roundedPath(ctx, fx, fy, fillW, fh, fh / 2);
+      ctx.fillStyle = hex(fill.colour);
+      ctx.fill();
+      if (fillW > 6) {
+        roundedPath(ctx, fx + 2, fy + 1.5, fillW - 4, 3.5, 1.75);
+        ctx.fillStyle = GLOSS;
+        ctx.fill();
+      }
+    }
+
+    this.#minimap(ctx, s);
 
     if (this.#showHitboxes) {
       const debug = HUD.debug;
-      ctx.fillStyle = CHROME;
-      ctx.fillRect(debug.x, debug.y, debug.w, debug.h);
+      card(ctx, debug.x, debug.y, debug.w, debug.h, debug.radius);
+      ctx.font = FONTS.debug;
       ctx.fillStyle = HUD_COLOURS.debugInk;
       for (const [i, line] of debugLines(s).entries()) {
         ctx.fillText(line, debug.textX, debug.baseline + i * debug.lineHeight);
@@ -492,12 +614,49 @@ export class GameRenderer implements Renderer {
     if (prompt !== null) {
       const box = HUD.prompt;
       ctx.font = FONTS.prompt;
+      setSpacing(ctx, HUD_TYPE.prompt.letterSpacing);
       const width = ctx.measureText(prompt).width;
-      ctx.fillStyle = PROMPT_CHROME;
-      ctx.fillRect((C.VIEW_W - width) / 2 - box.pad, box.y, width + box.pad * 2, box.h);
+      const x = (C.VIEW_W - width) / 2 - box.pad;
+      const w = width + box.pad * 2;
+      roundedPath(ctx, x, box.y + box.shadowDy, w, box.h, box.h / 2);
+      ctx.fillStyle = SHADOW;
+      ctx.fill();
+      card(ctx, x, box.y, w, box.h, box.h / 2, PROMPT_CHROME);
       ctx.fillStyle = HUD_COLOURS.promptInk;
       ctx.fillText(prompt, (C.VIEW_W - width) / 2, box.baseline);
     }
+    ctx.restore();
+  }
+
+  #minimap(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
+    const map = minimapModel(s);
+    if (map === null) return;
+    const m = HUD.minimap;
+    card(ctx, m.x, m.y, m.w, m.h, m.radius, rgba(HUD_COLOURS.chrome, HUD_COLOURS.mapAlpha));
+    ctx.save();
+    roundedPath(ctx, m.x + 2, m.y + 2, m.w - 4, m.h - 4, m.radius - 2);
+    ctx.clip();
+    if (map.groundY !== null) {
+      ctx.fillStyle = rgba(HUD_COLOURS.mapGround, 0.55);
+      ctx.fillRect(m.x, map.groundY, m.w, 1.5);
+    }
+    ctx.strokeStyle = rgba(HUD_COLOURS.mapView, HUD_COLOURS.mapViewAlpha);
+    ctx.lineWidth = 1;
+    ctx.strokeRect(map.view.x + 0.5, map.view.y + 0.5, map.view.w - 1, map.view.h - 1);
+    for (const item of map.items) {
+      ctx.beginPath();
+      ctx.arc(item.x, item.y, m.dot, 0, Math.PI * 2);
+      ctx.fillStyle = rgba(ITEM_COLOURS[item.kind], item.beyond ? HUD_COLOURS.mapBeyondAlpha : 1);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(map.hamster.x, map.hamster.y, m.dot + 0.8, 0, Math.PI * 2);
+    ctx.fillStyle = hex(HUD_COLOURS.mapHamster);
+    ctx.fill();
+    ctx.strokeStyle = hex(HUD_COLOURS.chrome);
+    ctx.lineWidth = 1.2;
+    ctx.stroke();
+    ctx.restore();
   }
 }
 

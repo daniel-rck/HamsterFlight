@@ -54,7 +54,15 @@ import {
   starField,
   starOffset,
 } from "@/render/scene/decor.ts";
-import { BALL_BADGE, ballBadge, FONTS, HUD_COLOURS, type HudStrings } from "@/render/scene/hud.ts";
+import {
+  BALL_BADGE,
+  ballBadge,
+  FONTS,
+  HUD_COLOURS,
+  HUD_TYPE,
+  type HudStrings,
+  launchZones,
+} from "@/render/scene/hud.ts";
 import {
   FLAG,
   type FlagKind,
@@ -98,7 +106,7 @@ import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
 export class PixiRenderer implements Renderer {
   readonly #app: Application;
   readonly #canvas: HTMLCanvasElement;
-  readonly #assets: AssetBundle;
+  #assets: AssetBundle;
   readonly #effects: Effects;
   readonly #tuning: Tuning;
   readonly #stress: number;
@@ -107,7 +115,9 @@ export class PixiRenderer implements Renderer {
   #lastFrameTime = 0;
   #destroyed = false;
 
-  readonly #textures = new TextureCache();
+  #textures = new TextureCache();
+  /** Caches of an atlas that was swapped out, freed once a frame has been drawn without them. */
+  #retired: TextureCache[] = [];
   readonly #filters = new SceneFilters();
   readonly #hud: PixiHud;
 
@@ -148,9 +158,9 @@ export class PixiRenderer implements Renderer {
     text: "",
     anchor: 0.5,
     style: new TextStyle({
-      fontFamily: FONTS.sans,
+      fontFamily: FONTS.ui,
       fontSize: BALL_BADGE.size,
-      fontWeight: "bold",
+      fontWeight: "700",
       fill: BALL_BADGE.fill,
       stroke: { color: BALL_BADGE.stroke, width: BALL_BADGE.strokeWidth, join: "round" },
     }),
@@ -164,7 +174,7 @@ export class PixiRenderer implements Renderer {
   readonly #markerTicks: Sprite[] = [];
   readonly #markerLabels: Text[] = [];
   readonly #launcherPool: Sprite[] = [];
-  readonly #ascentMono10: number;
+  #markerAscent: number;
 
   // The page's overlay: the flags and the ghost.
   readonly #flags = new Container();
@@ -175,7 +185,7 @@ export class PixiRenderer implements Renderer {
     record: bakeCloth(FLAG.colour.record),
     ghost: bakeCloth(FLAG.colour.ghost),
   };
-  readonly #flagAscent: number;
+  #flagAscent: number;
   readonly #ghostPivot = new Container();
   readonly #ghost = new Sprite();
 
@@ -193,8 +203,14 @@ export class PixiRenderer implements Renderer {
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
-    this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false, options.strings);
-    this.#ascentMono10 = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
+    this.#hud = new PixiHud(
+      assets,
+      this.#textures,
+      launchZones(this.#tuning),
+      options.touch ?? false,
+      options.strings,
+    );
+    this.#markerAscent = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
     this.#signAscent = CanvasTextMetrics.measureFont(SIGN_TEXT.font).ascent;
     this.#flagAscent = CanvasTextMetrics.measureFont(FLAG.font).ascent;
 
@@ -304,13 +320,28 @@ export class PixiRenderer implements Renderer {
     stage.addChild(this.#overlay);
     stage.addChild(this.#hud.container);
 
+    this.#bindShadow();
+  }
+
+  /** The shadow is set up once rather than per frame, so an atlas swap sets it again. */
+  #bindShadow(): void {
     const shadow = this.#assets.get("shadow");
-    if (shadow !== undefined) {
-      const texture = this.#textures.get(shadow, 0);
-      if (texture !== undefined) this.#shadow.texture = texture;
-      place(this.#shadow, shadow, 0, 0);
-      this.#shadow.alpha = SHADOW_ALPHA;
-    }
+    if (shadow === undefined) return;
+    const texture = this.#textures.get(shadow, 0);
+    if (texture !== undefined) this.#shadow.texture = texture;
+    place(this.#shadow, shadow, 0, 0);
+    this.#shadow.alpha = SHADOW_ALPHA;
+  }
+
+  setAssets(assets: AssetBundle): void {
+    if (this.#destroyed || assets === this.#assets) return;
+    // Every visible sprite takes its texture afresh on each draw, so the old
+    // cache is only kept until one frame has gone to the GPU without it.
+    this.#retired.push(this.#textures);
+    this.#textures = new TextureCache();
+    this.#assets = assets;
+    this.#hud.setAssets(assets, this.#textures);
+    this.#bindShadow();
   }
 
   /**
@@ -357,7 +388,18 @@ export class PixiRenderer implements Renderer {
   }
 
   setStrings(strings: HudStrings): void {
+    // Pixi caches font metrics by font string, and the string is the same
+    // before and after a late face arrives - so the cache has to go, or every
+    // measurement below would still be the fallback's.
+    CanvasTextMetrics.clearMetrics();
     this.#hud.setStrings(strings);
+    // Also the call that follows a late font: re-measure, and empty every
+    // label so the next draw renders it again in the face now live.
+    this.#markerAscent = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
+    this.#flagAscent = CanvasTextMetrics.measureFont(FLAG.font).ascent;
+    for (const label of [...this.#markerLabels, ...this.#flagLabels, this.#ballBadge]) {
+      label.text = "";
+    }
   }
 
   destroy(): void {
@@ -365,6 +407,7 @@ export class PixiRenderer implements Renderer {
     this.#destroyed = true;
     this.#filters.destroy(this.#scene);
     this.#textures.destroy();
+    for (const old of this.#retired.splice(0)) old.destroy();
     this.#skyFade?.destroy(true);
     for (const shape of this.#cloudShapes) shape.destroy();
     this.#clothShapes.record.destroy();
@@ -395,12 +438,13 @@ export class PixiRenderer implements Renderer {
     this.#drawFx(now);
     this.#drawParticles(now);
     this.#drawHamster(s);
-    this.#hud.draw(s, scene, this.#showHitboxes);
+    this.#hud.draw(s, this.#showHitboxes);
     this.#filters.apply(this.#scene, s, this.#effects, now, offsetX, offsetY);
     if (this.#showHitboxes) this.#drawHitboxes(s);
     else this.#debugBoxes.clear();
 
     this.#app.renderer.render(this.#app.stage);
+    for (const old of this.#retired.splice(0)) old.destroy();
   }
 
   #sky(s: SimSnapshot): void {
@@ -460,7 +504,7 @@ export class PixiRenderer implements Renderer {
     for (const [i, label] of marks.labels.entries()) {
       const text = this.#labelAt(i);
       if (text.text !== label.text) text.text = label.text;
-      text.position.set(label.x + 3, GROUND.y - 10 - this.#ascentMono10);
+      text.position.set(label.x + 3, GROUND.y - 10 - this.#markerAscent);
       text.visible = true;
     }
     hideFrom(this.#markerLabels, marks.labels.length);
@@ -695,7 +739,13 @@ export class PixiRenderer implements Renderer {
     return poolAt(this.#markerLabels, index, this.#markers, () => {
       const label = new Text({
         text: "",
-        style: new TextStyle({ fontFamily: FONTS.mono, fontSize: 10, fill: HUD_COLOURS.markerInk }),
+        style: new TextStyle({
+          fontFamily: FONTS.ui,
+          fontSize: HUD_TYPE.marker.size,
+          fontWeight: HUD_TYPE.marker.weight,
+          letterSpacing: HUD_TYPE.marker.letterSpacing,
+          fill: HUD_COLOURS.markerInk,
+        }),
       });
       label.alpha = HUD_COLOURS.markerAlpha;
       return label;
@@ -714,9 +764,9 @@ function flagText(): Text {
   return new Text({
     text: "",
     style: new TextStyle({
-      fontFamily: FONTS.mono,
+      fontFamily: FONTS.ui,
       fontSize: FLAG.fontSize,
-      fontWeight: "bold",
+      fontWeight: "700",
       fill: FLAG.ink,
       stroke: { color: FLAG.stroke, width: 3, join: "round" },
     }),
