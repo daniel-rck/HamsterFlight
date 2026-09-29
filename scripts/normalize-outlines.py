@@ -148,9 +148,10 @@ def normalize(rgba: np.ndarray) -> np.ndarray:
     return reduce(redraw(enlarge(rgba, SCALE)), SCALE)
 
 
-# Sprites whose dark lines are shading, not outline: the launcher's timber is
-# dark brown on brown, and redrawing it as ink turned the grain into blobs.
-SKIP = re.compile(r"^(launcher|hud|fx|shadow)/|^(shadow|pillow)$")
+# Sprites whose dark lines are shading, not outline: the launcher and the spring
+# boards are dark brown on brown or orange, and
+# redrawing that as ink turned the grain into blobs.
+SKIP = re.compile(r"^(launcher|hud|fx|shadow|powerup)/|^(shadow|pillow)$")
 
 SPRITE = re.compile(r"'([\w/]+)': \{(.*?)\n  \},", re.DOTALL)
 
