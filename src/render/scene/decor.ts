@@ -36,6 +36,8 @@ export const BUSH_SPACING = 260;
 /** Enough bubble to still read as one, little enough to see the hamster. */
 export const BUBBLE_ALPHA = 0.62;
 export const SHADOW_ALPHA = 0.45;
+/** Dust is see-through even when fresh; sparks are not. */
+export const PARTICLE_DUST_ALPHA = 0.75;
 
 /**
  * The ground: two slabs the width of the whole course.

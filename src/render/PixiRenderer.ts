@@ -9,7 +9,7 @@ import {
   Sprite,
   Text,
   TextStyle,
-  type Texture,
+  Texture,
 } from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
 import type { SpriteId } from "@/assets/sprites.generated.ts";
@@ -56,6 +56,7 @@ import {
   POWERUP_SPRITE,
   rgbInt,
   SHADOW_ALPHA,
+  PARTICLE_DUST_ALPHA,
   SHADOW_MIN_SCALE,
   STAR_LAYERS,
   shadowScale,
@@ -99,6 +100,8 @@ import {
   poseFor,
 } from "@/render/scene/pose.ts";
 import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
+import { TRAIL } from "@/render/scene/trail.ts";
+import { SOFT_DOT_SCALE, softDotCanvas } from "@/render/softDot.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -163,6 +166,10 @@ export class PixiRenderer implements Renderer {
   readonly #powerups = new Container();
   readonly #fxLayer = new Container();
   readonly #particleLayer = new Container();
+  /** The speed streak, redrawn each frame from a handful of segments. */
+  readonly #trail = new Graphics();
+  /** The particles' soft dot; null where it could not be painted, and they are squares. */
+  readonly #dot: Texture | null;
   /** Follows the world but sits outside the filtered scene, like the Canvas2D overlay. */
   readonly #overlay = new Container();
   readonly #debugBoxes = new Graphics();
@@ -240,6 +247,8 @@ export class PixiRenderer implements Renderer {
     this.#skyFade = verticalFadeTexture();
     this.#skyTop = this.#skyFade === null ? solidRect() : new Sprite(this.#skyFade);
     this.#stars = this.#bakeStars();
+    const dot = softDotCanvas();
+    this.#dot = dot === null ? null : Texture.from(dot);
     this.#glow = this.#skyFade === null ? null : bakeGlow(this.#skyFade);
     this.#hillTiles = this.#hillShapes.map((shape) => [new Graphics(shape), new Graphics(shape)]);
 
@@ -341,6 +350,7 @@ export class PixiRenderer implements Renderer {
       this.#powerups,
       this.#fxLayer,
       this.#particleLayer,
+      this.#trail,
       this.#shadowPivot,
       this.#ghostPivot,
       this.#hamsterPivot,
@@ -468,6 +478,7 @@ export class PixiRenderer implements Renderer {
     this.#drawPowerups(s);
     this.#drawFx(now);
     this.#drawParticles(now);
+    this.#drawTrail(s);
     this.#drawHamster(s);
     this.#hud.draw(s, this.#showHitboxes);
     this.#filters.apply(this.#scene, s, this.#effects, now, offsetX, offsetY);
@@ -650,16 +661,33 @@ export class PixiRenderer implements Renderer {
    */
   #drawParticles(now: number): void {
     let used = 0;
+    const dot = this.#dot;
     for (const p of this.#effects.particles(now)) {
-      const sprite = poolAt(this.#particlePool, used++, this.#particleLayer, solidRect);
-      sprite.position.set(p.x - p.size / 2, p.y - p.size / 2);
-      sprite.width = p.size;
-      sprite.height = p.size;
+      const sprite = poolAt(this.#particlePool, used++, this.#particleLayer, () =>
+        dot === null ? solidRect() : new Sprite(dot),
+      );
+      const d = dot === null ? p.size : p.size * SOFT_DOT_SCALE;
+      sprite.position.set(p.x - d / 2, p.y - d / 2);
+      sprite.width = d;
+      sprite.height = d;
       sprite.tint = p.tint;
-      sprite.alpha = 1 - p.age;
+      sprite.blendMode = p.glow ? "add" : "normal";
+      sprite.alpha = p.glow ? 1 - p.age : PARTICLE_DUST_ALPHA * (1 - p.age);
       sprite.visible = true;
     }
     hideFrom(this.#particlePool, used);
+  }
+
+  /** The streak behind a fast hamster, from where the last few ticks put it. */
+  #drawTrail(s: SimSnapshot): void {
+    this.#trail.clear();
+    if (s.phaseKind !== "flying") return;
+    for (const seg of this.#effects.trail(s.hamster)) {
+      this.#trail
+        .moveTo(seg.x0, seg.y0)
+        .lineTo(seg.x1, seg.y1)
+        .stroke({ width: seg.width, color: TRAIL.colour, alpha: seg.alpha, cap: "round" });
+    }
   }
 
   #drawHamster(s: SimSnapshot): void {

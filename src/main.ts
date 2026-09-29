@@ -681,6 +681,16 @@ async function boot(): Promise<void> {
         current.hamster.y >= C.SKID_Y &&
         Math.abs(current.hamster.xvel) > 2;
       if (dragging) effects.emitSkidDust(current.hamster.x, C.GROUND_Y, now);
+      if (current.phaseKind === "flying" && current.hamster.visible) {
+        effects.noteFlight(
+          current.hamster.x,
+          current.hamster.y,
+          current.hamster.xvel,
+          current.hamster.yvel,
+        );
+      } else {
+        effects.endFlight();
+      }
     },
     // Physics snaps at 20 Hz; the picture does not. Every frame is drawn, with
     // the hamster and the camera placed between the last two ticks by how far

@@ -2,6 +2,13 @@ import { SPRITES, type SpriteId } from "@/assets/sprites.generated.ts";
 import { PoseClock } from "@/render/PoseClock.ts";
 import { PreLaunchScene } from "@/render/PreLaunchScene.ts";
 import { POWERUP_SPRITE } from "@/render/scene/decor.ts";
+import {
+  TRAIL,
+  type TrailPoint,
+  type TrailSegment,
+  trailSegments,
+  trailStrength,
+} from "@/render/scene/trail.ts";
 import type { FxId, SimEvent } from "@/sim/events.ts";
 import type { PowerupKind } from "@/sim/types.ts";
 
@@ -93,6 +100,9 @@ const DUST_LIFE_MS = 420;
 const SPARK_LIFE_MS = 340;
 /** Dust is emitted while skidding; this is the gap between puffs. */
 const DUST_INTERVAL_MS = 45;
+/** How many puffs each impact clip throws up, and how long they hang. */
+const IMPACT_DUST: Record<FxId, number> = { bounceFx: 4, break: 8, superBreak: 14 };
+const IMPACT_DUST_LIFE_MS = 520;
 
 export interface Particle {
   readonly x: number;
@@ -101,6 +111,8 @@ export interface Particle {
   readonly tint: number;
   /** 0 at birth, 1 at death. */
   readonly age: number;
+  /** Sparks glow: drawn additively, so they brighten what is behind them. */
+  readonly glow: boolean;
 }
 
 interface LiveParticle {
@@ -113,6 +125,7 @@ interface LiveParticle {
   readonly tint: number;
   readonly lifeMs: number;
   readonly bornMs: number;
+  readonly glow: boolean;
 }
 
 export interface Shockwave {
@@ -209,6 +222,9 @@ export class Effects {
   #waveX = 0;
   #waveY = 0;
   #particles: LiveParticle[] = [];
+  /** The hamster's last few tick positions, newest first, and how fast it was going. */
+  #trail: TrailPoint[] = [];
+  #trailSpeed = 0;
   #emitted = 0;
   #lastDustMs = Number.NEGATIVE_INFINITY;
 
@@ -233,6 +249,7 @@ export class Effects {
     this.#aberrationStrength = 0;
     this.#waveAmplitude = 0;
     this.#particles = [];
+    this.#trail.length = 0;
   }
 
   /**
@@ -247,6 +264,32 @@ export class Effects {
   #spawn(particle: LiveParticle): void {
     if (this.#particles.length >= PARTICLE_LIMIT) return;
     this.#particles.push(particle);
+  }
+
+  /**
+   * One tick of the hamster's flight. Called from the step, so the trail is a
+   * record of the simulation and not of the display's frames.
+   */
+  noteFlight(x: number, y: number, xvel: number, yvel: number): void {
+    if (!this.#motion) return;
+    this.#trailSpeed = Math.hypot(xvel, yvel);
+    this.#trail.unshift({ x, y });
+    if (this.#trail.length > TRAIL.ticks + 1) this.#trail.length = TRAIL.ticks + 1;
+  }
+
+  /** The hamster is not in flight: the streak goes with it. */
+  endFlight(): void {
+    this.#trail.length = 0;
+  }
+
+  /**
+   * The streak to draw from `head`, the hamster as drawn this frame. The newest
+   * recorded point is where the current tick ends, ahead of a head that is
+   * still on its way there, so it is left out.
+   */
+  trail(head: TrailPoint): readonly TrailSegment[] {
+    if (!this.#motion || this.#trail.length < 2) return [];
+    return trailSegments(head, this.#trail.slice(1), trailStrength(this.#trailSpeed));
   }
 
   /** Dust kicked up along the ground, while the hamster is still sliding. */
@@ -266,6 +309,29 @@ export class Effects {
         tint: 0xd9c9a8,
         lifeMs: DUST_LIFE_MS,
         bornMs: nowMs,
+        glow: false,
+      });
+    }
+  }
+
+  /**
+   * A cloud kicked up where the hamster hit the ground: thrown out to both
+   * sides and a little up, more of it the harder the impact.
+   */
+  #emitImpactDust(x: number, y: number, count: number, nowMs: number): void {
+    for (let i = 0; i < count; i++) {
+      const side = i % 2 === 0 ? 1 : -1;
+      this.#spawn({
+        x,
+        y,
+        vx: side * (0.08 + this.#roll() * 0.34),
+        vy: -(0.05 + this.#roll() * 0.22),
+        gravity: 0.0012,
+        size: 2.2 + this.#roll() * 3.2,
+        tint: 0xe4d8be,
+        lifeMs: IMPACT_DUST_LIFE_MS,
+        bornMs: nowMs,
+        glow: false,
       });
     }
   }
@@ -293,6 +359,7 @@ export class Effects {
         tint: 0xffe07a,
         lifeMs: SPARK_LIFE_MS,
         bornMs: nowMs,
+        glow: true,
       });
     }
   }
@@ -309,6 +376,7 @@ export class Effects {
         size: p.size,
         tint: p.tint,
         age: elapsed / p.lifeMs,
+        glow: p.glow,
       });
     }
     return out;
@@ -351,6 +419,7 @@ export class Effects {
           startedMs: nowMs,
         });
         this.#shake(SHAKE_AMPLITUDE[event.id], nowMs);
+        if (this.#motion) this.#emitImpactDust(event.x, event.y, IMPACT_DUST[event.id], nowMs);
         const aberration = this.#motion ? ABERRATION_STRENGTH[event.id] : undefined;
         if (aberration !== undefined && aberration >= this.aberration(nowMs)) {
           this.#aberrationStartedMs = nowMs;
@@ -474,6 +543,7 @@ export class Effects {
     this.#waveAmplitude = 0;
     this.#waveStartedMs = 0;
     this.#particles.length = 0;
+    this.#trail.length = 0;
     // Back to the start of the hash sequence too, or a restart would scatter
     // its particles differently from a first run with the same seed.
     this.#emitted = 0;

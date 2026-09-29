@@ -17,6 +17,7 @@ import {
   clouds,
   GROUND,
   GROUND_BANDS,
+  PARTICLE_DUST_ALPHA,
   HILL_LAYERS,
   HILL_TILE,
   HORIZON_GLOW,
@@ -84,6 +85,8 @@ import {
   poseFor,
 } from "@/render/scene/pose.ts";
 import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
+import { TRAIL } from "@/render/scene/trail.ts";
+import { SOFT_DOT_SCALE, softDotCanvas } from "@/render/softDot.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
@@ -176,6 +179,9 @@ export class GameRenderer implements Renderer {
    *  `70 * stress` objects per draw for a picture that never changes. */
   readonly #stars: readonly Star[];
   readonly #tufts = tufts();
+  /** The soft dot for particles: undefined until first wanted, null where it cannot be painted. */
+  #dot: HTMLCanvasElement | null | undefined;
+  readonly #dots = new Map<number, HTMLCanvasElement>();
   #dpr = 1;
   #showHitboxes: boolean;
   readonly #touch: boolean;
@@ -254,6 +260,7 @@ export class GameRenderer implements Renderer {
     this.#powerups(ctx, s);
     this.#fx(ctx, now);
     this.#particles(ctx, now);
+    this.#trail(ctx, s);
     if (overlay.ghost !== null) this.#ghost(ctx, overlay.ghost);
     this.#hamster(ctx, s);
 
@@ -424,12 +431,58 @@ export class GameRenderer implements Renderer {
 
   /** Skid grit and pickup sparks, fading as they age. */
   #particles(ctx: CanvasRenderingContext2D, now: number): void {
+    const dot = this.#dot === undefined ? (this.#dot = softDotCanvas()) : this.#dot;
     for (const p of this.#effects.particles(now)) {
-      ctx.globalAlpha = 1 - p.age;
-      ctx.fillStyle = hex(p.tint);
-      ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+      ctx.globalAlpha = p.glow ? 1 - p.age : PARTICLE_DUST_ALPHA * (1 - p.age);
+      ctx.globalCompositeOperation = p.glow ? "lighter" : "source-over";
+      if (dot === null) {
+        ctx.fillStyle = hex(p.tint);
+        ctx.fillRect(p.x - p.size / 2, p.y - p.size / 2, p.size, p.size);
+        continue;
+      }
+      const d = p.size * SOFT_DOT_SCALE;
+      ctx.drawImage(this.#tinted(dot, p.tint), p.x - d / 2, p.y - d / 2, d, d);
+    }
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+  }
+
+  /** The soft dot in one colour, painted the first time it is asked for. */
+  #tinted(dot: HTMLCanvasElement, tint: number): HTMLCanvasElement {
+    let canvas = this.#dots.get(tint);
+    if (canvas === undefined) {
+      canvas = document.createElement("canvas");
+      canvas.width = dot.width;
+      canvas.height = dot.height;
+      const c = canvas.getContext("2d");
+      if (c !== null) {
+        c.drawImage(dot, 0, 0);
+        c.globalCompositeOperation = "source-in";
+        c.fillStyle = hex(tint);
+        c.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      this.#dots.set(tint, canvas);
+    }
+    return canvas;
+  }
+
+  /** The streak behind a fast hamster, from where the last few ticks put it. */
+  #trail(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
+    if (s.phaseKind !== "flying") return;
+    const segments = this.#effects.trail(s.hamster);
+    if (segments.length === 0) return;
+    ctx.strokeStyle = hex(TRAIL.colour);
+    ctx.lineCap = "round";
+    for (const seg of segments) {
+      ctx.globalAlpha = seg.alpha;
+      ctx.lineWidth = seg.width;
+      ctx.beginPath();
+      ctx.moveTo(seg.x0, seg.y0);
+      ctx.lineTo(seg.x1, seg.y1);
+      ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    ctx.lineCap = "butt";
   }
 
   #powerups(ctx: CanvasRenderingContext2D, s: SimSnapshot): void {
