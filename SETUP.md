@@ -38,7 +38,13 @@ Im Cloudflare-Dashboard:
    - Deploy command: *(leer lassen - `wrangler deploy` ist Default)*
    - Root directory: *(leer)*
 4. Branch: `main`
-5. **Save & Deploy**
+5. Unter **Settings → Build → Variables and secrets** die Build-Variable
+   `SITE_ORIGIN` auf die öffentliche Adresse setzen, z. B.
+   `https://hamsterflight.<account>.workers.dev` (ohne Schrägstrich am Ende).
+   Der Build schreibt sie in die Open-Graph-Tags, damit geteilte Links ein
+   Vorschaubild bekommen; ohne sie stehen dort relative Pfade, die viele
+   Crawler ignorieren. Kein Secret - die Adresse ist ohnehin öffentlich.
+6. **Save & Deploy**
 
 Cloudflare erkennt Bun über `packageManager` in `package.json`; die
 Node-Version für Vite und Wrangler kommt aus `.nvmrc`.

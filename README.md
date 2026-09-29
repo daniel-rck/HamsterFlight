@@ -307,6 +307,12 @@ bun run worker:deploy                  # wrangler deploy
 bun run build && bun run worker:dev    # serve dist/ through wrangler locally, real header and 404 semantics
 ```
 
+Set `SITE_ORIGIN` (the public origin, no trailing slash) in the build
+environment so the link-preview tags carry an absolute image URL; see
+[SETUP.md](SETUP.md). The preview picture and the Apple touch icon in
+`public/` are rendered from the built page by `bun run build && bun run images`
+and committed - rerun it when the opening screen changes.
+
 The build emits source maps but does not reference them from the bundle
 (`sourcemap: 'hidden'`), so a deployed stack trace can be mapped by hand
 against the stamped commit without handing every visitor the source.
