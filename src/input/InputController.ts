@@ -200,7 +200,6 @@ export class InputController {
   }
 }
 
-/** Space in a text field is a space, not a jump. */
 /**
  * A control that has the keys to itself: a text field, or a focused button -
  * Play Now! on the instructions board, which Space and Enter must press

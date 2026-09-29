@@ -83,7 +83,7 @@ async function loadSheet(url: string): Promise<ImageBitmap> {
 /**
  * Loads the atlas sheets the manifest refers to.
  *
- * The 382 frames used to be 382 files fetched one request each - and, worse,
+ * The frames used to be one file each, fetched one request apiece - and, worse,
  * awaited sequentially within each sprite, so `hamster/jump` loaded its 36
  * frames one after another. They are one packed sheet now, so this is a single
  * request; several sheets would load in parallel.

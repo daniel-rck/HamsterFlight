@@ -376,9 +376,10 @@ hanging sideways. The port had read the flight convention (art facing right,
 drew them unrotated, which stood the hamster on its nose against a vertical
 ground line. `hamsterRotation` returns the quarter turn for `settling` now.
 
-**Rendering snaps rather than interpolating.** The original stage ran at 19 fps
-with no tweening, so snapping to the 20 Hz simulation is the faithful look, and
-it means about 20 draws per second instead of 60.
+**Rendering interpolates between ticks.** The original stage ran at 19 fps
+with no tweening, and the port first snapped to the 20 Hz simulation to match.
+It draws every display frame now, placing the hamster and the camera between
+the last two ticks - see *Presentation departures, recorded* below.
 
 ## Determinism policy
 

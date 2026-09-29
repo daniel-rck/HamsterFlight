@@ -70,7 +70,7 @@ export default defineConfig({
     // them. As separate files they are content-hashed and cached immutably,
     // and the entry chunk stays small enough to parse instantly.
     assetsInlineLimit: 0,
-    // A warning only; the gate that fails is `npm run check:bundle`, whose
+    // A warning only; the gate that fails is `bun run check:bundle`, whose
     // budgets live in scripts/bundle-report.ts. This number is echoed there.
     chunkSizeWarningLimit: 400,
   },
