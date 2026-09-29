@@ -11,10 +11,12 @@ import { defaultFilterVert, Filter, GlProgram } from "pixi.js";
  * It runs first, so the two colour effects sample the already-warped image and
  * the whole picture moves together rather than the colours sliding over it.
  *
- * **Altitude glow.** Four diagonal taps of the bright component, averaged and
- * added back with a cool tint. A small genuine glow, not a bloom - a real one
- * needs a separate bright-pass and a wide blur, several more render targets
- * than this scene earns.
+ * **Glow.** Eight taps of the bright component on two rings, the outer one
+ * wider, averaged and added back with a cool tint. It swells with altitude and
+ * flares for a moment on a hard impact. A bloom in the way that matters - light
+ * bleeding out of the highlights - but gathered in the one pass: a wide blur
+ * of a separate bright-pass would cost several more render targets than this
+ * scene earns.
  *
  * **Chromatic aberration.** Red and blue sampled either side of green along
  * the radius from the impact, so separation grows toward the edges as a lens
@@ -35,6 +37,8 @@ uniform vec4 uInputClamp;
 
 uniform float uAberration;
 uniform float uAltitude;
+/** A flash on a hard impact, 0 to 1; rides on the same glow. */
+uniform float uFlash;
 uniform vec2 uCentre;
 
 uniform float uWaveProgress;
@@ -86,17 +90,25 @@ void main() {
         color.b = texture(uTexture, clampCoord(coord - offset)).b;
     }
 
-    if (uAltitude > 0.0) {
+    float bloom = uAltitude + 0.7 * uFlash;
+    if (bloom > 0.0) {
         // Un-premultiply before touching colour, as the core filters do.
         if (color.a > 0.0) color.rgb /= color.a;
 
-        vec2 step = uInputSize.zw * (2.0 + 4.0 * uAltitude);
+        vec2 step = uInputSize.zw * (2.0 + 4.0 * bloom);
+        vec2 wide = step * 2.2;
         float glow = 0.0;
-        glow += bright(texture(uTexture, clampCoord(coord + vec2( step.x,  step.y))).rgb);
-        glow += bright(texture(uTexture, clampCoord(coord + vec2(-step.x,  step.y))).rgb);
-        glow += bright(texture(uTexture, clampCoord(coord + vec2( step.x, -step.y))).rgb);
-        glow += bright(texture(uTexture, clampCoord(coord + vec2(-step.x, -step.y))).rgb);
-        glow *= 0.25 * uAltitude;
+        // Inner ring on the diagonals, outer ring on the axes: eight distinct
+        // taps, so the halo has no visible four-point star.
+        glow += 1.4 * bright(texture(uTexture, clampCoord(coord + vec2( step.x,  step.y))).rgb);
+        glow += 1.4 * bright(texture(uTexture, clampCoord(coord + vec2(-step.x,  step.y))).rgb);
+        glow += 1.4 * bright(texture(uTexture, clampCoord(coord + vec2( step.x, -step.y))).rgb);
+        glow += 1.4 * bright(texture(uTexture, clampCoord(coord + vec2(-step.x, -step.y))).rgb);
+        glow += bright(texture(uTexture, clampCoord(coord + vec2( wide.x, 0.0))).rgb);
+        glow += bright(texture(uTexture, clampCoord(coord + vec2(-wide.x, 0.0))).rgb);
+        glow += bright(texture(uTexture, clampCoord(coord + vec2(0.0,  wide.y))).rgb);
+        glow += bright(texture(uTexture, clampCoord(coord + vec2(0.0, -wide.y))).rgb);
+        glow *= 0.125 * bloom;
 
         color.rgb += vec3(0.34, 0.44, 0.62) * glow;
         color.rgb *= color.a;
@@ -109,6 +121,7 @@ void main() {
 export interface SceneUniforms {
   uAberration: number;
   uAltitude: number;
+  uFlash: number;
   uCentre: Float32Array;
   uWaveProgress: number;
   uWaveAmplitude: number;
@@ -123,6 +136,7 @@ export class SceneFilter extends Filter {
         sceneUniforms: {
           uAberration: { value: 0, type: "f32" },
           uAltitude: { value: 0, type: "f32" },
+          uFlash: { value: 0, type: "f32" },
           uCentre: { value: new Float32Array([0.5, 0.5]), type: "vec2<f32>" },
           uWaveProgress: { value: 0, type: "f32" },
           uWaveAmplitude: { value: 0, type: "f32" },

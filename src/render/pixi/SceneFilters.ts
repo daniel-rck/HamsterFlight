@@ -67,6 +67,7 @@ export class SceneFilters {
       const uniforms = this.#sceneFilter.uniforms;
       uniforms.uAberration = aberration;
       uniforms.uAltitude = altitude;
+      uniforms.uFlash = aberration;
       uniforms.uCentre[0] = clamp((s.hamster.x + offsetX) / C.VIEW_W, 0, 1);
       uniforms.uCentre[1] = clamp((s.hamster.y + offsetY) / C.VIEW_H, 0, 1);
       uniforms.uWaveProgress = wave?.progress ?? 0;

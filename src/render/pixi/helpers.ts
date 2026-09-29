@@ -2,6 +2,7 @@ import { type Container, type Graphics, Matrix, Sprite, Text, TextStyle, Texture
 import type { Sprite as SpriteAsset } from "@/assets/AssetLoader.ts";
 import { FONTS, HUD_COLOURS, type HudType } from "@/render/scene/hud.ts";
 import { posePlacement } from "@/render/scene/pose.ts";
+import { VIGNETTE, VIGNETTE_STOPS } from "@/render/scene/vignette.ts";
 
 /** Small Pixi conveniences with no renderer state, so they can be read alone. */
 
@@ -134,4 +135,32 @@ export function hideFrom(pool: readonly Container[], from: number): void {
     const item = pool[i];
     if (item !== undefined) item.visible = false;
   }
+}
+
+/**
+ * The vignette's ramp as a white texture, transparent in the middle and opaque
+ * at the corners, painted over the unit square and meant to be stretched to
+ * the stage and tinted. Null where there is no 2D context.
+ */
+export function vignetteTexture(): Texture | null {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx === null) return null;
+  const gradient = ctx.createRadialGradient(
+    size / 2,
+    size / 2,
+    VIGNETTE.inner * size,
+    size / 2,
+    size / 2,
+    VIGNETTE.outer * size,
+  );
+  for (const [offset, share] of VIGNETTE_STOPS) {
+    gradient.addColorStop(offset, `rgba(255,255,255,${share})`);
+  }
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  return Texture.from(canvas);
 }

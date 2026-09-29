@@ -22,6 +22,7 @@ import {
   slab,
   solidRect,
   verticalFadeTexture,
+  vignetteTexture,
 } from "@/render/pixi/helpers.ts";
 import { PixiHud } from "@/render/pixi/PixiHud.ts";
 import { SceneFilters } from "@/render/pixi/SceneFilters.ts";
@@ -101,6 +102,7 @@ import {
 } from "@/render/scene/pose.ts";
 import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
 import { TRAIL } from "@/render/scene/trail.ts";
+import { VIGNETTE, vignetteAlpha } from "@/render/scene/vignette.ts";
 import { SOFT_DOT_SCALE, softDotCanvas } from "@/render/softDot.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
@@ -143,6 +145,8 @@ export class PixiRenderer implements Renderer {
   readonly #skyBottom = solidRect();
   readonly #skyTop: Sprite;
   readonly #skyFade: Texture | null;
+  /** The corner darkening, over the scene and under the HUD; null where it could not be painted. */
+  readonly #vignette: Sprite | null;
   /** One baked Graphics per `STAR_LAYERS` entry, moved as a whole each frame. */
   readonly #stars: Graphics[];
   readonly #starLayer = new Container();
@@ -247,6 +251,8 @@ export class PixiRenderer implements Renderer {
     this.#skyFade = verticalFadeTexture();
     this.#skyTop = this.#skyFade === null ? solidRect() : new Sprite(this.#skyFade);
     this.#stars = this.#bakeStars();
+    const ramp = vignetteTexture();
+    this.#vignette = ramp === null ? null : new Sprite(ramp);
     const dot = softDotCanvas();
     this.#dot = dot === null ? null : Texture.from(dot);
     this.#glow = this.#skyFade === null ? null : bakeGlow(this.#skyFade);
@@ -313,6 +319,12 @@ export class PixiRenderer implements Renderer {
     // bounds walk on every filtered frame.
     this.#scene.filterArea = new Rectangle(0, 0, C.VIEW_W, C.VIEW_H);
     stage.addChild(this.#scene);
+    if (this.#vignette !== null) {
+      this.#vignette.width = C.VIEW_W;
+      this.#vignette.height = C.VIEW_H;
+      this.#vignette.tint = rgbInt(VIGNETTE.colour);
+      stage.addChild(this.#vignette);
+    }
 
     // Ground is two slabs the width of the whole course; static, so built once.
     const ground = new Container();
@@ -450,6 +462,7 @@ export class PixiRenderer implements Renderer {
     this.#textures.destroy();
     for (const old of this.#retired.splice(0)) old.destroy();
     this.#skyFade?.destroy(true);
+    this.#vignette?.texture.destroy(true);
     for (const shape of this.#cloudShapes) shape.destroy();
     this.#clothShapes.record.destroy();
     this.#clothShapes.ghost.destroy();
@@ -464,6 +477,7 @@ export class PixiRenderer implements Renderer {
     this.#lastFrameTime = now;
 
     this.#sky(s);
+    if (this.#vignette !== null) this.#vignette.alpha = vignetteAlpha(altitudeOf(s));
     // Impact shake rides on the camera, so the HUD and the sky stay still.
     const shake = this.#effects.shakeOffset(now);
     const offsetX = s.camera.x + shake.x;

@@ -86,6 +86,7 @@ import {
 } from "@/render/scene/pose.ts";
 import { SIGN_TEXT, signFields, signScaleX, signText } from "@/render/scene/signText.ts";
 import { TRAIL } from "@/render/scene/trail.ts";
+import { VIGNETTE, VIGNETTE_STOPS, vignetteAlpha } from "@/render/scene/vignette.ts";
 import { SOFT_DOT_SCALE, softDotCanvas } from "@/render/softDot.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
@@ -265,6 +266,7 @@ export class GameRenderer implements Renderer {
     this.#hamster(ctx, s);
 
     ctx.setTransform(d, 0, 0, d, 0, 0);
+    this.#vignette(ctx, altitudeOf(s));
     this.#hud(ctx, s);
   }
 
@@ -335,6 +337,24 @@ export class GameRenderer implements Renderer {
         ctx.fill();
       }
     }
+  }
+
+  /** The corner darkening: the same radial ramp the WebGL backend stretches over the stage. */
+  #vignette(ctx: CanvasRenderingContext2D, altitude: number): void {
+    const [r, g, b] = VIGNETTE.colour;
+    const alpha = vignetteAlpha(altitude);
+    // The ramp is defined over the unit square, so draw it there and let the
+    // transform (already scaled by the density) stretch the circle into the
+    // stage's ellipse.
+    ctx.save();
+    ctx.scale(C.VIEW_W, C.VIEW_H);
+    const gradient = ctx.createRadialGradient(0.5, 0.5, VIGNETTE.inner, 0.5, 0.5, VIGNETTE.outer);
+    for (const [offset, share] of VIGNETTE_STOPS) {
+      gradient.addColorStop(offset, `rgba(${r}, ${g}, ${b}, ${share * alpha})`);
+    }
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.restore();
   }
 
   #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
