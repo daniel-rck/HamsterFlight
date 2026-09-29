@@ -102,7 +102,10 @@ export function drawCard(
     .roundRect(x, y, w, h, radius)
     .fill({ color: HUD_COLOURS.chrome, alpha })
     .roundRect(x + 0.5, y + 0.5, w - 1, h - 1, Math.max(0, radius - 0.5))
-    .stroke({ color: HUD_COLOURS.rim, alpha: HUD_COLOURS.rimAlpha, width: 1 });
+    .stroke({ color: HUD_COLOURS.rim, alpha: HUD_COLOURS.rimAlpha, width: 1 })
+    .moveTo(x + radius, y + 1.5)
+    .lineTo(x + w - radius, y + 1.5)
+    .stroke({ color: HUD_COLOURS.rim, alpha: HUD_COLOURS.sheenAlpha, width: 1 });
 }
 
 /**

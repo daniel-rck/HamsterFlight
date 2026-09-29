@@ -80,6 +80,8 @@ export const HUD_COLOURS = {
   /** A hairline round every card, so it reads against a dark sky too. */
   rim: 0xffffff,
   rimAlpha: 0.16,
+  /** A lit edge along the inside of a card's top, as if the chrome caught the light. */
+  sheenAlpha: 0.14,
   promptAlpha: 0.7,
   shadow: 0x000000,
   shadowAlpha: 0.22,

@@ -5,7 +5,7 @@ The sprites come from Flash vector art whose outlines are brush strokes: a
 line runs from a hairline to four or five pixels and back within one hamster.
 This reads the 2x sheet, finds the dark ink, and redraws every stroke of
 outline weight at one width - the centre line of each stroke is kept, only its
-thickness changes - then derives the 1x sheet from the result by an exact 2:1
+thickness changes - then takes the 1x frames from the result by an exact 2:1
 box filter, since both sheets share one layout.
 
     python3 scripts/normalize-outlines.py src/assets/sprites          # both sheets
@@ -148,13 +148,19 @@ def normalize(rgba: np.ndarray) -> np.ndarray:
     return reduce(redraw(enlarge(rgba, SCALE)), SCALE)
 
 
+# Sprites whose dark lines are shading, not outline: the launcher's timber is
+# dark brown on brown, and redrawing it as ink turned the grain into blobs.
+SKIP = re.compile(r"^(launcher|hud|fx|shadow)/|^(shadow|pillow)$")
+
 SPRITE = re.compile(r"'([\w/]+)': \{(.*?)\n  \},", re.DOTALL)
 
 
 def frame_rects(manifest: Path) -> list[tuple[int, int, int, int]]:
     """Every distinct frame rectangle on the sheet, in 1x pixels: x, y, w, h."""
     rects: set[tuple[int, int, int, int]] = set()
-    for _name, body in SPRITE.findall(manifest.read_text()):
+    for name, body in SPRITE.findall(manifest.read_text()):
+        if SKIP.search(name):
+            continue
         w = int(re.search(r"\bw: (\d+)", body).group(1))
         h = int(re.search(r"\bh: (\d+)", body).group(1))
         for x, y in re.findall(r"\[(\d+), (\d+)\]", body):
@@ -212,9 +218,17 @@ def main() -> int:
         bg.resize((bg.width * zoom, bg.height * zoom), Image.NEAREST).save(args.out)
         return 0
 
-    fixed = process_sheet(data, frame_rects(Path("src/assets/sprites.generated.ts")))
+    rects = frame_rects(Path("src/assets/sprites.generated.ts"))
+    fixed = process_sheet(data, rects)
     Image.fromarray(fixed).save(sheet2, optimize=True)
-    Image.fromarray(halve(fixed)).save(args.directory / "sheet-0.png", optimize=True)
+
+    # The 1x sheet keeps its own rasterisation everywhere but the frames that
+    # were redrawn, which are taken from the redrawn 2x sheet by a 2:1 box filter.
+    sheet1 = args.directory / "sheet-0.png"
+    small = np.array(Image.open(sheet1).convert("RGBA"))
+    for x, y, w, h in rects:
+        small[y : y + h, x : x + w] = halve(fixed[y * 2 : (y + h) * 2, x * 2 : (x + w) * 2])
+    Image.fromarray(small).save(sheet1, optimize=True)
     return 0
 
 

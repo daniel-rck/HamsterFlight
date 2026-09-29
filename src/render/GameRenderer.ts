@@ -97,6 +97,7 @@ function rgba(colour: number, alpha: number): string {
 }
 
 const CHROME = rgba(HUD_COLOURS.chrome, HUD_COLOURS.chromeAlpha);
+const SHEEN = rgba(HUD_COLOURS.rim, HUD_COLOURS.sheenAlpha);
 const PROMPT_CHROME = rgba(HUD_COLOURS.chrome, HUD_COLOURS.promptAlpha);
 const RIM = rgba(HUD_COLOURS.rim, HUD_COLOURS.rimAlpha);
 const SHADOW = rgba(HUD_COLOURS.shadow, HUD_COLOURS.shadowAlpha);
@@ -136,6 +137,13 @@ function card(
   roundedPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, r - 0.5);
   ctx.strokeStyle = RIM;
   ctx.lineWidth = 1;
+  ctx.stroke();
+  // The sheen: a lit line along the top, between the rounded corners.
+  const corner = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + corner, y + 1.5);
+  ctx.lineTo(x + w - corner, y + 1.5);
+  ctx.strokeStyle = SHEEN;
   ctx.stroke();
 }
 
