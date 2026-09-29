@@ -72,6 +72,9 @@ export function resultsView(root: HTMLElement | null, actions: ResultsActions): 
           return li;
         }),
       );
+      // A link left over from the last game's share is not this game's.
+      const link = q<HTMLInputElement>("#results-link");
+      if (link !== null) link.hidden = true;
       text(again, m.again);
       text(toggle, m.switchLabel);
       text(share, m.share);

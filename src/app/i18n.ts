@@ -127,7 +127,8 @@ export type PageKey =
   | "introSettings"
   | "music"
   | "stage"
-  | "close";
+  | "close"
+  | "copyLink";
 
 const EN: Strings = {
   hud: EN_HUD,
@@ -153,6 +154,7 @@ const EN: Strings = {
     music: "Music",
     stage: "Game stage",
     close: "Close",
+    copyLink: "Link to copy",
   },
   pause: "Pause",
   resume: "Resume",
@@ -313,6 +315,7 @@ const DE: Strings = {
     music: "Musik",
     stage: "Spielfeld",
     close: "Schließen",
+    copyLink: "Link zum Kopieren",
   },
   pause: "Pause",
   resume: "Weiter",

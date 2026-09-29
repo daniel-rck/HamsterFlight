@@ -8,8 +8,22 @@
       name="description"
       content="A faithful browser port of the Flash game Flight of the Hamsters, reconstructed from bytecode analysis."
     />
-    <meta name="theme-color" content="#141c26" />
+    <meta name="theme-color" content="#101a26" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="HamsterFlight" />
+    <meta property="og:title" content="HamsterFlight" />
+    <meta
+      property="og:description"
+      content="Launch the hamsters as far as they will fly - a faithful browser port of Flight of the Hamsters."
+    />
+    <meta property="og:url" content="%SITE_ORIGIN%/" />
+    <meta property="og:image" content="%SITE_ORIGIN%/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="The HamsterFlight opening screen" />
+    <meta name="twitter:card" content="summary_large_image" />
     <style>
       /* One look for everything the port draws over the stage - the corner
          buttons, the help, the results, the toasts - and the HUD on the
@@ -745,6 +759,18 @@
       #results-unlocked li::before {
         content: "\2605  ";
       }
+      #results-link {
+        width: 100%;
+        margin-top: 0.6rem;
+        padding: 0.4rem 0.7rem;
+        border: 1px solid var(--glass-border);
+        border-radius: var(--radius-sm);
+        background: rgb(0 0 0 / 25%);
+        font: 500 12px/1.4 var(--font-mono);
+      }
+      #results-link[hidden] {
+        display: none;
+      }
       #results .actions {
         display: flex;
         flex-wrap: wrap;
@@ -869,6 +895,50 @@
         margin: 0 1rem;
         max-width: 32rem;
         text-align: center;
+      }
+      #boot .boot-logo {
+        margin-bottom: 0.4em;
+        font-size: clamp(28px, 6cqw, 64px);
+        justify-content: center;
+        transform: rotate(-3deg);
+        transform-origin: center;
+      }
+      /* Indeterminate - a travelling highlight - until the atlas says its size;
+         then it fills by bytes (--p, 0 to 1, set from the loader). */
+      .boot-bar {
+        position: relative;
+        width: min(60%, 320px);
+        height: 10px;
+        overflow: hidden;
+        border-radius: 999px;
+        background: rgb(255 255 255 / 10%);
+        box-shadow: inset 0 1px 2px rgb(0 0 0 / 35%);
+      }
+      .boot-bar span {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: calc(var(--p, 0.3) * 100%);
+        border-radius: inherit;
+        background: linear-gradient(180deg, var(--accent-hi), var(--accent));
+        transition: width 160ms linear;
+      }
+      .boot-bar:not([data-known]) span {
+        animation: boot-sweep 1.2s ease-in-out infinite;
+      }
+      @keyframes boot-sweep {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(340%);
+        }
+      }
+      #boot:has(button) .boot-bar {
+        display: none;
+      }
+      #boot-text {
+        color: var(--ink-soft);
+        font-weight: 500;
       }
       #boot button {
         justify-self: center;
@@ -1077,10 +1147,22 @@
             <button id="results-mode" type="button"></button>
             <button id="results-share" type="button"></button>
           </div>
+          <input
+            id="results-link"
+            type="text"
+            readonly
+            hidden
+            aria-label="Link to copy"
+            data-i18n-label="copyLink"
+          />
         </div>
       </div>
       <div id="toast" role="status" aria-live="polite" hidden></div>
-      <div id="boot" role="status" aria-live="polite">loading…</div>
+      <div id="boot">
+        <p class="logo boot-logo" aria-hidden="true"><span>Hamster</span><span>Flight</span></p>
+        <div class="boot-bar" aria-hidden="true"><span></span></div>
+        <p id="boot-text" role="status" aria-live="polite">loading…</p>
+      </div>
       <noscript>This game needs JavaScript to run.</noscript>
       <div
         id="about"

@@ -25,8 +25,14 @@ import {
 import { browserStore, type Progress, type Settings } from "@/app/progress.ts";
 import { resultsView } from "@/app/results.ts";
 import { GameSession } from "@/app/session.ts";
+import { browserShareEnv, shareLink } from "@/app/share.ts";
 import { Toasts } from "@/app/toast.ts";
-import { type AssetBundle, densityFor, loadSprites } from "@/assets/AssetLoader.ts";
+import {
+  type AssetBundle,
+  densityFor,
+  type LoadProgress,
+  loadSprites,
+} from "@/assets/AssetLoader.ts";
 import type { AudioPlayer } from "@/audio/AudioPlayer.ts";
 import { InputController } from "@/input/InputController.ts";
 import { Effects } from "@/render/effects/Effects.ts";
@@ -124,10 +130,16 @@ let bootText: Strings["boot"] = STRINGS.en.boot;
  * The boot panel stays in the document, hidden, so a failure after boot has
  * somewhere to report itself. Removing it used to leave late errors invisible.
  */
-function setBootMessage(text: string): void {
+function setBootMessage(text: string, fraction: number | null = null): void {
   const boot = document.querySelector<HTMLElement>("#boot");
   if (boot === null) return;
-  boot.textContent = text;
+  const line = boot.querySelector<HTMLElement>("#boot-text");
+  if (line !== null) line.textContent = text;
+  const bar = boot.querySelector<HTMLElement>(".boot-bar");
+  if (bar !== null) {
+    bar.toggleAttribute("data-known", fraction !== null);
+    if (fraction !== null) bar.style.setProperty("--p", String(fraction));
+  }
   boot.hidden = false;
 }
 
@@ -140,12 +152,14 @@ function showFailure(text: string): void {
   const boot = document.querySelector<HTMLElement>("#boot");
   if (boot === null) return;
   const message = document.createElement("p");
+  message.setAttribute("role", "alert");
   message.textContent = text;
   const reload = document.createElement("button");
   reload.type = "button";
   reload.textContent = bootText.reload;
   reload.addEventListener("click", () => window.location.reload());
-  boot.replaceChildren(message, reload);
+  const logo = boot.querySelector(".boot-logo");
+  boot.replaceChildren(...(logo === null ? [] : [logo]), message, reload);
   boot.hidden = false;
   reload.focus();
 }
@@ -265,6 +279,19 @@ function wireAbout(
   return hooks;
 }
 
+/**
+ * The link, selected in a field on the results card, for when neither the
+ * share sheet nor the clipboard would take it.
+ */
+function showShareLink(url: string): void {
+  const field = document.querySelector<HTMLInputElement>("#results-link");
+  if (field === null) return;
+  field.value = url;
+  field.hidden = false;
+  field.focus({ preventScroll: true });
+  field.select();
+}
+
 /** Today, locally - the daily challenge's day. */
 function today(): string {
   return dayKey(new Date());
@@ -312,9 +339,10 @@ async function boot(): Promise<void> {
   // Its own chunk: every visitor pays for the eager bundle, and nothing can
   // sound before the first gesture anyway.
   const audioImport = startAudioImport();
-  const progress = ({ loaded, total }: { loaded: number; total: number }): void => {
+  const progress = ({ fraction }: LoadProgress): void => {
     setBootMessage(
-      total > 1 ? bootText.loadingPercent(Math.round((loaded / total) * 100)) : bootText.loading,
+      fraction === null ? bootText.loading : bootText.loadingPercent(Math.round(fraction * 100)),
+      fraction,
     );
   };
   let assets = await loadSprites(progress, densityFor(scale));
@@ -444,19 +472,9 @@ async function boot(): Promise<void> {
         audio?.consume([{ t: "sfx", id: "pickup", gain: C.SFX_VOLUME }]);
       },
       share: async (url, text) => {
-        try {
-          if (typeof navigator.share === "function") {
-            await navigator.share({ title: "HamsterFlight", text, url });
-            return "shared";
-          }
-          await navigator.clipboard.writeText(url);
-          return "copied";
-        } catch (error) {
-          // Cancelled by the player, or no clipboard: offer the link to copy by hand.
-          if (error instanceof DOMException && error.name === "AbortError") return "failed";
-          window.prompt(text, url);
-          return "failed";
-        }
+        const outcome = await shareLink(browserShareEnv(), url, text);
+        if (outcome === "manual") showShareLink(url);
+        return outcome === "shared" || outcome === "copied" ? outcome : "failed";
       },
       baseUrl: () => `${window.location.origin}${window.location.pathname}`,
       results: resultsView(document.querySelector<HTMLElement>("#results"), {

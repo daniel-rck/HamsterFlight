@@ -43,6 +43,7 @@
     "check:cf": "node scripts/check-cloudflare.ts",
     "bundle:report": "node scripts/bundle-report.ts",
     "smoke": "node scripts/smoke.ts",
+    "images": "node scripts/share-images.ts",
     "bench": "node scripts/bench-strategies.ts",
     "bench:renderers": "node scripts/bench-renderers.ts",
     "audit": "bun audit",
