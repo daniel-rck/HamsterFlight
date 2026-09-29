@@ -105,7 +105,7 @@ import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
 export class PixiRenderer implements Renderer {
   readonly #app: Application;
   readonly #canvas: HTMLCanvasElement;
-  readonly #assets: AssetBundle;
+  #assets: AssetBundle;
   readonly #effects: Effects;
   readonly #tuning: Tuning;
   readonly #stress: number;
@@ -114,7 +114,9 @@ export class PixiRenderer implements Renderer {
   #lastFrameTime = 0;
   #destroyed = false;
 
-  readonly #textures = new TextureCache();
+  #textures = new TextureCache();
+  /** Caches of an atlas that was swapped out, freed once a frame has been drawn without them. */
+  #retired: TextureCache[] = [];
   readonly #filters = new SceneFilters();
   readonly #hud: PixiHud;
 
@@ -311,13 +313,28 @@ export class PixiRenderer implements Renderer {
     stage.addChild(this.#overlay);
     stage.addChild(this.#hud.container);
 
+    this.#bindShadow();
+  }
+
+  /** The shadow is set up once rather than per frame, so an atlas swap sets it again. */
+  #bindShadow(): void {
     const shadow = this.#assets.get("shadow");
-    if (shadow !== undefined) {
-      const texture = this.#textures.get(shadow, 0);
-      if (texture !== undefined) this.#shadow.texture = texture;
-      place(this.#shadow, shadow, 0, 0);
-      this.#shadow.alpha = SHADOW_ALPHA;
-    }
+    if (shadow === undefined) return;
+    const texture = this.#textures.get(shadow, 0);
+    if (texture !== undefined) this.#shadow.texture = texture;
+    place(this.#shadow, shadow, 0, 0);
+    this.#shadow.alpha = SHADOW_ALPHA;
+  }
+
+  setAssets(assets: AssetBundle): void {
+    if (this.#destroyed || assets === this.#assets) return;
+    // Every visible sprite takes its texture afresh on each draw, so the old
+    // cache is only kept until one frame has gone to the GPU without it.
+    this.#retired.push(this.#textures);
+    this.#textures = new TextureCache();
+    this.#assets = assets;
+    this.#hud.setAssets(assets, this.#textures);
+    this.#bindShadow();
   }
 
   /**
@@ -379,6 +396,7 @@ export class PixiRenderer implements Renderer {
     this.#destroyed = true;
     this.#filters.destroy(this.#scene);
     this.#textures.destroy();
+    for (const old of this.#retired.splice(0)) old.destroy();
     this.#skyFade?.destroy(true);
     for (const shape of this.#cloudShapes) shape.destroy();
     this.#clothShapes.record.destroy();
@@ -415,6 +433,7 @@ export class PixiRenderer implements Renderer {
     else this.#debugBoxes.clear();
 
     this.#app.renderer.render(this.#app.stage);
+    for (const old of this.#retired.splice(0)) old.destroy();
   }
 
   #sky(s: SimSnapshot): void {

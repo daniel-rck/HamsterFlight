@@ -64,8 +64,8 @@ interface Field {
  */
 export class PixiHud {
   readonly container = new Container();
-  readonly #assets: AssetBundle;
-  readonly #textures: TextureCache;
+  #assets: AssetBundle;
+  #textures: TextureCache;
 
   readonly #sceneHud = new Container();
   readonly #scenePool: Sprite[] = [];
@@ -146,6 +146,12 @@ export class PixiHud {
       this.#promptBg,
       this.#promptText,
     );
+  }
+
+  /** The renderer swapped atlases; every texture is looked up again on the next draw. */
+  setAssets(assets: AssetBundle, textures: TextureCache): void {
+    this.#assets = assets;
+    this.#textures = textures;
   }
 
   setStrings(strings: HudStrings): void {

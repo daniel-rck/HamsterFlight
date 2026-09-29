@@ -706,11 +706,36 @@ async function boot(): Promise<void> {
   // original's frame 6 had no Game yet: one picture, redrawn on every resize.
   let started = false;
   const drawStill = (): void => renderer.draw(current, performance.now(), meta.overlay(current, 1));
+  // The atlas was picked for the stage as it was at boot. A stage that grows
+  // past it - full screen, a larger window, a sharper monitor - fetches the
+  // denser sheet once, in the background, and swaps it in; a failure keeps
+  // the softer one, which draws the same game.
+  let upgrading = false;
+  const upgradeAtlas = (): void => {
+    const wanted = densityFor(
+      stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio),
+    );
+    if (upgrading || wanted <= assets.density) return;
+    upgrading = true;
+    void loadSprites(undefined, wanted).then((denser) => {
+      if (signal.aborted) return;
+      if (denser.missing.length > 0) {
+        console.warn("[hamsterflight] denser atlas unavailable: %s", denser.missing.join(", "));
+        return;
+      }
+      assets = denser;
+      renderer.setAssets(denser);
+      intro?.setAssets(denser);
+      if (!started) drawStill();
+      upgrading = false;
+    });
+  };
   watchStageSize(
     canvas,
     () => {
       renderer.resize();
       if (!started) drawStill();
+      upgradeAtlas();
     },
     signal,
   );

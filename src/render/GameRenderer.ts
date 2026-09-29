@@ -145,7 +145,7 @@ function hex(colour: number): string {
 export class GameRenderer implements Renderer {
   readonly #ctx: CanvasRenderingContext2D;
   readonly #canvas: HTMLCanvasElement;
-  readonly #assets: AssetBundle;
+  #assets: AssetBundle;
   readonly #effects: Effects;
   readonly #tuning: Tuning;
   readonly #stress: number;
@@ -194,6 +194,11 @@ export class GameRenderer implements Renderer {
 
   toggleHitboxes(): void {
     this.#showHitboxes = !this.#showHitboxes;
+  }
+
+  setAssets(assets: AssetBundle): void {
+    // Immediate mode: the next frame simply draws from the new sheet.
+    this.#assets = assets;
   }
 
   setStrings(strings: HudStrings): void {

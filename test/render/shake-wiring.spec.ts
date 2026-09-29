@@ -281,4 +281,21 @@ describe("manifest scale", () => {
       expect(drawn.every((d) => d.dw === 59 && d.dh === 38)).toBe(true);
     }
   });
+
+  it("draws from a denser atlas swapped in mid-game, in the same box", () => {
+    const drawn: Drawn[] = [];
+    const renderer = new GameRenderer(recordingCanvas([], drawn), scaledAssets(1), new Effects());
+    renderer.draw(snapshot(), 0);
+    expect(drawn.every((d) => d.sx === 0)).toBe(true);
+    // The 2x sheet, told apart by where its frame sits.
+    const meta = SPRITES["hamster/fly"];
+    const frame = { x: 500, y: 0, w: meta.w * 2, h: meta.h * 2 };
+    const sprite = { meta, sheet: {} as ImageBitmap, density: 2, frames: [frame] };
+    renderer.setAssets({ sheets: [], missing: [], density: 2, get: () => sprite });
+    const before = drawn.length;
+    renderer.draw(snapshot(), 50);
+    const after = drawn.slice(before);
+    expect(after.length).toBeGreaterThan(0);
+    expect(after.every((d) => d.sx === 500 && d.dw === 59 && d.dh === 38)).toBe(true);
+  });
 });

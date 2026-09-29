@@ -48,6 +48,11 @@ export interface Renderer {
   toggleHitboxes(): void;
   /** The language changed. */
   setStrings(strings: HudStrings): void;
+  /**
+   * A denser atlas arrived - the stage grew past what the first one covers,
+   * full screen or a sharper monitor. Same layout, more pixels per frame.
+   */
+  setAssets(assets: AssetBundle): void;
   destroy(): void;
 }
 
