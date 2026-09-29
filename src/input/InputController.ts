@@ -202,8 +202,8 @@ export class InputController {
 
 /**
  * A control that has the keys to itself: a text field, or a focused button -
- * Play Now! on the instructions board, which Space and Enter must press
- * rather than jump past.
+ * Play on the opening screen, which Space and Enter must press rather than
+ * jump past.
  */
 function isTyping(target: EventTarget | null): boolean {
   if (target === null || typeof target !== "object" || !("tagName" in target)) return false;

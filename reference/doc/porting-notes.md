@@ -539,7 +539,17 @@ given, so `[press, togglePause]` no longer drops the press; and the shot driver
 in `src/sim/drive.ts` is the single one behind the golden tests and the bench,
 which used to disagree on their tick budgets.
 
-## The instructions board
+## The instructions board - replaced
+
+*No longer reproduced.* The port now opens on its own screen (`src/app/intro.ts`):
+the board was a raster picture of English text, soft at every size above
+600 x 400 and silent about touch, keys and gamepads, and the port had grown
+things to say on it - the daily challenge, records, sound and language. It
+keeps the board's place (over a still of the scene, before the `Game` is
+built, once per page load, skipped by `?profile` and `?instructions=0`) and
+its content (the three steps and the six items, as the original's sprites).
+`tools/build_screens.py` still renders the board, unused. What follows is how
+the board worked.
 
 Root frame 6 lays the INSTRUCTIONS board over the whole scene: `chalkboard_mc`
 (a half-transparent green sheet in a frame of planks), the text - DefineText

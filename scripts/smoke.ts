@@ -170,9 +170,10 @@ async function check(
 }
 
 /**
- * What a first visit sees: the INSTRUCTIONS board, which the `?profile` runs
- * above skip. Its art has to load, Play Now! has to take it away, and that
- * click - the first gesture - has to fetch every sound without a failure.
+ * What a first visit sees: the opening screen, which the `?profile` runs
+ * above skip. Its typeface has to load and its sprite pictures have to show,
+ * Play has to take it away, and that click - the first gesture - has to fetch
+ * every sound without a failure.
  */
 async function checkFirstVisit(browser: Browser, origin: string): Promise<Result> {
   const label = "first visit";
@@ -191,13 +192,38 @@ async function checkFirstVisit(browser: Browser, origin: string): Promise<Result
   try {
     await page.goto(`${origin}/?seed=${SEED}`, { waitUntil: "load" });
     await waitForBoot(page);
-    await page.waitForSelector("#instructions:not([hidden])", { timeout: 10_000 });
-    const loaded = await page.$$eval("#instructions img", (imgs) =>
-      imgs.every((img) => (img as HTMLImageElement).naturalWidth > 0 || img.className === "over"),
+    await page.waitForSelector("#intro:not([hidden])", { timeout: 10_000 });
+    // The typeface is what the HUD and the screen are set in; a CSP without
+    // font-src would quietly fall back to the system face.
+    const font = await page.evaluate(async () => {
+      await document.fonts.ready;
+      return document.fonts.check('600 16px "Fredoka"');
+    });
+    if (!font) failures.push("the Fredoka face did not load");
+    // The pictures are cut from the atlas into canvases: a blank one means
+    // the cut went wrong, which no error would report.
+    await sleep(300);
+    const painted = await page.$$eval("#intro canvas", (canvases) =>
+      canvases
+        .filter((c) => (c as HTMLCanvasElement).offsetParent !== null)
+        .map((c) => {
+          const canvas = c as HTMLCanvasElement;
+          const ctx = canvas.getContext("2d");
+          if (ctx === null || canvas.width === 0) return 0;
+          const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          let n = 0;
+          for (let i = 3; i < data.length; i += 4) if ((data[i] ?? 0) > 16) n++;
+          return n;
+        }),
     );
-    if (!loaded) failures.push("the instructions art did not load");
-    await page.click("#play-now");
-    await page.waitForSelector("#instructions", { state: "hidden", timeout: 5_000 });
+    if (painted.length === 0 || painted.some((n) => n < 50)) {
+      failures.push(`an opening-screen picture is blank: ${painted.join(", ")}`);
+    }
+    await page.click("#tab-items");
+    const items = await page.$$eval("#intro-items li", (lis) => lis.length);
+    if (items !== 6) failures.push(`the items tab lists ${items} items, not 6`);
+    await page.click("#intro-play");
+    await page.waitForSelector("#intro", { state: "hidden", timeout: 5_000 });
     for (let waited = 0; sounds < SOUND_COUNT && waited < 15_000; waited += 250) {
       await sleep(250);
     }
@@ -207,7 +233,7 @@ async function checkFirstVisit(browser: Browser, origin: string): Promise<Result
     failures.push(await describe(page));
   }
   await page.close();
-  return { label, failures, note: `board, then ${sounds} sounds` };
+  return { label, failures, note: `opening screen, then ${sounds} sounds` };
 }
 
 async function main(): Promise<void> {

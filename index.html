@@ -194,53 +194,333 @@
       #pause[data-paused="true"] .when-paused {
         display: block;
       }
-      /* Root frame 6: the INSTRUCTIONS board over the scene, its Play Now!
-         button at (331, 306) of the 600x400 stage - hanging off the bottom
-         edge, as it does in the original. */
-      #instructions {
+      /* The opening screen, over a still of the scene. Sized in em from a
+         stage-relative base, so it scales with the stage the way the HUD
+         does - a 600 x 400 layout at any size - with a floor for phones. */
+      .stage {
+        container-type: size;
+      }
+      #intro {
         position: absolute;
         inset: 0;
+        display: grid;
+        place-items: center;
+        padding: 3.5% max(3.5%, env(safe-area-inset-right)) 3.5%
+          max(3.5%, env(safe-area-inset-left));
+        font-size: 11px;
+        font-size: max(10.5px, 1.72cqw);
+        background:
+          radial-gradient(120% 90% at 30% 20%, rgb(127 212 255 / 18%), transparent 60%),
+          rgb(8 16 26 / 38%);
+        -webkit-backdrop-filter: blur(3px) saturate(120%);
+        backdrop-filter: blur(3px) saturate(120%);
+        animation: intro-in 320ms ease-out;
       }
-      #instructions[hidden] {
+      #intro[hidden] {
         display: none;
       }
-      #instructions > img {
-        display: block;
+      #intro.leaving {
+        opacity: 0;
+        transform: scale(1.02);
+        transition:
+          opacity 220ms ease-in,
+          transform 220ms ease-in;
+      }
+      @keyframes intro-in {
+        from {
+          opacity: 0;
+        }
+      }
+      .intro-card {
         width: 100%;
         height: 100%;
+        display: grid;
+        grid-template-columns: 0.95fr 1.25fr;
+        gap: 1.6em;
+        padding: 1.5em 1.7em;
+        border: 1px solid var(--glass-border);
+        border-radius: 1.4em;
+        background:
+          linear-gradient(160deg, rgb(255 255 255 / 8%), transparent 45%), rgb(14 26 40 / 72%);
+        -webkit-backdrop-filter: var(--glass-blur);
+        backdrop-filter: var(--glass-blur);
+        box-shadow: var(--shadow);
+        overflow: hidden;
       }
-      #play-now {
-        position: absolute;
-        left: calc(331 / 600 * 100%);
-        top: calc(306 / 400 * 100%);
-        width: calc(280 / 600 * 100%);
-        height: calc(100 / 400 * 100%);
+      .intro-hero {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .logo {
+        margin: 0;
+        display: flex;
+        flex-wrap: wrap;
+        column-gap: 0.12em;
+        font-size: 3.5em;
+        font-weight: 700;
+        line-height: 0.95;
+        letter-spacing: -0.01em;
+        transform: rotate(-3deg);
+        transform-origin: left center;
+      }
+      .logo span:first-child {
+        color: #fff;
+        text-shadow:
+          0 0.06em 0 #1b5b86,
+          0 0.12em 0.3em rgb(0 0 0 / 35%);
+      }
+      .logo span:last-child {
+        background: linear-gradient(180deg, var(--accent-hi) 20%, var(--accent) 80%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        filter: drop-shadow(0 0.06em 0 #8a3f00) drop-shadow(0 0.12em 0.25em rgb(0 0 0 / 35%));
+      }
+      .tagline {
+        margin: 0.7em 0 0;
+        color: var(--ink-soft);
+        font-size: 1.05em;
+      }
+      .intro-hamster {
+        flex: 1 1 auto;
+        min-height: 3em;
+        width: 100%;
+        filter: drop-shadow(0 0.5em 0.5em rgb(0 0 0 / 35%));
+      }
+      .intro-menu {
+        display: grid;
+        gap: 0.55em;
+      }
+      .btn-big {
+        display: grid;
+        justify-items: start;
+        gap: 0.05em;
+        width: 100%;
+        padding: 0.6em 1.2em;
+        border-radius: 1em;
+        font-size: 1.15em;
+        text-align: left;
+      }
+      .btn-big .label {
+        font-weight: 700;
+      }
+      .btn-big small {
+        font-size: 0.72em;
+        font-weight: 500;
+        opacity: 0.8;
+      }
+      .btn-big small:empty {
+        display: none;
+      }
+      #intro-play {
+        font-size: 1.45em;
+      }
+      #intro-play .label::after {
+        content: " \2192";
+      }
+      #intro-stats {
+        margin: 0.7em 0 0;
+        color: var(--gold);
+        font-weight: 600;
+      }
+      #intro-stats[hidden] {
+        display: none;
+      }
+      .intro-info {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        gap: 0.8em;
+      }
+      .tabs {
+        display: flex;
+        gap: 0.3em;
+        padding: 0.25em;
+        border-radius: 999px;
+        background: rgb(0 0 0 / 22%);
+        align-self: flex-start;
+      }
+      .tabs button {
+        padding: 0.35em 1em;
+        border: 0;
+        border-radius: 999px;
+        background: none;
+        color: var(--ink-soft);
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .tabs button[aria-selected="true"] {
+        background: rgb(255 255 255 / 14%);
+        color: var(--ink);
+      }
+      .tabs button:focus-visible,
+      .chip:focus-visible,
+      .chip select:focus-visible {
+        outline: none;
+        box-shadow: var(--focus);
+      }
+      .panel {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
+      }
+      .panel[hidden] {
+        display: none;
+      }
+      .steps {
+        display: grid;
+        gap: 0.75em;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .steps li {
+        display: grid;
+        grid-template-columns: 2.6em 1fr;
+        gap: 0.8em;
+        align-items: center;
+      }
+      .step-icon {
+        display: grid;
+        place-items: center;
+        width: 2.6em;
+        height: 2.6em;
+        border-radius: 0.8em;
+        background: linear-gradient(160deg, var(--sky), #3aa3e0);
+        color: #06263b;
+        box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%);
+      }
+      .steps li:nth-child(2) .step-icon {
+        background: linear-gradient(160deg, var(--gold), var(--accent));
+        color: #3b1d00;
+      }
+      .steps li:nth-child(3) .step-icon {
+        background: linear-gradient(160deg, var(--meadow), #4fae2c);
+        color: #0f2f05;
+      }
+      .step-icon svg {
+        width: 58%;
+        height: 58%;
+      }
+      .steps strong,
+      .items strong {
+        display: block;
+        font-size: 1.1em;
+        font-weight: 600;
+      }
+      .steps span,
+      .items div > span {
+        color: var(--ink-soft);
+        line-height: 1.35;
+      }
+      .keys {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35em 1em;
+        margin: 1em 0 0;
+        color: var(--ink-soft);
+      }
+      .keys[hidden] {
+        display: none;
+      }
+      .keys kbd {
+        color: var(--ink);
+      }
+      .items {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.6em 1em;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+      .items li {
+        display: grid;
+        grid-template-columns: 3em 1fr;
+        gap: 0.6em;
+        align-items: start;
+      }
+      .items canvas {
+        width: 3em;
+        height: 3em;
+        border-radius: 0.8em;
+        background: rgb(255 255 255 / 7%);
+      }
+      .items strong {
+        font-size: 1em;
+      }
+      .items div > span {
+        font-size: 0.9em;
+      }
+      .intro-settings {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45em;
+        padding-top: 0.8em;
+        border-top: 1px solid var(--glass-border);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45em;
+        padding: 0.35em 0.85em;
+        border: 1px solid var(--glass-border);
+        border-radius: 999px;
+        background: rgb(255 255 255 / 6%);
+        color: var(--ink-soft);
+        font-weight: 600;
+        cursor: pointer;
+        touch-action: manipulation;
+      }
+      .chip[hidden] {
+        display: none;
+      }
+      .chip svg {
+        width: 1.15em;
+        height: 1.15em;
+        flex: none;
+      }
+      .chip[aria-pressed="true"] {
+        border-color: rgb(127 212 255 / 45%);
+        background: rgb(127 212 255 / 16%);
+        color: var(--ink);
+      }
+      .chip[aria-pressed="false"] svg {
+        opacity: 0.5;
+      }
+      .chip select {
         padding: 0;
         border: 0;
         background: none;
+        font-weight: 600;
+        color: var(--ink);
         cursor: pointer;
-        /* The lit plank is the focus indicator, as it is the hover one. */
-        outline: none;
       }
-      #play-now img {
-        display: block;
-        width: 100%;
-        height: 100%;
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        overflow: hidden;
+        clip-path: inset(50%);
+        white-space: nowrap;
       }
-      #play-now .over,
-      #play-now:hover .up,
-      #play-now:focus-visible .up {
+      /* The corner row waits until the game is on. */
+      .stage.intro-open .corner {
         display: none;
       }
-      #play-now:hover .over,
-      #play-now:focus-visible .over {
-        display: block;
+      /* Short stages (a phone on its side): tighter, and the tagline goes. */
+      @container (max-height: 420px) {
+        .intro-card {
+          padding: 1.1em 1.3em;
+          gap: 1.2em;
+        }
+        .tagline {
+          display: none;
+        }
       }
       /* Help and credits, over the stage rather than under it. Always there,
          even when the game failed to boot: the credits are the point. */
-      #instructions:not([hidden]) ~ #info {
-        display: none;
-      }
       #info[aria-expanded="true"] {
         background: var(--sky);
         color: #0c141e;
@@ -646,13 +926,103 @@
           <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
         </svg>
       </button>
-      <div id="instructions" hidden>
-        <img
-          alt="Instructions. Powering the Kids Next Door Treehouse is hard work! Help the hamsters enjoy their time off with the new extreme sport of hamster launching! Click your mouse button to start the hamster in motion. When the hamster lines up with the pillow, click again to launch the hamster. While flying, click and hold your mouse button to use Glide Power! The Glide Meter refills slowly when not in use. Grab Items to keep the hamster in the air for as long as possible."
-        />
-        <button id="play-now" type="button">
-          <img class="up" alt="Play Now!" /><img class="over" alt="" />
-        </button>
+      <div id="intro" hidden role="dialog" aria-modal="true" aria-labelledby="intro-title">
+        <div class="intro-card">
+          <div class="intro-hero">
+            <h1 id="intro-title" class="logo"><span>Hamster</span><span>Flight</span></h1>
+            <p class="tagline" data-i18n="tagline">
+              Launch the hamsters - as far as they will fly.
+            </p>
+            <canvas class="intro-hamster" aria-hidden="true"></canvas>
+            <div class="intro-menu">
+              <button id="intro-play" class="btn btn-primary btn-big" type="button">
+                <span class="label">Play</span><small></small>
+              </button>
+              <button id="intro-alt" class="btn btn-big" type="button">
+                <span class="label"></span><small></small>
+              </button>
+            </div>
+            <p id="intro-stats" hidden></p>
+          </div>
+          <div class="intro-info">
+            <div class="tabs" role="tablist">
+              <button
+                id="tab-controls"
+                role="tab"
+                type="button"
+                aria-selected="true"
+                aria-controls="panel-controls"
+                data-i18n="controlsTab"
+              >
+                How to play
+              </button>
+              <button
+                id="tab-items"
+                role="tab"
+                type="button"
+                aria-selected="false"
+                aria-controls="panel-items"
+                tabindex="-1"
+                data-i18n="itemsTab"
+              >
+                Items
+              </button>
+            </div>
+            <div id="panel-controls" class="panel" role="tabpanel" aria-labelledby="tab-controls">
+              <ol id="intro-steps" class="steps"></ol>
+              <p id="intro-keys" class="keys"></p>
+            </div>
+            <div id="panel-items" class="panel" role="tabpanel" aria-labelledby="tab-items" hidden>
+              <ul id="intro-items" class="items"></ul>
+            </div>
+            <div class="intro-settings" role="group" aria-labelledby="intro-settings-label">
+              <span id="intro-settings-label" class="visually-hidden" data-i18n="introSettings">
+                Sound and language
+              </span>
+              <button id="intro-music" class="chip" type="button" aria-pressed="true" hidden>
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                  <path
+                    d="M19 3.5v11.2a3 3 0 1 1-2-2.8V7.2l-7 1.5v8a3 3 0 1 1-2-2.8V6.4a1 1 0 0 1 .8-1L17.8 3.5A1 1 0 0 1 19 3.5z"
+                  />
+                </svg>
+                <span data-i18n="music">Music</span>
+              </button>
+              <button id="intro-sfx" class="chip" type="button" aria-pressed="true" hidden>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2.2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
+                  <path d="M15.5 9a4 4 0 0 1 0 6M18.3 6.5a7.5 7.5 0 0 1 0 11" />
+                </svg>
+                <span data-i18n="sfx">Sound effects</span>
+              </button>
+              <label class="chip">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  aria-hidden="true"
+                >
+                  <circle cx="12" cy="12" r="9" />
+                  <path d="M3 12h18M12 3c3 3.3 3 14.7 0 18M12 3c-3 3.3-3 14.7 0 18" />
+                </svg>
+                <span class="visually-hidden" data-i18n="language">Language</span>
+                <select id="intro-lang">
+                  <option value="" data-i18n="langAuto">Automatic</option>
+                  <option value="en">English</option>
+                  <option value="de">Deutsch</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
       </div>
       <div id="results" hidden role="dialog" aria-labelledby="results-title">
         <div>

@@ -5,7 +5,15 @@ import { fontsReady, loadFonts } from "@/app/fonts.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
 import { type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
 import { vibrationFor } from "@/app/haptics.ts";
-import { ACHIEVEMENT_IDS, applyPage, pickLang, STRINGS, type Strings } from "@/app/i18n.ts";
+import {
+  ACHIEVEMENT_IDS,
+  applyPage,
+  type InputDevice,
+  pickLang,
+  STRINGS,
+  type Strings,
+} from "@/app/i18n.ts";
+import type { Intro } from "@/app/intro.ts";
 import { achievementCount, MetaGame } from "@/app/MetaGame.ts";
 import {
   instructionsFromUrl,
@@ -19,12 +27,6 @@ import { resultsView } from "@/app/results.ts";
 import { GameSession } from "@/app/session.ts";
 import { Toasts } from "@/app/toast.ts";
 import { type AssetBundle, densityFor, loadSprites } from "@/assets/AssetLoader.ts";
-import boardUrl from "@/assets/screens/instructions.webp?url";
-import board2xUrl from "@/assets/screens/instructions@2x.webp?url";
-import playOverUrl from "@/assets/screens/play-over.webp?url";
-import playOver2xUrl from "@/assets/screens/play-over@2x.webp?url";
-import playUpUrl from "@/assets/screens/play-up.webp?url";
-import playUp2xUrl from "@/assets/screens/play-up@2x.webp?url";
 import type { AudioPlayer } from "@/audio/AudioPlayer.ts";
 import { InputController } from "@/input/InputController.ts";
 import { Effects } from "@/render/effects/Effects.ts";
@@ -50,22 +52,6 @@ function webglAvailable(): boolean {
 }
 
 type PixiModule = typeof import("@/render/PixiRenderer.ts");
-
-/** Root frame 6's art, at the density the page will show it at. */
-function showInstructions(panel: HTMLElement, button: HTMLButtonElement): void {
-  const board = panel.querySelector<HTMLImageElement>(":scope > img");
-  const up = button.querySelector<HTMLImageElement>(".up");
-  const over = button.querySelector<HTMLImageElement>(".over");
-  const set = (img: HTMLImageElement | null, x1: string, x2: string): void => {
-    if (img === null) return;
-    img.src = x1;
-    img.srcset = `${x1} 1x, ${x2} 2x`;
-  };
-  set(board, boardUrl, board2xUrl);
-  set(up, playUpUrl, playUp2xUrl);
-  set(over, playOverUrl, playOver2xUrl);
-  panel.hidden = false;
-}
 
 /**
  * The player and its sound URLs, in a chunk of their own. A failure here is a
@@ -260,6 +246,14 @@ async function boot(): Promise<void> {
   // not after it, and never for long: the fallback stack is a fine HUD too.
   const fonts = loadFonts();
   const pixiImport = startPixiImport(rendererName);
+  // The opening screen is a chunk of its own, fetched alongside the atlas:
+  // it is shown once per visit and never at all under `?instructions=0`.
+  const introImport = instructionsFromUrl(params)
+    ? import("@/app/intro.ts").catch((error: unknown) => {
+        console.warn("[hamsterflight] no opening screen: %o", error);
+        return null;
+      })
+    : Promise.resolve(null);
   // Its own chunk: every visitor pays for the eager bundle, and nothing can
   // sound before the first gesture anyway.
   const audioImport = startAudioImport();
@@ -313,8 +307,12 @@ async function boot(): Promise<void> {
   audio?.setSfxMuted(saved.settings.sfxMuted);
   const musicButton = document.querySelector<HTMLButtonElement>("#music");
   const sfxButton = document.querySelector<HTMLButtonElement>("#sfx");
+  const introMusic = document.querySelector<HTMLButtonElement>("#intro-music");
+  const introSfx = document.querySelector<HTMLButtonElement>("#intro-sfx");
   const syncSoundButtons = (): void => {
     const music = audio?.musicMuted ?? false;
+    introMusic?.setAttribute("aria-pressed", String(!music));
+    introSfx?.setAttribute("aria-pressed", String(!(audio?.sfxMuted ?? false)));
     musicButton?.setAttribute("aria-pressed", String(music));
     musicButton?.setAttribute("aria-label", music ? t.unmuteMusic : t.muteMusic);
     const sfx = audio?.sfxMuted ?? false;
@@ -339,6 +337,10 @@ async function boot(): Promise<void> {
   }
   if (musicButton !== null && audio !== null) {
     musicButton.addEventListener("click", toggleMusic, { signal });
+  }
+  if (audio !== null) {
+    introMusic?.addEventListener("click", toggleMusic, { signal });
+    if (introMusic !== null) introMusic.hidden = false;
   }
 
   const toasts = new Toasts(document.querySelector<HTMLElement>("#toast"));
@@ -416,6 +418,9 @@ async function boot(): Promise<void> {
     tuning: DEFAULT_TUNING,
   });
 
+  // Built below, once the loop exists; the settings reach it through this.
+  let intro: Intro | null = null;
+  const introModule = await introImport;
   const saveSettings = (change: Partial<Settings>): void => meta.updateSettings(change);
   const toggleSfx = (): void => {
     if (audio === null) return;
@@ -425,6 +430,10 @@ async function boot(): Promise<void> {
     syncSettings();
   };
   sfxButton?.addEventListener("click", toggleSfx, { signal });
+  if (audio !== null) {
+    introSfx?.addEventListener("click", toggleSfx, { signal });
+    if (introSfx !== null) introSfx.hidden = false;
+  }
 
   const haptics =
     touch && !reducedMotion && typeof navigator.vibrate === "function"
@@ -438,12 +447,14 @@ async function boot(): Promise<void> {
   const setVolume = document.querySelector<HTMLInputElement>("#set-volume");
   const setHaptics = document.querySelector<HTMLInputElement>("#set-haptics");
   const setLang = document.querySelector<HTMLSelectElement>("#set-lang");
+  const introLang = document.querySelector<HTMLSelectElement>("#intro-lang");
   const syncSettings = (): void => {
     const settings = meta.progress.settings;
     if (setSfx !== null) setSfx.checked = !settings.sfxMuted;
     if (setVolume !== null) setVolume.value = String(Math.round(settings.volume * 100));
     if (setHaptics !== null) setHaptics.checked = settings.haptics;
     if (setLang !== null) setLang.value = settings.lang ?? "";
+    if (introLang !== null) introLang.value = settings.lang ?? "";
   };
   syncSettings();
   if (audio !== null) {
@@ -459,8 +470,8 @@ async function boot(): Promise<void> {
   const hapticsRow = document.querySelector<HTMLElement>("#set-haptics-row");
   if (hapticsRow !== null) hapticsRow.hidden = haptics === null;
   setHaptics?.addEventListener("change", () => saveSettings({ haptics: setHaptics.checked }));
-  setLang?.addEventListener("change", () => {
-    const choice = setLang.value === "en" || setLang.value === "de" ? setLang.value : null;
+  const changeLang = (value: string): void => {
+    const choice = value === "en" || value === "de" ? value : null;
     saveSettings({ lang: choice });
     lang = pickLang(null, choice, navigator.languages ?? []);
     t = STRINGS[lang];
@@ -472,7 +483,13 @@ async function boot(): Promise<void> {
     syncPauseButton(current.paused, true);
     syncFullscreenButton();
     syncSettings();
-  });
+    if (intro !== null && introModule !== null) {
+      intro.setStrings(t, introModule.introModel(t, meta.mode, meta.progress, today()));
+    }
+  };
+  for (const select of [setLang, introLang]) {
+    select?.addEventListener("change", () => changeLang(select.value), { signal });
+  }
   for (const section of ["#settings", "#achievements-panel"]) {
     const el = document.querySelector<HTMLElement>(section);
     if (el !== null) el.hidden = false;
@@ -599,8 +616,8 @@ async function boot(): Promise<void> {
     onError: () => showFailure("Something went wrong. Reload to play on."),
   });
 
-  // Until Play Now! the scene stands still behind the board, as frame 6 has
-  // no Game yet: one picture, redrawn whenever the stage is resized.
+  // Until the opening screen is left the scene stands still behind it, as the
+  // original's frame 6 had no Game yet: one picture, redrawn on every resize.
   let started = false;
   const drawStill = (): void => renderer.draw(current, performance.now(), meta.overlay(current, 1));
   watchStageSize(
@@ -686,25 +703,39 @@ async function boot(): Promise<void> {
     meta.announce();
     loop.start();
   };
-  const instructions = document.querySelector<HTMLElement>("#instructions");
-  const playNow = document.querySelector<HTMLButtonElement>("#play-now");
-  if (instructionsFromUrl(params) && instructions !== null && playNow !== null) {
-    showInstructions(instructions, playNow);
-    drawStill();
-    playNow.focus({ preventScroll: true });
-    // Button 503: `chalkboard_mc._visible = false; nextFrame()` - frame 7
-    // builds the Game. Its `stopAllSounds()` has nothing to stop here: no
-    // sound can have started before this click, which is also the one that
-    // unlocks audio.
-    playNow.addEventListener(
-      "click",
-      () => {
-        instructions.hidden = true;
-        audio?.unlock();
-        start();
+  const introRoot = document.querySelector<HTMLElement>("#intro");
+  const stageBox = canvas.parentElement;
+  if (introModule !== null && introRoot !== null) {
+    const device = (): InputDevice =>
+      pads().some((pad) => pad !== null) ? "pad" : touch ? "touch" : "mouse";
+    const leave = (): void => {
+      intro?.hide();
+      stageBox?.classList.remove("intro-open");
+      audio?.unlock();
+      start();
+    };
+    intro = new introModule.Intro({
+      root: introRoot,
+      strings: t,
+      device: device(),
+      motion: !reducedMotion,
+      signal,
+      onPlay: leave,
+      onSecondary: () => {
+        // The other mode, and a game built for it: the session was seeded
+        // for the one the page opened in.
+        meta.switchMode();
+        session.reset(meta.nextSeed());
+        previous = null;
+        current = session.snapshot;
+        leave();
       },
-      { signal, once: true },
-    );
+    });
+    window.addEventListener("gamepadconnected", () => intro?.setDevice("pad"), { signal });
+    intro.setAssets(assets);
+    stageBox?.classList.add("intro-open");
+    drawStill();
+    intro.show(introModule.introModel(t, meta.mode, meta.progress, today()));
   } else {
     start();
   }

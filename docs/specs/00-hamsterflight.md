@@ -21,15 +21,16 @@ src/
 ├── sim/          # pure, deterministic simulation — no DOM, no time, no I/O
 ├── render/       # the two backends plus scene/ and the HUD; read snapshots, never write
 ├── input/        # DOM events to discrete press/release/confirm/pause commands
-├── assets/       # atlas sheets, sounds, the instructions board, generated manifests
+├── assets/       # atlas sheets, sounds, generated manifests
 ├── audio/        # the Web Audio player - reads the sim's sound cues, never writes
 ├── app/          # boot (main.ts), the loop, URL params, and the game around the game:
-│                 #   recording/replay, session, records, daily, ghost, achievements, i18n
+│                 #   recording/replay, session, records, daily, ghost, achievements,
+│                 #   i18n, the opening screen, the typeface
 reference/        # vendored: decompiled bytecode and frame scripts, extraction tools, notes
 ```
 
 Everything under `src/assets/` except the loaders is generated from the
-original SWF by `reference/tools/` (sprites, sounds, the instructions board),
+original SWF by `reference/tools/` (sprites and sounds),
 and `reference/as2/` holds both the decompiled classes and the timeline frame
 scripts. The frame scripts matter as much as the classes: the jump, the
 outcome clips, a third of the sounds and the start of the game are all driven
@@ -46,9 +47,24 @@ into the simulation. The music button mutes music only, as the original's did.
 
 ### Start of the game
 
-A visit opens on the INSTRUCTIONS board over a still of the scene, as the
-original's frame 6 does; Play Now! starts the loop and unlocks audio.
+A visit opens on the port's own opening screen over a still of the scene,
+where the original showed its INSTRUCTIONS board (frame 6): the name, how to
+play for the device in hand (mouse and keys, touch, or a pad), what each item
+does, sound and language, and two ways in - the mode the link opened (free
+play, today's challenge, a duel) and the other one. Its first button starts
+the loop and unlocks audio. It is HTML in the port's typeface with the
+original's sprites cut from the atlas, in a lazy chunk fetched alongside it.
 `?profile` and `?instructions=0` skip it. There is no title screen.
+
+### Look
+
+One typeface, Fredoka (SIL OFL, self-hosted, `font-src 'self'`), and one set
+of colour tokens (`:root` in `index.html`, `HUD_COLOURS` in
+`src/render/scene/hud.ts`) for everything the port draws over the original's
+picture: the HUD cards, the opening screen, the results, the help, the toasts.
+The HUD's geometry and type sizes live in `scene/hud.ts`, so both backends
+draw the same cards. The distance signs are world art and keep their stand-in
+for the original's font.
 
 ### Around the game
 

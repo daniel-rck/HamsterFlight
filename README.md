@@ -18,9 +18,10 @@ bun run verify       # lint, sim purity, atlas, typecheck, tests, build, bundle 
 Bun is the package manager, like the other apps in this family
 (`daniel-rck/web-base`); Node runs the scripts under `scripts/`.
 
-The game opens on the original's INSTRUCTIONS board; Play Now! (or
-<kbd>Enter</kbd>) starts it, and that first press is also what lets the browser
-play sound. Press <kbd>Space</kbd> or click to jump, again to hit the pillow,
+The game opens on a screen of its own - how to play for your device, what the
+items do, the daily challenge, your record, sound and language - where the
+original showed its INSTRUCTIONS board. Play (or <kbd>Enter</kbd>) starts it,
+and that first press is also what lets the browser play sound. Press <kbd>Space</kbd> or click to jump, again to hit the pillow,
 then hold to glide. One swing per jump: miss it and the hamster lands back on
 the pad and you jump again, which costs nothing - only the pillow ends a turn.
 <kbd>P</kbd> or <kbd>Esc</kbd> pauses and a click or tap resumes; <kbd>M</kbd>
@@ -37,8 +38,8 @@ full screen where the browser allows it. Append `?seed=12345` to replay an exact
 | `?debug` | hitboxes and a state readout (<kbd>H</kbd> toggles) |
 | `?renderer=pixi` \| `canvas2d` | pick a backend explicitly (Canvas2D is the no-WebGL fallback) |
 | `?stress=N` | multiply renderer-only decoration; profiling aid, never touches physics |
-| `?profile` | report draw-time percentiles to the console (skips the instructions board) |
-| `?instructions=0` | skip the instructions board |
+| `?profile` | report draw-time percentiles to the console (skips the opening screen) |
+| `?instructions=0` | skip the opening screen |
 | `?run=…` | race the ghost of a shared game (what "Challenge a friend" links to) |
 | `?daily` | play today's daily challenge |
 | `?lang=en` \| `de` | pick the language; otherwise the saved choice, then the browser's |
@@ -174,8 +175,11 @@ wraps a little more around it, none of which touches the simulation:
   as a streak.
 - **Achievements.** Fifteen goals, from a first cheer to beating a friend's
   ghost, listed under the help button.
-- **German.** The port's own words follow the browser or the language picker;
-  the INSTRUCTIONS board is the original's art and stays English.
+- **German.** Every word on the page follows the browser or the language
+  picker, the opening screen included.
+- **A look of its own.** The HUD, the opening screen and every overlay share
+  one self-hosted typeface (Fredoka) and one palette, drawn the same way by
+  both backends.
 
 PLAY AGAIN also works differently underneath: it builds a fresh simulation
 from a new seed rather than calling the original's `reset()`, whose random
@@ -236,8 +240,9 @@ The sounds under `src/assets/sounds/` come out the same way, by
 `reference/tools/build_sounds.py`: all 21 the game uses - the 14 `Game` plays
 and the 7 its clip timelines start - as the SWF's own MP3 data, no transcoding,
 with each sound's encoder latency and length in `src/assets/sounds.generated.ts`
-so loops run on the sound's real extent. The instructions board and its button
-are rendered from root frame 6 by `reference/tools/build_screens.py`.
+so loops run on the sound's real extent. `reference/tools/build_screens.py`
+renders the original's INSTRUCTIONS board from root frame 6; the port no
+longer shows it (see *porting-notes*), and the command stays for the record.
 
 ```sh
 python3 reference/tools/build_sounds.py path/to/OCybCA4ADbpTKT.swf src/assets/sounds
