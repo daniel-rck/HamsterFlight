@@ -14,7 +14,7 @@ import {
   skyColours,
   starField,
 } from "@/render/scene/decor.ts";
-import { debugLines, glideFill, panelLines, promptFor, totalFeet } from "@/render/scene/hud.ts";
+import { debugLines, glideFill, panelFields, promptFor, totalFeet } from "@/render/scene/hud.ts";
 import {
   castsShadow,
   hamsterRotation,
@@ -261,12 +261,16 @@ describe("hud strings", () => {
   it("sums the board and formats the panel", () => {
     const s = flying();
     expect(totalFeet(s)).toBe(165);
-    expect(panelLines(s)).toEqual(["try 2/5", "2.44 m   total 50.29 m"]);
-    expect(panelLines(flying({ turn: 6 }))[0]).toBe("try 5/5");
+    expect(panelFields(s).map((f) => [f.label, f.value, f.big])).toEqual([
+      ["DISTANCE", "2.44 m", true],
+      ["TOTAL", "50.29 m", false],
+      ["TRY", "2/5", false],
+    ]);
+    expect(panelFields(flying({ turn: 6 }))[2].value).toBe("5/5");
   });
 
   it("fills the glide bar by the meter and turns red when empty", () => {
-    expect(glideFill(flying({ glidePoints: 50 }))).toEqual({ fraction: 0.5, colour: 0xffd166 });
+    expect(glideFill(flying({ glidePoints: 50 }))).toEqual({ fraction: 0.5, colour: 0xffb13b });
     expect(glideFill(flying({ glidePoints: 0 }))).toEqual({ fraction: 0, colour: 0xff6b6b });
     expect(glideFill(flying({ glidePoints: 250 })).fraction).toBe(1);
   });

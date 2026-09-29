@@ -1,13 +1,13 @@
-import { CanvasTextMetrics, Container, Sprite, Text, TextStyle } from "pixi.js";
+import { CanvasTextMetrics, Container, Graphics, Sprite, type Text } from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
 import {
-  chrome,
+  drawCard,
   hideFrom,
   monoText,
   place,
   poolAt,
   setText,
-  solidRect,
+  uiText,
 } from "@/render/pixi/helpers.ts";
 import type { TextureCache } from "@/render/pixi/TextureCache.ts";
 import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
@@ -18,18 +18,49 @@ import {
   glideFill,
   HUD,
   HUD_COLOURS,
+  HUD_TYPE,
   type HudStrings,
-  panelLines,
+  panelFields,
   promptFor,
 } from "@/render/scene/hud.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 
+/** Baselines, so Pixi's top-left text lands where fillText's baseline did. */
+interface Ascents {
+  readonly debug: number;
+  readonly label: number;
+  readonly value: number;
+  readonly sub: number;
+  readonly prompt: number;
+}
+
+/**
+ * Measured, not assumed: they depend on which face is live, so they are
+ * taken again when the strings are re-set after the font has loaded.
+ */
+function measureAscents(): Ascents {
+  const ascent = (font: string): number => CanvasTextMetrics.measureFont(font).ascent;
+  return {
+    debug: ascent(FONTS.debug),
+    label: ascent(FONTS.label),
+    value: ascent(FONTS.value),
+    sub: ascent(FONTS.sub),
+    prompt: ascent(FONTS.prompt),
+  };
+}
+
+/** One column of the score card: its label over its value. */
+interface Field {
+  readonly label: Text;
+  readonly value: Text;
+}
+
 /**
  * The stage-space layer: the original's own HUD art (launch meter, needle,
- * shot pips) plus this port's panel, glide bar, debug readout and prompt.
- * Geometry and strings come from `scene/hud.ts`; this only owns the retained
- * Pixi objects and updates the ones that changed.
+ * shot pips) plus this port's score card, glide bar, debug readout and
+ * prompt. Geometry and strings come from `scene/hud.ts`; this only owns the
+ * retained Pixi objects and updates the ones that changed.
  */
 export class PixiHud {
   readonly container = new Container();
@@ -39,17 +70,18 @@ export class PixiHud {
   readonly #sceneHud = new Container();
   readonly #scenePool: Sprite[] = [];
   readonly #needle = new Sprite();
-  readonly #panelLines: [Text, Text];
+  readonly #fields: [Field, Field, Field];
   readonly #glideLabel: Text;
-  readonly #glideFill = solidRect();
-  readonly #debugBg: Sprite;
+  readonly #glideFill = new Graphics();
+  #glideWidth = -1;
+  #glideColour = -1;
+  readonly #debugBg: Graphics;
   readonly #debugLines: [Text, Text, Text];
-  readonly #promptBg: Sprite;
+  readonly #promptShadow = new Graphics();
+  readonly #promptBg = new Graphics();
   readonly #promptText: Text;
 
-  /** Baselines, so Pixi's top-left text lands where fillText's baseline did. */
-  readonly #ascentMono12: number;
-  readonly #ascentSans17: number;
+  #ascents: Ascents;
 
   readonly #touch: boolean;
   #strings: HudStrings;
@@ -64,59 +96,53 @@ export class PixiHud {
     this.#touch = touch;
     this.#strings = strings;
     this.#textures = textures;
+    this.#ascents = measureAscents();
 
-    this.#ascentMono12 = CanvasTextMetrics.measureFont(FONTS.hud).ascent;
-    this.#ascentSans17 = CanvasTextMetrics.measureFont(FONTS.prompt).ascent;
+    const { panel, glide, debug } = HUD;
+    const field = (big: boolean): Field => ({
+      label: uiText(HUD_TYPE.label, HUD_COLOURS.labelInk),
+      value: uiText(
+        big ? HUD_TYPE.value : HUD_TYPE.sub,
+        big ? HUD_COLOURS.ink : HUD_COLOURS.subInk,
+      ),
+    });
+    this.#fields = [field(true), field(false), field(false)];
 
-    const { panel, glide, debug, prompt } = HUD;
-    const alpha = HUD_COLOURS.chromeAlpha;
+    this.#glideLabel = uiText(HUD_TYPE.label, HUD_COLOURS.labelInk);
 
-    this.#panelLines = [monoText(), monoText()];
-    this.#panelLines[0].position.set(panel.textX, panel.baseline - this.#ascentMono12);
-    this.#panelLines[1].position.set(
-      panel.textX,
-      panel.baseline + panel.lineHeight - this.#ascentMono12,
-    );
-
-    this.#glideLabel = monoText();
-    this.#placeGlideLabel();
-    this.#glideFill.position.set(glide.x + 2, glide.fillY);
-    this.#glideFill.height = glide.fillH;
-
-    this.#debugBg = chrome(debug.x, debug.y, debug.w, debug.h, alpha);
+    this.#debugBg = drawCard(new Graphics(), debug.x, debug.y, debug.w, debug.h, debug.radius);
     this.#debugLines = [
       monoText(HUD_COLOURS.debugInk),
       monoText(HUD_COLOURS.debugInk),
       monoText(HUD_COLOURS.debugInk),
     ];
-    for (const [i, line] of this.#debugLines.entries()) {
-      line.position.set(debug.textX, debug.baseline + i * debug.lineHeight - this.#ascentMono12);
-    }
 
-    this.#promptBg = chrome(0, prompt.y, 0, prompt.h, HUD_COLOURS.promptAlpha);
-    this.#promptText = new Text({
-      text: "",
-      style: new TextStyle({
-        fontFamily: FONTS.sans,
-        fontSize: 17,
-        fontWeight: "bold",
-        fill: HUD_COLOURS.promptInk,
-      }),
-    });
+    this.#promptText = uiText(HUD_TYPE.prompt, HUD_COLOURS.promptInk);
+    this.#layoutText();
 
     this.container.addChild(
       this.#sceneHud,
       this.#needle,
-      chrome(panel.x, panel.y, panel.w, panel.h, alpha),
-      this.#panelLines[0],
-      this.#panelLines[1],
+      drawCard(new Graphics(), panel.x, panel.y, panel.w, panel.h, panel.radius),
+      ...this.#fields.flatMap((f) => [f.label, f.value]),
+      drawCard(
+        new Graphics(),
+        glide.card.x,
+        glide.card.y,
+        glide.card.w,
+        glide.card.h,
+        glide.card.radius,
+      ),
       this.#glideLabel,
-      chrome(glide.x, glide.y, glide.w + 4, glide.h, alpha),
+      new Graphics()
+        .roundRect(glide.x, glide.y, glide.w, glide.h, glide.radius)
+        .fill({ color: 0x000000, alpha: 0.32 }),
       this.#glideFill,
       this.#debugBg,
       this.#debugLines[0],
       this.#debugLines[1],
       this.#debugLines[2],
+      this.#promptShadow,
       this.#promptBg,
       this.#promptText,
     );
@@ -124,19 +150,55 @@ export class PixiHud {
 
   setStrings(strings: HudStrings): void {
     this.#strings = strings;
-    this.#placeGlideLabel();
-    // Forces the prompt to re-measure on the next draw.
+    // The face may have changed under the strings (the font arriving late),
+    // so the baselines are measured again rather than trusted.
+    this.#ascents = measureAscents();
+    this.#layoutText();
+    // Forces the texts to re-render and the prompt to re-measure on the next draw.
+    for (const f of this.#fields) {
+      f.label.text = "";
+      f.value.text = "";
+    }
     this.#promptText.text = "";
   }
 
-  /** Right-aligned against the bar, so it is measured whenever it changes. */
-  #placeGlideLabel(): void {
+  /** Everything whose position depends on the ascents or the strings. */
+  #layoutText(): void {
+    const { panel, glide, debug } = HUD;
+    for (const [i, f] of this.#fields.entries()) {
+      const x = panel.columns[i] ?? panel.x;
+      f.label.position.set(x, panel.labelBaseline - this.#ascents.label);
+      const ascent = i === 0 ? this.#ascents.value : this.#ascents.sub;
+      f.value.position.set(x, panel.valueBaseline - ascent);
+    }
+    this.#glideLabel.text = this.#strings.glide.toUpperCase();
+    this.#glideLabel.position.set(glide.labelX, glide.labelBaseline - this.#ascents.label);
+    for (const [i, line] of this.#debugLines.entries()) {
+      line.position.set(debug.textX, debug.baseline + i * debug.lineHeight - this.#ascents.debug);
+    }
+  }
+
+  #drawGlide(fraction: number, colour: number): void {
     const glide = HUD.glide;
-    this.#glideLabel.text = this.#strings.glide;
-    this.#glideLabel.position.set(
-      glide.x - this.#glideLabel.width - glide.labelGap,
-      glide.labelBaseline - this.#ascentMono12,
-    );
+    const inner = glide.w - glide.inset * 2;
+    // Quarter-pixel steps: a full redraw of the geometry for a change
+    // nobody could see is wasted work at 60 fps.
+    const width = Math.round(inner * fraction * 4) / 4;
+    if (width === this.#glideWidth && colour === this.#glideColour) return;
+    this.#glideWidth = width;
+    this.#glideColour = colour;
+    const g = this.#glideFill.clear();
+    if (width <= 0.5) return;
+    const x = glide.x + glide.inset;
+    const y = glide.y + glide.inset;
+    const h = glide.h - glide.inset * 2;
+    g.roundRect(x, y, width, h, Math.min(h / 2, width / 2)).fill(colour);
+    if (width > 6) {
+      g.roundRect(x + 2, y + 1.5, width - 4, 3.5, 1.75).fill({
+        color: HUD_COLOURS.gloss,
+        alpha: HUD_COLOURS.glossAlpha,
+      });
+    }
   }
 
   draw(s: SimSnapshot, scene: PreLaunchLayout, showDebug: boolean): void {
@@ -166,13 +228,15 @@ export class PixiHud {
       this.#needle.rotation = needle.flipped ? Math.PI : 0;
     }
 
-    const lines = panelLines(s, this.#strings);
-    setText(this.#panelLines[0], lines[0]);
-    setText(this.#panelLines[1], lines[1]);
+    for (const [i, f] of panelFields(s, this.#strings).entries()) {
+      const target = this.#fields[i];
+      if (target === undefined) continue;
+      setText(target.label, f.label);
+      setText(target.value, f.value);
+    }
 
     const fill = glideFill(s);
-    this.#glideFill.tint = fill.colour;
-    this.#glideFill.width = HUD.glide.w * fill.fraction;
+    this.#drawGlide(fill.fraction, fill.colour);
 
     this.#debugBg.visible = showDebug;
     for (const line of this.#debugLines) line.visible = showDebug;
@@ -185,15 +249,21 @@ export class PixiHud {
 
     const prompt = promptFor(s, this.#touch, this.#strings);
     const show = prompt !== null;
+    this.#promptShadow.visible = show;
     this.#promptBg.visible = show;
     this.#promptText.visible = show;
     // Reading `.width` recomputes the text bounds, so only on a new string.
     if (show && setText(this.#promptText, prompt)) {
       const box = HUD.prompt;
       const width = this.#promptText.width;
-      this.#promptBg.position.set((C.VIEW_W - width) / 2 - box.pad, box.y);
-      this.#promptBg.width = width + box.pad * 2;
-      this.#promptText.position.set((C.VIEW_W - width) / 2, box.baseline - this.#ascentSans17);
+      const x = (C.VIEW_W - width) / 2 - box.pad;
+      const w = width + box.pad * 2;
+      this.#promptShadow
+        .clear()
+        .roundRect(x, box.y + box.shadowDy, w, box.h, box.h / 2)
+        .fill({ color: HUD_COLOURS.shadow, alpha: HUD_COLOURS.shadowAlpha });
+      drawCard(this.#promptBg, x, box.y, w, box.h, box.h / 2, HUD_COLOURS.promptAlpha);
+      this.#promptText.position.set((C.VIEW_W - width) / 2, box.baseline - this.#ascents.prompt);
     }
   }
 }

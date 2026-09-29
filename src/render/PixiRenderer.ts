@@ -54,7 +54,14 @@ import {
   starField,
   starOffset,
 } from "@/render/scene/decor.ts";
-import { BALL_BADGE, ballBadge, FONTS, HUD_COLOURS, type HudStrings } from "@/render/scene/hud.ts";
+import {
+  BALL_BADGE,
+  ballBadge,
+  FONTS,
+  HUD_COLOURS,
+  HUD_TYPE,
+  type HudStrings,
+} from "@/render/scene/hud.ts";
 import {
   FLAG,
   type FlagKind,
@@ -148,9 +155,9 @@ export class PixiRenderer implements Renderer {
     text: "",
     anchor: 0.5,
     style: new TextStyle({
-      fontFamily: FONTS.sans,
+      fontFamily: FONTS.ui,
       fontSize: BALL_BADGE.size,
-      fontWeight: "bold",
+      fontWeight: "700",
       fill: BALL_BADGE.fill,
       stroke: { color: BALL_BADGE.stroke, width: BALL_BADGE.strokeWidth, join: "round" },
     }),
@@ -164,7 +171,7 @@ export class PixiRenderer implements Renderer {
   readonly #markerTicks: Sprite[] = [];
   readonly #markerLabels: Text[] = [];
   readonly #launcherPool: Sprite[] = [];
-  readonly #ascentMono10: number;
+  #markerAscent: number;
 
   // The page's overlay: the flags and the ghost.
   readonly #flags = new Container();
@@ -175,7 +182,7 @@ export class PixiRenderer implements Renderer {
     record: bakeCloth(FLAG.colour.record),
     ghost: bakeCloth(FLAG.colour.ghost),
   };
-  readonly #flagAscent: number;
+  #flagAscent: number;
   readonly #ghostPivot = new Container();
   readonly #ghost = new Sprite();
 
@@ -194,7 +201,7 @@ export class PixiRenderer implements Renderer {
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#stress = Math.max(1, Math.floor(options.stress ?? 1));
     this.#hud = new PixiHud(assets, this.#textures, options.touch ?? false, options.strings);
-    this.#ascentMono10 = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
+    this.#markerAscent = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
     this.#signAscent = CanvasTextMetrics.measureFont(SIGN_TEXT.font).ascent;
     this.#flagAscent = CanvasTextMetrics.measureFont(FLAG.font).ascent;
 
@@ -358,6 +365,13 @@ export class PixiRenderer implements Renderer {
 
   setStrings(strings: HudStrings): void {
     this.#hud.setStrings(strings);
+    // Also the call that follows a late font: re-measure, and empty every
+    // label so the next draw renders it again in the face now live.
+    this.#markerAscent = CanvasTextMetrics.measureFont(FONTS.marker).ascent;
+    this.#flagAscent = CanvasTextMetrics.measureFont(FLAG.font).ascent;
+    for (const label of [...this.#markerLabels, ...this.#flagLabels, this.#ballBadge]) {
+      label.text = "";
+    }
   }
 
   destroy(): void {
@@ -460,7 +474,7 @@ export class PixiRenderer implements Renderer {
     for (const [i, label] of marks.labels.entries()) {
       const text = this.#labelAt(i);
       if (text.text !== label.text) text.text = label.text;
-      text.position.set(label.x + 3, GROUND.y - 10 - this.#ascentMono10);
+      text.position.set(label.x + 3, GROUND.y - 10 - this.#markerAscent);
       text.visible = true;
     }
     hideFrom(this.#markerLabels, marks.labels.length);
@@ -695,7 +709,13 @@ export class PixiRenderer implements Renderer {
     return poolAt(this.#markerLabels, index, this.#markers, () => {
       const label = new Text({
         text: "",
-        style: new TextStyle({ fontFamily: FONTS.mono, fontSize: 10, fill: HUD_COLOURS.markerInk }),
+        style: new TextStyle({
+          fontFamily: FONTS.ui,
+          fontSize: HUD_TYPE.marker.size,
+          fontWeight: HUD_TYPE.marker.weight,
+          letterSpacing: HUD_TYPE.marker.letterSpacing,
+          fill: HUD_COLOURS.markerInk,
+        }),
       });
       label.alpha = HUD_COLOURS.markerAlpha;
       return label;
@@ -714,9 +734,9 @@ function flagText(): Text {
   return new Text({
     text: "",
     style: new TextStyle({
-      fontFamily: FONTS.mono,
+      fontFamily: FONTS.ui,
       fontSize: FLAG.fontSize,
-      fontWeight: "bold",
+      fontWeight: "700",
       fill: FLAG.ink,
       stroke: { color: FLAG.stroke, width: 3, join: "round" },
     }),

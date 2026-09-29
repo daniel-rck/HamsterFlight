@@ -8,55 +8,114 @@ import type { SimSnapshot } from "@/sim/state.ts";
  * the panel cannot sit at 122 px in one and 120 px in the other.
  */
 
+/**
+ * The port's typeface (`src/app/fonts.ts`), with the system stack behind it
+ * for the moment before it loads or a browser that blocks it.
+ */
+const UI = '"Fredoka", system-ui, sans-serif';
+
 export const HUD = {
-  /** Shifted right of x = 118: the shot pips and the launch meter keep the
-   *  left column the original reserved for them. */
-  // Wide enough for "999.99 m   total 9999.99 m" in the 12 px mono.
-  panel: { x: 122, y: 10, w: 212, h: 16 * 2 + 10, textX: 130, baseline: 28, lineHeight: 16 },
+  /**
+   * The score card: three columns - this shot, the game so far, the try -
+   * each a small capitalised label over its value. Shifted right of x = 118:
+   * the shot pips and the launch meter keep the left column the original
+   * reserved for them. Wide enough for "999.99 m", "9999.99 m" and "5/5"
+   * under German labels; `test/app/meta.spec.ts` holds it to that.
+   */
+  panel: {
+    x: 122,
+    y: 8,
+    w: 244,
+    h: 44,
+    radius: 10,
+    columns: [132, 222, 312],
+    labelBaseline: 21,
+    valueBaseline: 42,
+  },
+  /**
+   * The glide meter: a card of its own, the same height as the score card,
+   * with its label where the score card has its labels - over the sky the
+   * label alone was unreadable.
+   */
   glide: {
-    w: 110,
-    x: C.VIEW_W - 110 - 14,
-    y: 10,
-    h: 18,
-    fillY: 12,
-    fillH: 14,
-    labelBaseline: 24,
-    labelGap: 8,
+    card: { x: 432, y: 8, w: 160, h: 44, radius: 10 },
+    labelX: 442,
+    labelBaseline: 21,
+    /** The track. */
+    x: 442,
+    y: 27,
+    w: 140,
+    h: 15,
+    radius: 7.5,
+    /** The fill sits this far inside the track on every side. */
+    inset: 2.5,
   },
   debug: {
     x: 10,
     y: C.VIEW_H - 58,
     w: 260,
     h: 48,
+    radius: 8,
     textX: 18,
     baseline: C.VIEW_H - 42,
     lineHeight: 14,
   },
-  prompt: { y: C.VIEW_H - 64, h: 32, pad: 14, baseline: C.VIEW_H - 42 },
+  prompt: { y: C.VIEW_H - 64, h: 32, pad: 16, baseline: C.VIEW_H - 42, shadowDy: 2 },
 } as const;
 
 export const HUD_COLOURS = {
-  chrome: 0x0c141e,
-  chromeAlpha: 0.55,
-  promptAlpha: 0.62,
-  ink: "#eaf6ff",
+  chrome: 0x0e1a28,
+  chromeAlpha: 0.62,
+  /** A hairline round every card, so it reads against a dark sky too. */
+  rim: 0xffffff,
+  rimAlpha: 0.16,
+  promptAlpha: 0.7,
+  shadow: 0x000000,
+  shadowAlpha: 0.22,
+  ink: "#ffffff",
+  labelInk: "#b9d3e8",
+  subInk: "#e3eef7",
   debugInk: "#9fe3ff",
   promptInk: "#ffffff",
-  glideOk: 0xffd166,
+  glideOk: 0xffb13b,
   glideEmpty: 0xff6b6b,
+  /** The top half of the glide fill, lighter: a glossy bar, in either colour. */
+  gloss: 0xffffff,
+  glossAlpha: 0.3,
   markerInk: "#ffffff",
-  markerAlpha: 0.5,
+  markerAlpha: 0.6,
   hitboxHamster: 0x4dd2ff,
   hitboxPowerup: 0xff4d6d,
 } as const;
 
+/** The type sizes, shared so Pixi's TextStyles and the canvas fonts agree. */
+export const HUD_TYPE = {
+  label: { size: 8.5, weight: "600", letterSpacing: 0.9 },
+  value: { size: 18, weight: "600", letterSpacing: 0 },
+  sub: { size: 14, weight: "600", letterSpacing: 0 },
+  prompt: { size: 17, weight: "600", letterSpacing: 0.2 },
+  marker: { size: 10, weight: "600", letterSpacing: 0.3 },
+} as const;
+
+export type HudType = (typeof HUD_TYPE)[keyof typeof HUD_TYPE];
+
+/** A canvas `font` shorthand for one of `HUD_TYPE`. */
+export function cssFont(type: HudType): string {
+  return `${type.weight} ${type.size}px ${UI}`;
+}
+
 export const FONTS = {
   mono: "ui-monospace, monospace",
+  /** The distance signs only: they stand in for the original's font 236. */
   sans: "system-ui, sans-serif",
-  /** `600 12px mono` - the panel, the glide label, the debug readout. */
-  hud: "600 12px ui-monospace, monospace",
-  marker: "10px ui-monospace, monospace",
-  prompt: "bold 17px system-ui, sans-serif",
+  ui: UI,
+  /** The debug readout stays monospaced - it is a developer's tool. */
+  debug: "600 12px ui-monospace, monospace",
+  label: cssFont(HUD_TYPE.label),
+  value: cssFont(HUD_TYPE.value),
+  sub: cssFont(HUD_TYPE.sub),
+  marker: cssFont(HUD_TYPE.marker),
+  prompt: cssFont(HUD_TYPE.prompt),
 } as const;
 
 /**
@@ -68,7 +127,7 @@ export const FONTS = {
 export const BALL_BADGE = {
   dx: 26,
   dy: -30,
-  font: `bold 13px ${FONTS.sans}`,
+  font: `700 13px ${FONTS.ui}`,
   size: 13,
   fill: "#ffffff",
   stroke: "#3a1830",
@@ -93,8 +152,10 @@ export function totalFeet(s: SimSnapshot): number {
  * `tap` is whether the primary pointer is a finger.
  */
 export interface HudStrings {
-  readonly tries: (turn: number, of: number) => string;
+  /** The score card's three labels; shown in capitals. */
+  readonly distanceLabel: string;
   readonly totalLabel: string;
+  readonly triesLabel: string;
   readonly glide: string;
   readonly paused: (tap: boolean) => string;
   readonly jump: (tap: boolean) => string;
@@ -109,8 +170,9 @@ export interface HudStrings {
 }
 
 export const EN_HUD: HudStrings = {
-  tries: (turn, of) => `try ${turn}/${of}`,
+  distanceLabel: "distance",
   totalLabel: "total",
+  triesLabel: "try",
   glide: "glide",
   paused: (tap) => (tap ? "paused - tap to resume" : "paused - click, Space or P to resume"),
   jump: (tap) => `${tap ? "tap" : "click"} to jump`,
@@ -124,10 +186,30 @@ export const EN_HUD: HudStrings = {
   record: "record",
 };
 
-export function panelLines(s: SimSnapshot, t: HudStrings = EN_HUD): readonly [string, string] {
+export interface PanelField {
+  /** Left edge of the column, stage pixels. */
+  readonly x: number;
+  readonly label: string;
+  readonly value: string;
+  /** This shot's distance is the headline; the other two are set smaller. */
+  readonly big: boolean;
+}
+
+/** The score card: this shot, the game so far, and which try it is. */
+export function panelFields(
+  s: SimSnapshot,
+  t: HudStrings = EN_HUD,
+): readonly [PanelField, PanelField, PanelField] {
+  const [a, b, c] = HUD.panel.columns;
   return [
-    t.tries(Math.min(s.turn, C.TURNS), C.TURNS),
-    `${metres(s.feet)}   ${t.totalLabel} ${metres(totalFeet(s))}`,
+    { x: a, label: t.distanceLabel.toUpperCase(), value: metres(s.feet), big: true },
+    { x: b, label: t.totalLabel.toUpperCase(), value: metres(totalFeet(s)), big: false },
+    {
+      x: c,
+      label: t.triesLabel.toUpperCase(),
+      value: `${Math.min(s.turn, C.TURNS)}/${C.TURNS}`,
+      big: false,
+    },
   ];
 }
 

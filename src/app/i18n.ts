@@ -167,8 +167,9 @@ const EN: Strings = {
 };
 
 const DE_HUD: HudStrings = {
-  tries: (turn, of) => `Versuch ${turn}/${of}`,
+  distanceLabel: "Weite",
   totalLabel: "gesamt",
+  triesLabel: "Versuch",
   glide: "Gleiten",
   paused: (tap) =>
     tap ? "Pause - tippen zum Weiterspielen" : "Pause - Klick, Leertaste oder P zum Weiterspielen",

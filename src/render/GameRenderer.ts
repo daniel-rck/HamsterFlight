@@ -37,8 +37,9 @@ import {
   glideFill,
   HUD,
   HUD_COLOURS,
+  HUD_TYPE,
   type HudStrings,
-  panelLines,
+  panelFields,
   promptFor,
 } from "@/render/scene/hud.ts";
 import {
@@ -66,9 +67,56 @@ import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING, type Tuning } from "@/sim/tuning.ts";
 
-const CHROME = `rgba(12,20,30,${HUD_COLOURS.chromeAlpha})`;
-const PROMPT_CHROME = `rgba(12,20,30,${HUD_COLOURS.promptAlpha})`;
+function rgba(colour: number, alpha: number): string {
+  return `rgba(${(colour >> 16) & 255},${(colour >> 8) & 255},${colour & 255},${alpha})`;
+}
+
+const CHROME = rgba(HUD_COLOURS.chrome, HUD_COLOURS.chromeAlpha);
+const PROMPT_CHROME = rgba(HUD_COLOURS.chrome, HUD_COLOURS.promptAlpha);
+const RIM = rgba(HUD_COLOURS.rim, HUD_COLOURS.rimAlpha);
+const SHADOW = rgba(HUD_COLOURS.shadow, HUD_COLOURS.shadowAlpha);
+const GLOSS = rgba(HUD_COLOURS.gloss, HUD_COLOURS.glossAlpha);
+/** The glide track, darker than the card it sits in. */
+const TRACK = rgba(0x000000, 0.32);
 const MARKER_INK = `rgba(255,255,255,${HUD_COLOURS.markerAlpha})`;
+
+/** A rounded rectangle as the current path; a square one where roundRect is missing. */
+function roundedPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  ctx.beginPath();
+  if (typeof ctx.roundRect === "function") ctx.roundRect(x, y, w, h, Math.min(r, w / 2, h / 2));
+  else ctx.rect(x, y, w, h);
+}
+
+/** A HUD card: translucent chrome with a hairline rim. */
+function card(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill = CHROME,
+): void {
+  roundedPath(ctx, x, y, w, h, r);
+  ctx.fillStyle = fill;
+  ctx.fill();
+  roundedPath(ctx, x + 0.5, y + 0.5, w - 1, h - 1, r - 0.5);
+  ctx.strokeStyle = RIM;
+  ctx.lineWidth = 1;
+  ctx.stroke();
+}
+
+/** Letter spacing where the canvas has it; older engines just set it tight. */
+function setSpacing(ctx: CanvasRenderingContext2D, px: number): void {
+  if ("letterSpacing" in ctx) ctx.letterSpacing = `${px}px`;
+}
 
 /** One path for the whole outline: every sub-shape winds the same way, so it fills as a union. */
 function cloudPath(ctx: CanvasRenderingContext2D, shape: CloudShape, drop: number): void {
@@ -452,36 +500,53 @@ export class GameRenderer implements Renderer {
       ctx.restore();
     }
 
-    ctx.font = FONTS.hud;
-
+    ctx.save();
     const panel = HUD.panel;
-    ctx.fillStyle = CHROME;
-    ctx.fillRect(panel.x, panel.y, panel.w, panel.h);
-    ctx.fillStyle = HUD_COLOURS.ink;
-    for (const [i, line] of panelLines(s, this.#strings).entries()) {
-      ctx.fillText(line, panel.textX, panel.baseline + i * panel.lineHeight);
+    card(ctx, panel.x, panel.y, panel.w, panel.h, panel.radius);
+    for (const field of panelFields(s, this.#strings)) {
+      ctx.font = FONTS.label;
+      setSpacing(ctx, HUD_TYPE.label.letterSpacing);
+      ctx.fillStyle = HUD_COLOURS.labelInk;
+      ctx.fillText(field.label, field.x, panel.labelBaseline);
+      ctx.font = field.big ? FONTS.value : FONTS.sub;
+      setSpacing(ctx, 0);
+      ctx.fillStyle = field.big ? HUD_COLOURS.ink : HUD_COLOURS.subInk;
+      ctx.fillText(field.value, field.x, panel.valueBaseline);
     }
 
-    // Glide meter. The label sits beside the bar rather than on top of it, so
-    // the fill never covers it.
+    // Glide meter: its label over the track, as the score card has them.
     const glide = HUD.glide;
     const fill = glideFill(s);
-    ctx.fillStyle = HUD_COLOURS.ink;
-    const label = this.#strings.glide;
-    ctx.fillText(
-      label,
-      glide.x - ctx.measureText(label).width - glide.labelGap,
-      glide.labelBaseline,
-    );
-    ctx.fillStyle = CHROME;
-    ctx.fillRect(glide.x, glide.y, glide.w + 4, glide.h);
-    ctx.fillStyle = hex(fill.colour);
-    ctx.fillRect(glide.x + 2, glide.fillY, glide.w * fill.fraction, glide.fillH);
+    const box = glide.card;
+    card(ctx, box.x, box.y, box.w, box.h, box.radius);
+    ctx.font = FONTS.label;
+    setSpacing(ctx, HUD_TYPE.label.letterSpacing);
+    ctx.fillStyle = HUD_COLOURS.labelInk;
+    ctx.fillText(this.#strings.glide.toUpperCase(), glide.labelX, glide.labelBaseline);
+    setSpacing(ctx, 0);
+    roundedPath(ctx, glide.x, glide.y, glide.w, glide.h, glide.radius);
+    ctx.fillStyle = TRACK;
+    ctx.fill();
+    const inner = glide.w - glide.inset * 2;
+    const fillW = inner * fill.fraction;
+    if (fillW > 0.5) {
+      const fx = glide.x + glide.inset;
+      const fy = glide.y + glide.inset;
+      const fh = glide.h - glide.inset * 2;
+      roundedPath(ctx, fx, fy, fillW, fh, fh / 2);
+      ctx.fillStyle = hex(fill.colour);
+      ctx.fill();
+      if (fillW > 6) {
+        roundedPath(ctx, fx + 2, fy + 1.5, fillW - 4, 3.5, 1.75);
+        ctx.fillStyle = GLOSS;
+        ctx.fill();
+      }
+    }
 
     if (this.#showHitboxes) {
       const debug = HUD.debug;
-      ctx.fillStyle = CHROME;
-      ctx.fillRect(debug.x, debug.y, debug.w, debug.h);
+      card(ctx, debug.x, debug.y, debug.w, debug.h, debug.radius);
+      ctx.font = FONTS.debug;
       ctx.fillStyle = HUD_COLOURS.debugInk;
       for (const [i, line] of debugLines(s).entries()) {
         ctx.fillText(line, debug.textX, debug.baseline + i * debug.lineHeight);
@@ -492,12 +557,18 @@ export class GameRenderer implements Renderer {
     if (prompt !== null) {
       const box = HUD.prompt;
       ctx.font = FONTS.prompt;
+      setSpacing(ctx, HUD_TYPE.prompt.letterSpacing);
       const width = ctx.measureText(prompt).width;
-      ctx.fillStyle = PROMPT_CHROME;
-      ctx.fillRect((C.VIEW_W - width) / 2 - box.pad, box.y, width + box.pad * 2, box.h);
+      const x = (C.VIEW_W - width) / 2 - box.pad;
+      const w = width + box.pad * 2;
+      roundedPath(ctx, x, box.y + box.shadowDy, w, box.h, box.h / 2);
+      ctx.fillStyle = SHADOW;
+      ctx.fill();
+      card(ctx, x, box.y, w, box.h, box.h / 2, PROMPT_CHROME);
       ctx.fillStyle = HUD_COLOURS.promptInk;
       ctx.fillText(prompt, (C.VIEW_W - width) / 2, box.baseline);
     }
+    ctx.restore();
   }
 }
 
