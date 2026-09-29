@@ -50,6 +50,9 @@ async function main(): Promise<void> {
     const csp = home.headers.get("content-security-policy") ?? "";
     expect(csp.includes("script-src 'self'"), `CSP does not pin script-src to self: ${csp}`);
     expect(csp.includes("frame-ancestors 'none'"), `CSP does not forbid framing: ${csp}`);
+    // The HUD and every overlay are set in the self-hosted Fredoka; under
+    // default-src 'none' a missing font-src silently drops them to the fallback.
+    expect(csp.includes("font-src 'self'"), `CSP does not allow the self-hosted font: ${csp}`);
 
     const asset = await probe(server.origin, chunk);
     expect(asset.status === 200, `${chunk} answered ${asset.status}`);

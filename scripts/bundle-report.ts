@@ -39,6 +39,8 @@ const CHUNK_WARN_KB = 400;
  * The sounds: 21 MP3s, 722 KiB, 489 of it the flight theme. The instructions
  * board and its button: 275 KiB of WebP over both densities, of which a
  * visitor fetches one density's worth.
+ * The typeface: Fredoka's two Latin subsets as variable woff2, 34 KiB, of
+ * which a visitor fetches the 30 KiB Latin file and the rest only on demand.
  */
 const BUDGET_KB: {
   eager: number;
@@ -46,6 +48,7 @@ const BUDGET_KB: {
   atlas: Record<number, number>;
   audio: number;
   screens: number;
+  fonts: number;
 } = {
   // Every visitor pays this.
   eager: 35,
@@ -60,6 +63,8 @@ const BUDGET_KB: {
   audio: 800,
   // The instructions board and Play Now!, both densities, raw.
   screens: 310,
+  // The woff2 files, raw - already compressed.
+  fonts: 45,
 };
 
 interface Row {
@@ -188,6 +193,12 @@ async function main(): Promise<void> {
   }
   if (screenBytes > 0) console.log(`\ninstructions board - both densities\n${kb(screenBytes)}`);
 
+  let fontBytes = 0;
+  for (const name of names.filter((item) => item.endsWith(".woff2"))) {
+    fontBytes += (await readFile(join(ASSETS, name))).byteLength;
+  }
+  if (fontBytes > 0) console.log(`\nfonts - every subset\n${kb(fontBytes)}`);
+
   if (!process.argv.includes("--check")) return;
 
   const over: string[] = [];
@@ -206,6 +217,7 @@ async function main(): Promise<void> {
   }
   budget("audio", audioBytes, BUDGET_KB.audio);
   budget("instructions board", screenBytes, BUDGET_KB.screens);
+  budget("fonts", fontBytes, BUDGET_KB.fonts);
 
   console.log("");
   if (over.length === 0) {

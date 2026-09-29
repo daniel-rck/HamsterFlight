@@ -1,6 +1,7 @@
 import { versionLabel } from "@/app/build.ts";
 import { dayKey } from "@/app/daily.ts";
 import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
+import { fontsReady, loadFonts } from "@/app/fonts.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
 import { type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
 import { vibrationFor } from "@/app/haptics.ts";
@@ -255,6 +256,9 @@ async function boot(): Promise<void> {
   // How big the stage actually is decides which atlas is worth downloading -
   // a 1x screen showing a wide layout is already past 1:1.
   const scale = stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
+  // The HUD is canvas text, so the face is waited for - alongside the atlas,
+  // not after it, and never for long: the fallback stack is a fine HUD too.
+  const fonts = loadFonts();
   const pixiImport = startPixiImport(rendererName);
   // Its own chunk: every visitor pays for the eager bundle, and nothing can
   // sound before the first gesture anyway.
@@ -291,6 +295,7 @@ async function boot(): Promise<void> {
   const reducedMotion =
     typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
   const effects = new Effects({ motion: !reducedMotion });
+  const fontLoaded = await fonts;
   const { renderer, backend } = await pickRenderer(await pixiImport, canvas, assets, effects, {
     showHitboxes: params.has("debug"),
     stress,
@@ -298,6 +303,11 @@ async function boot(): Promise<void> {
     touch,
     strings: t.hud,
   });
+  if (!fontLoaded) {
+    // Arrived after the timeout: re-set the strings, which re-measures them
+    // in the face that has now loaded.
+    void fontsReady().then(() => renderer.setStrings(t.hud));
+  }
   const audio = await audioImport;
   audio?.setVolume(saved.settings.volume);
   audio?.setSfxMuted(saved.settings.sfxMuted);
@@ -489,7 +499,7 @@ async function boot(): Promise<void> {
   const syncPauseButton = (paused: boolean, force = false): void => {
     if (pauseButton === null || (paused === shownPaused && !force)) return;
     shownPaused = paused;
-    pauseButton.textContent = paused ? "▶" : "II";
+    pauseButton.dataset.paused = String(paused);
     pauseButton.setAttribute("aria-label", paused ? t.resume : t.pause);
   };
 
