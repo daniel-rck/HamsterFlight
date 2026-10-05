@@ -192,7 +192,11 @@ export class GameRenderer implements Renderer {
   /** A fixed hash, so it is built once; rebuilding it every frame allocated
    *  `70 * stress` objects per draw for a picture that never changes. */
   readonly #stars: readonly Star[];
-  readonly #tufts = tufts();
+  /** The tuft tile's blades and each hill's silhouette depend on nothing that
+   *  changes, so they are worked out once; per frame they were the two largest
+   *  sources of garbage in this backend. */
+  readonly #blades = tufts().flatMap(tuftBlades);
+  readonly #hills = HILL_LAYERS.map((layer) => ({ layer, profile: hillProfile(layer) }));
   /** The soft dot for particles: undefined until first wanted, null where it cannot be painted. */
   #dot: HTMLCanvasElement | null | undefined;
   readonly #dots = new Map<number, HTMLCanvasElement>();
@@ -334,9 +338,8 @@ export class GameRenderer implements Renderer {
       ctx.fillStyle = fade;
       ctx.fillRect(0, horizon - HORIZON_GLOW.height, C.VIEW_W, HORIZON_GLOW.height);
     }
-    for (const layer of HILL_LAYERS) {
+    for (const { layer, profile } of this.#hills) {
       if (!hillVisible(layer, horizon)) continue;
-      const profile = hillProfile(layer);
       ctx.fillStyle = rgbCss(hillColour(layer, sky));
       for (const origin of tileOrigins(s.camera.x, layer.parallax, HILL_TILE)) {
         ctx.beginPath();
@@ -379,13 +382,11 @@ export class GameRenderer implements Renderer {
     ctx.fillStyle = hex(TUFT_COLOUR);
     ctx.beginPath();
     for (const origin of worldTileOrigins(s.camera.x, TUFT_TILE)) {
-      for (const tuft of this.#tufts) {
-        for (const blade of tuftBlades(tuft)) {
-          ctx.moveTo(origin + (blade[0] ?? 0), GROUND.y + 1 + (blade[1] ?? 0));
-          ctx.lineTo(origin + (blade[2] ?? 0), GROUND.y + 1 + (blade[3] ?? 0));
-          ctx.lineTo(origin + (blade[4] ?? 0), GROUND.y + 1 + (blade[5] ?? 0));
-          ctx.closePath();
-        }
+      for (const blade of this.#blades) {
+        ctx.moveTo(origin + (blade[0] ?? 0), GROUND.y + 1 + (blade[1] ?? 0));
+        ctx.lineTo(origin + (blade[2] ?? 0), GROUND.y + 1 + (blade[3] ?? 0));
+        ctx.lineTo(origin + (blade[4] ?? 0), GROUND.y + 1 + (blade[5] ?? 0));
+        ctx.closePath();
       }
     }
     ctx.fill();
