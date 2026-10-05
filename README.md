@@ -75,6 +75,8 @@ src/sim/          pure, deterministic simulation - no DOM, no clock, no Math.ran
   systems/          ground collision, powerup spawn and pickup, camera
   drive.ts          plays whole shots under a button policy; the golden tests and the bench share it
 src/app/          the fixed-timestep loop (the only place that reads a clock), URL parameters, build stamp
+  play.ts           the running game: the loop, the two snapshots it draws between, what a tick hands on
+  controls.ts       sound, pause, full screen and the settings panel; lifecycle.ts, blur and hidden tabs
 src/render/       Renderer interface plus two backends; read snapshots, cannot reach the simulation
   scene/            what to draw, as pure functions of the snapshot - both backends consume it
   pixi/             the Pixi backend's texture cache, HUD, filters and pools

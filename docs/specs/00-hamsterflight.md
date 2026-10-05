@@ -23,9 +23,10 @@ src/
 ├── input/        # DOM events to discrete press/release/confirm/pause commands
 ├── assets/       # atlas sheets, sounds, generated manifests
 ├── audio/        # the Web Audio player - reads the sim's sound cues, never writes
-├── app/          # boot (main.ts), the loop, URL params, and the game around the game:
-│                 #   recording/replay, session, records, daily, ghost, achievements,
-│                 #   i18n, the opening screen, the typeface
+├── app/          # boot (main.ts) and the parts it wires - play (the loop and the
+│                 #   snapshots), controls, lifecycle, stage, chunks - URL params, and
+│                 #   the game around the game: recording/replay, session, records,
+│                 #   daily, ghost, achievements, i18n, the opening screen, the typeface
 reference/        # vendored: decompiled bytecode and frame scripts, extraction tools, notes
 ```
 
