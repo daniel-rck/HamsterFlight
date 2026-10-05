@@ -53,6 +53,12 @@ export interface Play {
    * the original's frame 6 had no Game yet: one picture, redrawn on demand.
    */
   drawStill(): void;
+  /**
+   * The frame on the stage again, after something cleared the canvas: the
+   * still before the game starts, the last frame's blend of the two ticks
+   * after.
+   */
+  redraw(): void;
 }
 
 /**
@@ -69,6 +75,8 @@ export function createPlay(o: PlayOptions): Play {
   let previous: SimSnapshot | null = null;
   let current = session.snapshot;
   let started = false;
+  /** Where between the two ticks the last frame fell, for `redraw()`. */
+  let lastAlpha = 1;
 
   const loop = new FixedTimestepLoop(
     {
@@ -99,6 +107,7 @@ export function createPlay(o: PlayOptions): Play {
         input.pollGamepads(o.pads());
         const at = now();
         effects.prune(at);
+        lastAlpha = alpha;
         const snapshot = interpolate(previous, current, alpha);
         const overlay = meta.overlay(current, alpha);
         if (profiler === null) renderer.draw(snapshot, at, overlay);
@@ -135,5 +144,9 @@ export function createPlay(o: PlayOptions): Play {
       current = session.snapshot;
     },
     drawStill: () => renderer.draw(current, now(), meta.overlay(current, 1)),
+    redraw: () => {
+      const alpha = started ? lastAlpha : 1;
+      renderer.draw(interpolate(previous, current, alpha), now(), meta.overlay(current, alpha));
+    },
   };
 }

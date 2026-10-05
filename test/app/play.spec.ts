@@ -103,6 +103,23 @@ describe("Play", () => {
     expect(h.draws.at(-1)?.s).toBe(h.play.current);
   });
 
+  it("redraws the frame that was on the stage, between the same two ticks", () => {
+    const h = harness();
+    h.play.redraw();
+    expect(h.draws.at(-1)?.s).toBe(h.play.current);
+
+    h.queue.push({ kind: "press" }, { kind: "release" });
+    h.play.start();
+    h.t.frame(50);
+    h.t.frame(50);
+    h.t.frame(25);
+    const shown = h.draws.at(-1);
+    h.play.redraw();
+    const again = h.draws.at(-1);
+    expect(again).not.toBe(shown);
+    expect(again?.s).toEqual(shown?.s);
+  });
+
   it("resumes only a game that has started, and clears what was in flight", () => {
     const h = harness();
     h.play.resume();

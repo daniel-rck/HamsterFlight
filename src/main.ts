@@ -264,7 +264,10 @@ async function boot(): Promise<void> {
     canvas,
     () => {
       renderer.resize();
-      if (!play.started) play.drawStill();
+      // A resize clears the canvas. This runs as a frame callback queued
+      // after the loop's own, so without drawing again here the stage stayed
+      // cleared until the next frame - black for every frame of a window drag.
+      play.redraw();
       upgradeAtlas();
     },
     signal,
