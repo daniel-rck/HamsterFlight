@@ -3,7 +3,7 @@ import type { SpriteId } from "@/assets/sprites.generated.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
 import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
-import { stageScale } from "@/render/resolution.ts";
+import { elementScale } from "@/render/resolution.ts";
 import {
   altitudeOf,
   BUBBLE_ALPHA,
@@ -222,7 +222,7 @@ export class GameRenderer implements Renderer {
   }
 
   resize(): void {
-    this.#dpr = stageScale(this.#canvas.getBoundingClientRect().width, window.devicePixelRatio);
+    this.#dpr = elementScale(this.#canvas);
     this.#canvas.width = Math.round(C.VIEW_W * this.#dpr);
     this.#canvas.height = Math.round(C.VIEW_H * this.#dpr);
     this.#ctx.imageSmoothingQuality = "high";

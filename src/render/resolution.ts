@@ -19,3 +19,8 @@ export function stageScale(cssWidth: number, devicePixelRatio: number): number {
   const dpr = devicePixelRatio > 0 ? devicePixelRatio : 1;
   return Math.min(MAX_SCALE, (width / C.VIEW_W) * dpr);
 }
+
+/** `stageScale` for an element as laid out now, at this window's pixel ratio. */
+export function elementScale(element: Element): number {
+  return stageScale(element.getBoundingClientRect().width, window.devicePixelRatio);
+}

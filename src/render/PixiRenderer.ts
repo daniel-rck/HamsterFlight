@@ -29,7 +29,7 @@ import { SceneFilters } from "@/render/pixi/SceneFilters.ts";
 import { TextureCache } from "@/render/pixi/TextureCache.ts";
 import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
-import { stageScale } from "@/render/resolution.ts";
+import { elementScale } from "@/render/resolution.ts";
 import {
   altitudeOf,
   BUBBLE_ALPHA,
@@ -284,7 +284,7 @@ export class PixiRenderer implements Renderer {
       // The Canvas2D renderer pins its backing store to VIEW_W/H * dpr and lets
       // CSS upscale. autoDensity: false reproduces that instead of resizing CSS.
       autoDensity: false,
-      resolution: dpr(canvas),
+      resolution: elementScale(canvas),
       backgroundAlpha: 1,
       // The sim never reads the pointer; input is bound to the canvas element.
       eventMode: "none",
@@ -429,7 +429,7 @@ export class PixiRenderer implements Renderer {
     if (this.#destroyed) return;
     // One call: setting `resolution` separately re-sized the render target
     // twice. `autoDensity` is off, so Pixi never touches the CSS size here.
-    this.#app.renderer.resize(C.VIEW_W, C.VIEW_H, dpr(this.#canvas));
+    this.#app.renderer.resize(C.VIEW_W, C.VIEW_H, elementScale(this.#canvas));
   }
 
   resync(): void {
@@ -911,8 +911,4 @@ export function createPixiRenderer(
   options: RendererOptions = {},
 ): Promise<Renderer> {
   return PixiRenderer.create(canvas, assets, effects, options);
-}
-
-function dpr(canvas: HTMLCanvasElement): number {
-  return stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
 }
