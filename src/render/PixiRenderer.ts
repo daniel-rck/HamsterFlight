@@ -11,6 +11,8 @@ import {
   TextStyle,
   Texture,
 } from "pixi.js";
+// The one part of Pixi's browser environment this scene needs; see `create`.
+import "pixi.js/filters";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
 import type { SpriteId } from "@/assets/sprites.generated.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
@@ -290,6 +292,14 @@ export class PixiRenderer implements Renderer {
       backgroundAlpha: 1,
       // The sim never reads the pointer; input is bound to the canvas element.
       eventMode: "none",
+      // Only what this game uses. Left to manage its own imports, Pixi fetches
+      // its browser environment chunk: an accessibility layer that switches on
+      // at a Tab press, and an event system that runs a second frame loop of
+      // its own, hit-tests the scene on every pointermove anywhere in the
+      // document and cancels pointerdown on the canvas - for a scene that
+      // takes no pointer input. `InputController` does that, on the canvas,
+      // the same for both backends. The filters are imported above.
+      skipExtensionImports: true,
       // `SceneFilter` ships a GLSL program only. Auto-detection tries WebGL
       // first anyway, but a machine where WebGL fails and WebGPU succeeds
       // would boot and then throw on the first impact; pin it so it fails

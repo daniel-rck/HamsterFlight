@@ -53,6 +53,15 @@ const CHUNK_WARN_KB = 400;
  * Raised to 1100 / 3050, the measured size plus 10%.
  * The typeface: Fredoka's two Latin subsets as variable woff2, 34 KiB, of
  * which a visitor fetches the 30 KiB Latin file and the rest only on demand.
+ * Boot split into parts (controls, play, lifecycle) and the scene's shared
+ * rules moved into scene/: eager 37.4 -> 37.8 kB gzip, the property names of
+ * the new interfaces. Within 39, not raised.
+ * Pixi no longer manages its own imports: its browser environment chunk -
+ * events, accessibility, DOM - was fetched during `app.init()` and is not
+ * now; only the filters it carried moved into the Pixi chunk (+3.8 kB). A
+ * WebGL visit fetches 11.6 kB gzip less, in two fewer requests, but this
+ * table still lists `browserAll`, which Pixi references and nothing loads:
+ * lazy 168.7 -> 167.8 kB as counted here. Lowered to 181.
  */
 const BUDGET_KB: {
   eager: number;
@@ -65,7 +74,7 @@ const BUDGET_KB: {
   eager: 39,
   // The WebGL backend. Lazy in the bundle, but it is the default, so every
   // visitor with WebGL pays this too.
-  lazy: 182,
+  lazy: 181,
   // Per atlas sheet, per density. Raised from 850/2250 for the gold ball
   // (`hamster/superball`, 11 frames of 175 x 219 - its pickup flash fills the
   // box), keeping the headroom the sheets had before it.
