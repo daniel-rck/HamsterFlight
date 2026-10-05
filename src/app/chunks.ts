@@ -1,0 +1,103 @@
+import type { RendererName } from "@/app/GameMode.ts";
+import type { AssetBundle } from "@/assets/AssetLoader.ts";
+import type { AudioPlayer } from "@/audio/AudioPlayer.ts";
+import type { Effects } from "@/render/effects/Effects.ts";
+import { createCanvasRenderer } from "@/render/GameRenderer.ts";
+import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
+
+/*
+ * The chunks boot fetches alongside the atlas. Each is a dynamic import, so it
+ * lands in a Vite chunk of its own, and each is started before the atlas is
+ * awaited so the downloads overlap. None of them rejects: a chunk that fails
+ * is a game without that part, said once on the console.
+ */
+
+export type PixiModule = typeof import("@/render/PixiRenderer.ts");
+export type IntroModule = typeof import("@/app/intro.ts");
+
+/**
+ * Whether this browser can give us a WebGL context at all. Asked on a scratch
+ * canvas, because asking the stage canvas would claim its context type.
+ */
+function webglAvailable(): boolean {
+  const probe = document.createElement("canvas");
+  const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
+  // Browsers cap live contexts at a handful; the probe's would otherwise hold
+  // one of those slots until it was garbage-collected.
+  gl?.getExtension("WEBGL_lose_context")?.loseContext();
+  return gl !== null;
+}
+
+/**
+ * The player and its sound URLs, in a chunk of their own. A failure here is a
+ * silent game, not a broken one, so it resolves to null instead of rejecting.
+ * Its own chunk: every visitor pays for the eager bundle, and nothing can
+ * sound before the first gesture anyway.
+ */
+export function startAudioImport(): Promise<AudioPlayer | null> {
+  return Promise.all([import("@/audio/AudioPlayer.ts"), import("@/assets/SoundUrls.ts")])
+    .then(([{ AudioPlayer: Player }, { SOUND_URLS }]) => new Player({ urls: SOUND_URLS }))
+    .catch((error: unknown) => {
+      console.warn("[hamsterflight] no sound: %o", error);
+      return null;
+    });
+}
+
+/**
+ * The Pixi module is imported dynamically so it lands in its own Vite chunk:
+ * the Canvas2D fallback then costs nothing beyond the entry chunk, and one
+ * build still yields both bundle numbers for the comparison.
+ *
+ * Started before the atlas is awaited, so the two downloads overlap: the
+ * chunk is 160 kB gzip and used to be requested only after the 2 MB sheet
+ * had fully arrived. Resolves to null when Pixi is not wanted or the machine
+ * cannot give it a context - a blocklisted GPU, WebGL disabled, a remote
+ * desktop - and `pickRenderer` falls back to Canvas2D, which draws the same
+ * scene without the shaders. Never rejects: the failure is reported there.
+ */
+export function startPixiImport(name: RendererName): Promise<PixiModule | null> {
+  if (name !== "pixi") return Promise.resolve(null);
+  if (!webglAvailable()) {
+    console.warn("[hamsterflight] no WebGL context available; using the canvas2d renderer");
+    return Promise.resolve(null);
+  }
+  return import("@/render/PixiRenderer.ts").catch((error: unknown) => {
+    console.warn("[hamsterflight] WebGL renderer failed to load; using canvas2d", error);
+    return null;
+  });
+}
+
+/**
+ * The opening screen is a chunk of its own, fetched alongside the atlas: it
+ * is shown once per visit and never at all under `?instructions=0`.
+ */
+export function startIntroImport(wanted: boolean): Promise<IntroModule | null> {
+  if (!wanted) return Promise.resolve(null);
+  return import("@/app/intro.ts").catch((error: unknown) => {
+    console.warn("[hamsterflight] no opening screen: %o", error);
+    return null;
+  });
+}
+
+export async function pickRenderer(
+  pixi: PixiModule | null,
+  canvas: HTMLCanvasElement,
+  assets: AssetBundle,
+  effects: Effects,
+  options: RendererOptions,
+): Promise<{ renderer: Renderer; backend: RendererName }> {
+  if (pixi !== null) {
+    try {
+      return {
+        renderer: await pixi.createPixiRenderer(canvas, assets, effects, options),
+        backend: "pixi",
+      };
+    } catch (error) {
+      console.warn("[hamsterflight] WebGL renderer failed to start; using canvas2d", error);
+    }
+  }
+  return {
+    renderer: await createCanvasRenderer(canvas, assets, effects, options),
+    backend: "canvas2d",
+  };
+}

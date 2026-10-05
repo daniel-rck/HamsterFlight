@@ -1,20 +1,16 @@
+import { renderAchievements, wireAbout } from "@/app/about.ts";
+import { hideBootPanel, setBootMessage, showFailure } from "@/app/bootPanel.ts";
 import { versionLabel } from "@/app/build.ts";
+import { pickRenderer, startAudioImport, startIntroImport, startPixiImport } from "@/app/chunks.ts";
 import { dayKey } from "@/app/daily.ts";
 import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
 import { fontsReady, loadFonts } from "@/app/fonts.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
-import { type RendererName, rendererFromUrl } from "@/app/GameMode.ts";
+import { rendererFromUrl } from "@/app/GameMode.ts";
 import { vibrationFor } from "@/app/haptics.ts";
-import {
-  ACHIEVEMENT_IDS,
-  applyPage,
-  type InputDevice,
-  pickLang,
-  STRINGS,
-  type Strings,
-} from "@/app/i18n.ts";
+import { applyPage, type InputDevice, pickLang, STRINGS, type Strings } from "@/app/i18n.ts";
 import type { Intro } from "@/app/intro.ts";
-import { achievementCount, MetaGame } from "@/app/MetaGame.ts";
+import { MetaGame } from "@/app/MetaGame.ts";
 import {
   instructionsFromUrl,
   profileWindowFromUrl,
@@ -22,102 +18,20 @@ import {
   seedFromUrl,
   stressFromUrl,
 } from "@/app/params.ts";
-import { browserStore, type Progress, type Settings } from "@/app/progress.ts";
-import { resultsView } from "@/app/results.ts";
+import { browserStore, type Settings } from "@/app/progress.ts";
+import { resultsView, showShareLink } from "@/app/results.ts";
 import { GameSession } from "@/app/session.ts";
 import { browserShareEnv, shareLink } from "@/app/share.ts";
+import { atlasUpgrade, loadAtlas, watchStageSize } from "@/app/stage.ts";
 import { Toasts } from "@/app/toast.ts";
-import {
-  type AssetBundle,
-  densityFor,
-  type LoadProgress,
-  loadSprites,
-} from "@/assets/AssetLoader.ts";
-import type { AudioPlayer } from "@/audio/AudioPlayer.ts";
+import type { LoadProgress } from "@/assets/AssetLoader.ts";
 import { InputController } from "@/input/InputController.ts";
 import { Effects } from "@/render/effects/Effects.ts";
-import { createCanvasRenderer } from "@/render/GameRenderer.ts";
 import { interpolate } from "@/render/interpolate.ts";
-import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
-import { stageScale } from "@/render/resolution.ts";
+import { elementScale } from "@/render/resolution.ts";
 import { C } from "@/sim/constants.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
-
-/**
- * Whether this browser can give us a WebGL context at all. Asked on a scratch
- * canvas, because asking the stage canvas would claim its context type.
- */
-function webglAvailable(): boolean {
-  const probe = document.createElement("canvas");
-  const gl = probe.getContext("webgl2") ?? probe.getContext("webgl");
-  // Browsers cap live contexts at a handful; the probe's would otherwise hold
-  // one of those slots until it was garbage-collected.
-  gl?.getExtension("WEBGL_lose_context")?.loseContext();
-  return gl !== null;
-}
-
-type PixiModule = typeof import("@/render/PixiRenderer.ts");
-
-/**
- * The player and its sound URLs, in a chunk of their own. A failure here is a
- * silent game, not a broken one, so it resolves to null instead of rejecting.
- */
-function startAudioImport(): Promise<AudioPlayer | null> {
-  return Promise.all([import("@/audio/AudioPlayer.ts"), import("@/assets/SoundUrls.ts")])
-    .then(([{ AudioPlayer: Player }, { SOUND_URLS }]) => new Player({ urls: SOUND_URLS }))
-    .catch((error: unknown) => {
-      console.warn("[hamsterflight] no sound: %o", error);
-      return null;
-    });
-}
-
-/**
- * The Pixi module is imported dynamically so it lands in its own Vite chunk:
- * the Canvas2D fallback then costs nothing beyond the entry chunk, and one
- * build still yields both bundle numbers for the comparison.
- *
- * Started here, before the atlas is awaited, so the two downloads overlap:
- * the chunk is 160 kB gzip and used to be requested only after the 2 MB sheet
- * had fully arrived. Resolves to null when Pixi is not wanted or the machine
- * cannot give it a context - a blocklisted GPU, WebGL disabled, a remote
- * desktop - and `pickRenderer` falls back to Canvas2D, which draws the same
- * scene without the shaders. Never rejects: the failure is reported there.
- */
-function startPixiImport(name: RendererName): Promise<PixiModule | null> {
-  if (name !== "pixi") return Promise.resolve(null);
-  if (!webglAvailable()) {
-    console.warn("[hamsterflight] no WebGL context available; using the canvas2d renderer");
-    return Promise.resolve(null);
-  }
-  return import("@/render/PixiRenderer.ts").catch((error: unknown) => {
-    console.warn("[hamsterflight] WebGL renderer failed to load; using canvas2d", error);
-    return null;
-  });
-}
-
-async function pickRenderer(
-  pixi: PixiModule | null,
-  canvas: HTMLCanvasElement,
-  assets: AssetBundle,
-  effects: Effects,
-  options: RendererOptions,
-): Promise<{ renderer: Renderer; backend: RendererName }> {
-  if (pixi !== null) {
-    try {
-      return {
-        renderer: await pixi.createPixiRenderer(canvas, assets, effects, options),
-        backend: "pixi",
-      };
-    } catch (error) {
-      console.warn("[hamsterflight] WebGL renderer failed to start; using canvas2d", error);
-    }
-  }
-  return {
-    renderer: await createCanvasRenderer(canvas, assets, effects, options),
-    backend: "canvas2d",
-  };
-}
 
 /**
  * The words boot can say before - or without - a game: in the page's language
@@ -126,170 +40,8 @@ async function pickRenderer(
  */
 let bootText: Strings["boot"] = STRINGS.en.boot;
 
-/**
- * The boot panel stays in the document, hidden, so a failure after boot has
- * somewhere to report itself. Removing it used to leave late errors invisible.
- */
-function setBootMessage(text: string, fraction: number | null = null): void {
-  const boot = document.querySelector<HTMLElement>("#boot");
-  if (boot === null) return;
-  const line = boot.querySelector<HTMLElement>("#boot-text");
-  if (line !== null) line.textContent = text;
-  const bar = boot.querySelector<HTMLElement>(".boot-bar");
-  if (bar !== null) {
-    bar.toggleAttribute("data-known", fraction !== null);
-    if (fraction !== null) bar.style.setProperty("--p", String(fraction));
-  }
-  boot.hidden = false;
-}
-
-/**
- * A failure the player can do something about: say what happened in words
- * they can act on, and give them the one control that helps. "See the
- * console" was the whole message before, which meant nothing to a player.
- */
-function showFailure(text: string): void {
-  const boot = document.querySelector<HTMLElement>("#boot");
-  if (boot === null) return;
-  const message = document.createElement("p");
-  message.setAttribute("role", "alert");
-  message.textContent = text;
-  const reload = document.createElement("button");
-  reload.type = "button";
-  reload.textContent = bootText.reload;
-  reload.addEventListener("click", () => window.location.reload());
-  const logo = boot.querySelector(".boot-logo");
-  boot.replaceChildren(...(logo === null ? [] : [logo]), message, reload);
-  boot.hidden = false;
-  reload.focus();
-}
-
-/**
- * Re-fit the backing store when the stage changes size - a window drag, a
- * scrollbar appearing, a monitor with a different pixel ratio. Coalesced into
- * one call per frame: every `resize()` reallocates the canvas, and a drag
- * fires dozens of events a second.
- */
-function watchStageSize(
-  canvas: HTMLCanvasElement,
-  onChange: () => void,
-  signal: AbortSignal,
-): void {
-  let pending = 0;
-  const schedule = (): void => {
-    if (pending !== 0) return;
-    pending = requestAnimationFrame(() => {
-      pending = 0;
-      onChange();
-    });
-  };
-  signal.addEventListener("abort", () => cancelAnimationFrame(pending));
-
-  if (typeof ResizeObserver === "function") {
-    const observer = new ResizeObserver(schedule);
-    observer.observe(canvas);
-    signal.addEventListener("abort", () => observer.disconnect());
-  } else {
-    window.addEventListener("resize", schedule, { signal });
-  }
-  // A ratio change does not fire `resize`; ask the media query instead, and
-  // re-arm it because the query is for the ratio we had, not the one we get.
-  const watchRatio = (): void => {
-    const query = matchMedia(`(resolution: ${window.devicePixelRatio}dppx)`);
-    query.addEventListener(
-      "change",
-      () => {
-        schedule();
-        watchRatio();
-      },
-      { once: true, signal },
-    );
-  };
-  if (typeof matchMedia === "function") watchRatio();
-}
-
-/**
- * The help and credits, over the stage from the corner button or `I`. Wired
- * before anything loads, so they open even on a page whose game failed to
- * start. `onOpen` lets the game pause itself once it exists.
- *
- * A dialog: focus moves in and comes back to the stage, Tab stays inside, and
- * Esc closes it - caught before the game's own Esc, which would pause.
- */
-function wireAbout(
-  canvas: HTMLCanvasElement,
-  signal: AbortSignal,
-): { onOpen: () => void; toggle: () => void } {
-  const hooks = { onOpen: (): void => {}, toggle: (): void => {} };
-  const button = document.querySelector<HTMLButtonElement>("#info");
-  const about = document.querySelector<HTMLElement>("#about");
-  const card = about?.querySelector<HTMLElement>(":scope > div");
-  if (button === null || about === null || card === null || card === undefined) return hooks;
-  const show = (open: boolean): void => {
-    about.hidden = !open;
-    button.setAttribute("aria-expanded", String(open));
-    if (open) {
-      hooks.onOpen();
-      card.focus({ preventScroll: true });
-    } else {
-      canvas.focus({ preventScroll: true });
-    }
-  };
-  hooks.toggle = () => show(about.hasAttribute("hidden"));
-  button.addEventListener("click", hooks.toggle, { signal });
-  about.querySelector("#about-close")?.addEventListener("click", () => show(false), { signal });
-  // Anywhere on the overlay closes it - except the settings and the
-  // achievements, which are there to be used.
-  about.addEventListener(
-    "click",
-    (event) => {
-      if (event.target instanceof Element && event.target.closest("section") !== null) return;
-      show(false);
-    },
-    { signal },
-  );
-  window.addEventListener(
-    "keydown",
-    (event) => {
-      if (about.hasAttribute("hidden")) return;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopImmediatePropagation();
-        show(false);
-        return;
-      }
-      if (event.key !== "Tab") return;
-      const focusable = [
-        ...card.querySelectorAll<HTMLElement>("button, input, select, [tabindex='0']"),
-      ].filter((el) => el.offsetParent !== null);
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (first === undefined || last === undefined) return;
-      const inside = card.contains(document.activeElement);
-      if (event.shiftKey && (document.activeElement === first || !inside)) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && (document.activeElement === last || !inside)) {
-        event.preventDefault();
-        first.focus();
-      }
-    },
-    { signal, capture: true },
-  );
-  return hooks;
-}
-
-/**
- * The link, selected in a field on the results card, for when neither the
- * share sheet nor the clipboard would take it.
- */
-function showShareLink(url: string): void {
-  const field = document.querySelector<HTMLInputElement>("#results-link");
-  if (field === null) return;
-  field.value = url;
-  field.hidden = false;
-  field.focus({ preventScroll: true });
-  field.select();
+function fail(text: string): void {
+  showFailure(text, bootText.reload);
 }
 
 /** Today, locally - the daily challenge's day. */
@@ -321,23 +73,12 @@ async function boot(): Promise<void> {
   bootText = t.boot;
   applyPage(document, lang);
 
-  // How big the stage actually is decides which atlas is worth downloading -
-  // a 1x screen showing a wide layout is already past 1:1.
-  const scale = stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
+  const scale = elementScale(canvas);
   // The HUD is canvas text, so the face is waited for - alongside the atlas,
   // not after it, and never for long: the fallback stack is a fine HUD too.
   const fonts = loadFonts();
   const pixiImport = startPixiImport(rendererName);
-  // The opening screen is a chunk of its own, fetched alongside the atlas:
-  // it is shown once per visit and never at all under `?instructions=0`.
-  const introImport = instructionsFromUrl(params)
-    ? import("@/app/intro.ts").catch((error: unknown) => {
-        console.warn("[hamsterflight] no opening screen: %o", error);
-        return null;
-      })
-    : Promise.resolve(null);
-  // Its own chunk: every visitor pays for the eager bundle, and nothing can
-  // sound before the first gesture anyway.
+  const introImport = startIntroImport(instructionsFromUrl(params));
   const audioImport = startAudioImport();
   const progress = ({ fraction }: LoadProgress): void => {
     setBootMessage(
@@ -345,19 +86,9 @@ async function boot(): Promise<void> {
       fraction,
     );
   };
-  let assets = await loadSprites(progress, densityFor(scale));
-  if (assets.missing.length > 0 && assets.density !== 1) {
-    // The denser sheet is the larger download and the likelier one to fail;
-    // the 1x sheet draws the same game, only softer.
-    console.warn("[hamsterflight] %s; retrying at 1x", assets.missing.join(", "));
-    assets = await loadSprites(progress, 1);
-  }
-  if (assets.missing.length > 0) {
-    // One sheet holds every sprite, so a missing sheet is not a degraded game
-    // but an invisible one: sky and HUD, no hamster, clicks that seem to do
-    // nothing. Say so instead of starting it.
-    console.error("[hamsterflight] sprite sheets missing: %s", assets.missing.join(", "));
-    showFailure(bootText.noArt);
+  const assets = await loadAtlas(scale, progress);
+  if (assets === null) {
+    fail(bootText.noArt);
     return;
   }
 
@@ -439,25 +170,6 @@ async function boot(): Promise<void> {
 
   const toasts = new Toasts(document.querySelector<HTMLElement>("#toast"));
   const input = new InputController();
-  const renderAchievements = (p: Progress): void => {
-    const list = document.querySelector<HTMLElement>("#achievements");
-    const heading = document.querySelector<HTMLElement>("#achievements-count");
-    if (list === null) return;
-    list.replaceChildren(
-      ...ACHIEVEMENT_IDS.map((id) => {
-        const [title, detail] = t.achievements[id];
-        const li = document.createElement("li");
-        li.textContent = title;
-        const small = document.createElement("small");
-        small.textContent = detail;
-        li.append(small);
-        if (id in p.achievements) li.className = "done";
-        return li;
-      }),
-    );
-    const { done, of } = achievementCount(p);
-    if (heading !== null) heading.textContent = `(${t.achievementsDone(done, of)})`;
-  };
   // A shared run is replayed once, here: the seed and the ghost both come out of it.
   const opening = MetaGame.modeFor(params, saved, today());
   const meta = new MetaGame(
@@ -485,7 +197,7 @@ async function boot(): Promise<void> {
         },
         share: () => void meta.share(),
       }),
-      onProgress: renderAchievements,
+      onProgress: (p) => renderAchievements(t, p),
     },
     opening.mode,
   );
@@ -493,7 +205,7 @@ async function boot(): Promise<void> {
     console.warn("[hamsterflight] ?run= could not be replayed; playing a free game");
     toasts.show(t.toast.badRun);
   }
-  renderAchievements(meta.progress);
+  renderAchievements(t, meta.progress);
   // A duel or a daily game plays its own seed; `?seed=` is for a free game.
   const seed = meta.mode.kind === "free" ? seedFromUrl(params) : meta.nextSeed();
   const session = new GameSession({
@@ -560,7 +272,7 @@ async function boot(): Promise<void> {
     applyPage(document, lang);
     renderer.setStrings(t.hud);
     meta.setStrings(t);
-    renderAchievements(meta.progress);
+    renderAchievements(t, meta.progress);
     syncSoundButtons();
     syncPauseButton(current.paused, true);
     syncFullscreenButton();
@@ -692,37 +404,23 @@ async function boot(): Promise<void> {
     },
     // The loop stops and rethrows, so the stack still reaches the console;
     // without this the picture just froze.
-    onError: () => showFailure(bootText.crashed),
+    onError: () => fail(bootText.crashed),
   });
 
   // Until the opening screen is left the scene stands still behind it, as the
   // original's frame 6 had no Game yet: one picture, redrawn on every resize.
   let started = false;
   const drawStill = (): void => renderer.draw(current, performance.now(), meta.overlay(current, 1));
-  // The atlas was picked for the stage as it was at boot. A stage that grows
-  // past it - full screen, a larger window, a sharper monitor - fetches the
-  // denser sheet once, in the background, and swaps it in; a failure keeps
-  // the softer one, which draws the same game.
-  let upgrading = false;
-  const upgradeAtlas = (): void => {
-    const wanted = densityFor(
-      stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio),
-    );
-    if (upgrading || wanted <= assets.density) return;
-    upgrading = true;
-    void loadSprites(undefined, wanted).then((denser) => {
-      if (signal.aborted) return;
-      if (denser.missing.length > 0) {
-        console.warn("[hamsterflight] denser atlas unavailable: %s", denser.missing.join(", "));
-        return;
-      }
-      assets = denser;
+  const upgradeAtlas = atlasUpgrade(
+    canvas,
+    assets,
+    (denser) => {
       renderer.setAssets(denser);
       intro?.setAssets(denser);
       if (!started) drawStill();
-      upgrading = false;
-    });
-  };
+    },
+    signal,
+  );
   watchStageSize(
     canvas,
     () => {
@@ -789,8 +487,7 @@ async function boot(): Promise<void> {
     { signal },
   );
 
-  const bootPanel = document.querySelector<HTMLElement>("#boot");
-  if (bootPanel !== null) bootPanel.hidden = true;
+  hideBootPanel();
   if (audio !== null) {
     if (musicButton !== null) musicButton.hidden = false;
     if (sfxButton !== null) sfxButton.hidden = false;
@@ -856,5 +553,5 @@ async function boot(): Promise<void> {
 
 boot().catch((error: unknown) => {
   console.error("[hamsterflight] boot failed", error);
-  showFailure(bootText.noStart);
+  fail(bootText.noStart);
 });

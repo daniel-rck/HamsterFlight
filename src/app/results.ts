@@ -90,3 +90,16 @@ export function resultsView(root: HTMLElement | null, actions: ResultsActions): 
     },
   };
 }
+
+/**
+ * The link, selected in a field on the results card, for when neither the
+ * share sheet nor the clipboard would take it.
+ */
+export function showShareLink(url: string): void {
+  const field = document.querySelector<HTMLInputElement>("#results-link");
+  if (field === null) return;
+  field.value = url;
+  field.hidden = false;
+  field.focus({ preventScroll: true });
+  field.select();
+}
