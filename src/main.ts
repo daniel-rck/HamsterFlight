@@ -2,14 +2,14 @@ import { renderAchievements, wireAbout } from "@/app/about.ts";
 import { hideBootPanel, setBootMessage, showFailure } from "@/app/bootPanel.ts";
 import { versionLabel } from "@/app/build.ts";
 import { pickRenderer, startAudioImport, startIntroImport, startPixiImport } from "@/app/chunks.ts";
+import { wireControls } from "@/app/controls.ts";
 import { dayKey } from "@/app/daily.ts";
-import { FixedTimestepLoop } from "@/app/FixedTimestepLoop.ts";
 import { fontsReady, loadFonts } from "@/app/fonts.ts";
 import { FrameProfiler } from "@/app/FrameProfiler.ts";
 import { rendererFromUrl } from "@/app/GameMode.ts";
-import { vibrationFor } from "@/app/haptics.ts";
 import { applyPage, type InputDevice, pickLang, STRINGS, type Strings } from "@/app/i18n.ts";
 import type { Intro } from "@/app/intro.ts";
+import { wireLifecycle } from "@/app/lifecycle.ts";
 import { MetaGame } from "@/app/MetaGame.ts";
 import {
   instructionsFromUrl,
@@ -18,7 +18,8 @@ import {
   seedFromUrl,
   stressFromUrl,
 } from "@/app/params.ts";
-import { browserStore, type Settings } from "@/app/progress.ts";
+import { createPlay } from "@/app/play.ts";
+import { browserStore } from "@/app/progress.ts";
 import { resultsView, showShareLink } from "@/app/results.ts";
 import { GameSession } from "@/app/session.ts";
 import { browserShareEnv, shareLink } from "@/app/share.ts";
@@ -27,10 +28,8 @@ import { Toasts } from "@/app/toast.ts";
 import type { LoadProgress } from "@/assets/AssetLoader.ts";
 import { InputController } from "@/input/InputController.ts";
 import { Effects } from "@/render/effects/Effects.ts";
-import { interpolate } from "@/render/interpolate.ts";
 import { elementScale } from "@/render/resolution.ts";
 import { C } from "@/sim/constants.ts";
-import type { SimSnapshot } from "@/sim/state.ts";
 import { DEFAULT_TUNING } from "@/sim/tuning.ts";
 
 /**
@@ -130,43 +129,6 @@ async function boot(): Promise<void> {
   const audio = await audioImport;
   audio?.setVolume(saved.settings.volume);
   audio?.setSfxMuted(saved.settings.sfxMuted);
-  const musicButton = document.querySelector<HTMLButtonElement>("#music");
-  const sfxButton = document.querySelector<HTMLButtonElement>("#sfx");
-  const introMusic = document.querySelector<HTMLButtonElement>("#intro-music");
-  const introSfx = document.querySelector<HTMLButtonElement>("#intro-sfx");
-  const syncSoundButtons = (): void => {
-    const music = audio?.musicMuted ?? false;
-    introMusic?.setAttribute("aria-pressed", String(!music));
-    introSfx?.setAttribute("aria-pressed", String(!(audio?.sfxMuted ?? false)));
-    musicButton?.setAttribute("aria-pressed", String(music));
-    musicButton?.setAttribute("aria-label", music ? t.unmuteMusic : t.muteMusic);
-    const sfx = audio?.sfxMuted ?? false;
-    sfxButton?.setAttribute("aria-pressed", String(sfx));
-    sfxButton?.setAttribute("aria-label", sfx ? t.unmuteSfx : t.muteSfx);
-  };
-  const toggleMusic = (): void => {
-    if (audio === null) return;
-    audio.toggleMusic();
-    syncSoundButtons();
-  };
-  if (audio !== null) {
-    // Audio may only start from a gesture. Any press on the page counts, and
-    // the listeners go once the context is running.
-    const unlock = (): void => audio.unlock();
-    window.addEventListener("pointerdown", unlock, { signal, capture: true });
-    window.addEventListener("keydown", unlock, { signal, capture: true });
-  }
-  for (const button of [musicButton, sfxButton]) {
-    // Keep focus, and with it Space, on the canvas.
-    button?.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
-  }
-  if (musicButton !== null && audio !== null) {
-    musicButton.addEventListener("click", toggleMusic, { signal });
-  }
-  if (audio !== null) {
-    introMusic?.addEventListener("click", toggleMusic, { signal });
-    if (introMusic !== null) introMusic.hidden = false;
-  }
 
   const toasts = new Toasts(document.querySelector<HTMLElement>("#toast"));
   const input = new InputController();
@@ -214,20 +176,9 @@ async function boot(): Promise<void> {
     tuning: DEFAULT_TUNING,
   });
 
+  // The last await. From here to the end boot runs in one go, so no handler
+  // wired below can fire before `controls` and `play` exist.
   const introModule = await introImport;
-  const saveSettings = (change: Partial<Settings>): void => meta.updateSettings(change);
-  const toggleSfx = (): void => {
-    if (audio === null) return;
-    audio.setSfxMuted(!audio.sfxMuted);
-    saveSettings({ sfxMuted: audio.sfxMuted });
-    syncSoundButtons();
-    syncSettings();
-  };
-  sfxButton?.addEventListener("click", toggleSfx, { signal });
-  if (audio !== null) {
-    introSfx?.addEventListener("click", toggleSfx, { signal });
-    if (introSfx !== null) introSfx.hidden = false;
-  }
 
   const haptics =
     touch && typeof navigator.vibrate === "function"
@@ -236,123 +187,45 @@ async function boot(): Promise<void> {
         }
       : null;
 
-  // The settings in the help panel, which save as they change.
-  const setSfx = document.querySelector<HTMLInputElement>("#set-sfx");
-  const setVolume = document.querySelector<HTMLInputElement>("#set-volume");
-  const setHaptics = document.querySelector<HTMLInputElement>("#set-haptics");
-  const setLang = document.querySelector<HTMLSelectElement>("#set-lang");
-  const introLang = document.querySelector<HTMLSelectElement>("#intro-lang");
-  const syncSettings = (): void => {
-    const settings = meta.progress.settings;
-    if (setSfx !== null) setSfx.checked = !settings.sfxMuted;
-    if (setVolume !== null) setVolume.value = String(Math.round(settings.volume * 100));
-    if (setHaptics !== null) setHaptics.checked = settings.haptics;
-    if (setLang !== null) setLang.value = settings.lang ?? "";
-    if (introLang !== null) introLang.value = settings.lang ?? "";
-  };
-  syncSettings();
-  if (audio !== null) {
-    setSfx?.addEventListener("change", () => {
-      if (audio.sfxMuted === setSfx.checked) toggleSfx();
-    });
-    setVolume?.addEventListener("input", () => {
-      const volume = Number(setVolume.value) / 100;
-      audio.setVolume(volume);
-      saveSettings({ volume });
-    });
-  }
-  const hapticsRow = document.querySelector<HTMLElement>("#set-haptics-row");
-  if (hapticsRow !== null) hapticsRow.hidden = haptics === null;
-  setHaptics?.addEventListener("change", () => saveSettings({ haptics: setHaptics.checked }));
   const changeLang = (value: string): void => {
     const choice = value === "en" || value === "de" ? value : null;
-    saveSettings({ lang: choice });
+    meta.updateSettings({ lang: choice });
     lang = pickLang(null, choice, navigator.languages ?? []);
     t = STRINGS[lang];
     applyPage(document, lang);
     renderer.setStrings(t.hud);
     meta.setStrings(t);
     renderAchievements(t, meta.progress);
-    syncSoundButtons();
-    syncPauseButton(current.paused, true);
-    syncFullscreenButton();
-    syncSettings();
+    controls.setStrings(t, play.current.paused);
     if (intro !== null && introModule !== null) {
       intro.setStrings(t, introModule.introModel(t, meta.mode, meta.progress, today()));
     }
   };
-  for (const select of [setLang, introLang]) {
-    select?.addEventListener("change", () => changeLang(select.value), { signal });
-  }
-  for (const section of ["#settings", "#achievements-panel"]) {
-    const el = document.querySelector<HTMLElement>(section);
-    if (el !== null) el.hidden = false;
-  }
+  const controls = wireControls({
+    canvas,
+    audio,
+    strings: t,
+    settings: () => meta.progress.settings,
+    save: (change) => meta.updateSettings(change),
+    onLanguage: changeLang,
+    togglePause: () => input.togglePause(),
+    touch,
+    haptics: haptics !== null,
+    signal,
+  });
 
-  // Set below, once it is known the browser can do it at all.
-  let toggleFullscreen: (() => void) | null = null;
   input.attach(canvas, {
     onToggleHitboxes: () => renderer.toggleHitboxes(),
-    onToggleMusic: toggleMusic,
-    onToggleSfx: toggleSfx,
+    onToggleMusic: controls.toggleMusic,
+    onToggleSfx: controls.toggleSfx,
     // The button is out of the tab order like the other corners, so it gets a key too.
-    onToggleFullscreen: () => toggleFullscreen?.(),
+    onToggleFullscreen: () => controls.toggleFullscreen?.(),
     // Not over the opening screen, which has the same words and its own focus.
     onToggleInfo: () => {
       if (!(intro?.open ?? false)) about.toggle();
     },
   });
   signal.addEventListener("abort", () => input.detach());
-
-  const pauseButton = document.querySelector<HTMLButtonElement>("#pause");
-  if (pauseButton !== null) {
-    // Keep focus, and with it Space, on the canvas.
-    pauseButton.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
-    pauseButton.addEventListener("click", () => input.togglePause(), { signal });
-  }
-  let shownPaused: boolean | null = null;
-  const syncPauseButton = (paused: boolean, force = false): void => {
-    if (pauseButton === null || (paused === shownPaused && !force)) return;
-    shownPaused = paused;
-    pauseButton.dataset.paused = String(paused);
-    pauseButton.setAttribute("aria-label", paused ? t.resume : t.pause);
-  };
-
-  // Full screen for the whole page, not the stage: the page already lays the
-  // stage out at 3:2 in whatever it is given. Not offered where it cannot be
-  // had - an iPhone's Safari has no element full screen.
-  const fullscreenButton = document.querySelector<HTMLButtonElement>("#fullscreen");
-  const syncFullscreenButton = (): void => {
-    fullscreenButton?.setAttribute(
-      "aria-label",
-      document.fullscreenElement === null ? t.fullscreen : t.exitFullscreen,
-    );
-  };
-  if (fullscreenButton !== null && document.fullscreenEnabled === true) {
-    fullscreenButton.addEventListener("pointerdown", (event) => event.preventDefault(), { signal });
-    toggleFullscreen = (): void => {
-      if (document.fullscreenElement !== null) {
-        void document.exitFullscreen().catch(() => undefined);
-        return;
-      }
-      void document.documentElement
-        .requestFullscreen({ navigationUI: "hide" })
-        .then(() => {
-          // A phone held upright gets a third of the screen; ask for landscape.
-          const orientation = screen.orientation as ScreenOrientation & {
-            lock?: (o: string) => Promise<void>;
-          };
-          return touch ? orientation.lock?.("landscape") : undefined;
-        })
-        .catch(() => undefined)
-        .finally(() => canvas.focus({ preventScroll: true }));
-    };
-    fullscreenButton.addEventListener("click", toggleFullscreen, { signal });
-    document.addEventListener("fullscreenchange", syncFullscreenButton, { signal });
-    syncFullscreenButton();
-    fullscreenButton.hidden = false;
-  }
-  syncSoundButtons();
 
   // The profiler wraps draw() from the outside, so neither backend can be
   // instrumented more kindly than the other.
@@ -363,61 +236,27 @@ async function boot(): Promise<void> {
   // benchmark reads this instead.
   if (profiler !== null) window.__hamsterProfile = profiler;
 
-  // The snapshot is taken once per tick, here, and the draw reads it back:
-  // both hooks used to build their own, twice the allocation for one picture.
-  let previous: SimSnapshot | null = null;
-  let current = session.snapshot;
-
-  const loop = new FixedTimestepLoop({
-    step: () => {
-      const commands = input.drain();
-      // The event stream used to be discarded here. Impact clips ride on it.
-      const result = session.step(commands);
-      const events = result.events;
-      const now = performance.now();
-      previous = result.restarted ? null : current;
-      current = result.snapshot;
-      syncPauseButton(current.paused);
-      meta.step(result);
-      effects.consume(events, now, current.hamster);
-      if (audio !== null) {
-        audio.setPaused(current.paused);
-        audio.consume(events);
-      }
-      haptics?.(vibrationFor(events));
-      effects.follow(current, now);
-    },
-    // Physics snaps at 20 Hz; the picture does not. Every frame is drawn, with
-    // the hamster and the camera placed between the last two ticks by how far
-    // into the current tick the frame falls. The original stage ran at 19 fps
-    // with no tweening, so this is a deliberate departure - presentation only,
-    // the simulation and the scores are untouched.
-    draw: (alpha) => {
-      // Every frame, not every tick: a quick tap must not fall between ticks.
-      input.pollGamepads(pads());
-      const now = performance.now();
-      effects.prune(now);
-      const snapshot = interpolate(previous, current, alpha);
-      const overlay = meta.overlay(current, alpha);
-      if (profiler === null) renderer.draw(snapshot, now, overlay);
-      else profiler.measure(() => renderer.draw(snapshot, now, overlay));
-    },
-    // The loop stops and rethrows, so the stack still reaches the console;
-    // without this the picture just froze.
+  const play = createPlay({
+    session,
+    input,
+    meta,
+    effects,
+    renderer,
+    audio,
+    haptics,
+    profiler,
+    pads,
+    onTick: (s) => controls.syncPaused(s.paused),
     onError: () => fail(bootText.crashed),
   });
 
-  // Until the opening screen is left the scene stands still behind it, as the
-  // original's frame 6 had no Game yet: one picture, redrawn on every resize.
-  let started = false;
-  const drawStill = (): void => renderer.draw(current, performance.now(), meta.overlay(current, 1));
   const upgradeAtlas = atlasUpgrade(
     canvas,
     assets,
     (denser) => {
       renderer.setAssets(denser);
       intro?.setAssets(denser);
-      if (!started) drawStill();
+      if (!play.started) play.drawStill();
     },
     signal,
   );
@@ -425,84 +264,27 @@ async function boot(): Promise<void> {
     canvas,
     () => {
       renderer.resize();
-      if (!started) drawStill();
+      if (!play.started) play.drawStill();
       upgradeAtlas();
     },
     signal,
   );
-
-  const resume = (): void => {
-    if (!started) return;
-    // Clips started before the tab went away would all expire at once, and
-    // the renderer's animation clock must not count the time away either.
-    effects.clear();
-    renderer.resync();
-    loop.start();
-  };
-  // Coming back to a hamster already in free fall is no way to return to a
-  // game, and a blur that does not hide the page - a notification shade, an
-  // OS dialog, devtools - used to let the flight play out unattended. Only
-  // while something is moving: the pad and the final score wait anyway. The
-  // "paused" prompt then covers the way back.
-  const pauseIfMoving = (): void => {
-    if (current.paused) return;
-    if (current.phaseKind === "ready" || current.phaseKind === "gameOver") return;
-    input.pause();
-  };
-  about.onOpen = pauseIfMoving;
-  window.addEventListener("blur", pauseIfMoving, { signal });
-  document.addEventListener(
-    "visibilitychange",
-    () => {
-      if (document.hidden) {
-        pauseIfMoving();
-        loop.stop();
-        audio?.setPaused(true);
-      } else {
-        audio?.setPaused(current.paused);
-        resume();
-      }
-    },
-    { signal },
-  );
-
-  // `pagehide` also fires on the way into the back/forward cache, and a page
-  // restored from there keeps running - so everything is only torn down when
-  // the document is really being discarded.
-  window.addEventListener(
-    "pagehide",
-    (event) => {
-      loop.stop();
-      if (event.persisted) return;
-      renderer.destroy();
-      teardown.abort();
-    },
-    { signal },
-  );
-  window.addEventListener(
-    "pageshow",
-    (event) => {
-      if (event.persisted) resume();
-    },
-    { signal },
-  );
+  // After `input.attach`: on a blur both let go of the button, and the
+  // release has to reach the simulation before the pause does.
+  about.onOpen = wireLifecycle({ play, input, audio, renderer, teardown });
 
   hideBootPanel();
-  if (audio !== null) {
-    if (musicButton !== null) musicButton.hidden = false;
-    if (sfxButton !== null) sfxButton.hidden = false;
-  }
+  controls.reveal();
   const version = document.querySelector("#version");
   if (version !== null) version.textContent = versionLabel();
   const start = (): void => {
-    started = true;
-    if (pauseButton !== null) pauseButton.hidden = false;
+    controls.showPause();
     // Keyboard play works from the first keystroke, not the first click.
     canvas.focus({ preventScroll: true });
     // Nothing pressed before the game existed carries over into it.
     input.drain();
     meta.announce();
-    loop.start();
+    play.start();
   };
   const introRoot = document.querySelector<HTMLElement>("#intro");
   const stageBox = canvas.parentElement;
@@ -526,16 +308,14 @@ async function boot(): Promise<void> {
         // The other mode, and a game built for it: the session was seeded
         // for the one the page opened in.
         meta.switchMode();
-        session.reset(meta.nextSeed());
-        previous = null;
-        current = session.snapshot;
+        play.restart(meta.nextSeed());
         leave();
       },
     });
     window.addEventListener("gamepadconnected", () => intro?.setDevice("pad"), { signal });
     intro.setAssets(assets);
     stageBox?.classList.add("intro-open");
-    drawStill();
+    play.drawStill();
     intro.show(introModule.introModel(t, meta.mode, meta.progress, today()));
   } else {
     start();
