@@ -6,7 +6,16 @@ import {
   BUSH_SPACING,
   BUSHES,
   bushes,
+  GROUND,
+  GROUND_BANDS,
+  GROUND_SLABS,
+  HILL_LAYERS,
+  HORIZON_GLOW,
+  hillVisible,
+  horizonGlowVisible,
   markers,
+  PARTICLE_DUST_ALPHA,
+  particleAlpha,
   POWERUP_IDLE_FRAME,
   POWERUP_SPRITE,
   STAR_COUNT,
@@ -18,6 +27,8 @@ import {
   debugLines,
   glideFill,
   HUD,
+  launchZones,
+  meterBands,
   minimapModel,
   panelFields,
   promptFor,
@@ -25,8 +36,10 @@ import {
   triesLabel,
 } from "@/render/scene/hud.ts";
 import {
+  boxRect,
   castsShadow,
   hamsterRotation,
+  hamsterShadow,
   outcomeOffsetY,
   poseFor,
   poseAlpha,
@@ -421,5 +434,63 @@ describe("the minimap", () => {
     expect(high?.items[0]?.beyond).toBe(true);
     expect(high?.items[0]?.y).toBeCloseTo(m.y + m.h - m.pad, 6);
     expect(high?.groundY).toBeNull();
+  });
+});
+
+describe("what both backends decide the same way", () => {
+  it("paints the ground back to front, bands running on into each other", () => {
+    const [field, ...rest] = GROUND_SLABS;
+    const lip = rest.pop();
+    expect(field).toMatchObject({ y: GROUND.y, h: GROUND.height, colour: GROUND.colour });
+    expect(lip).toMatchObject({ y: GROUND.y, h: GROUND.lip, colour: GROUND.lipColour });
+    expect(rest).toHaveLength(GROUND_BANDS.length);
+    for (const [i, band] of rest.entries()) {
+      const next = rest[i + 1];
+      expect(band.y + band.h).toBe(next === undefined ? GROUND.y + GROUND.height : next.y);
+    }
+  });
+
+  it("shows the horizon's glow and hills only while the horizon is on the stage", () => {
+    const layer = HILL_LAYERS[0];
+    if (layer === undefined) throw new Error("no hills");
+    expect(horizonGlowVisible(0.3, 300)).toBe(true);
+    expect(horizonGlowVisible(0, 300)).toBe(false);
+    expect(horizonGlowVisible(0.3, 0)).toBe(false);
+    expect(horizonGlowVisible(0.3, C.VIEW_H + HORIZON_GLOW.height)).toBe(false);
+    expect(hillVisible(layer, 300)).toBe(true);
+    expect(hillVisible(layer, 0)).toBe(false);
+    expect(hillVisible(layer, C.VIEW_H + layer.height)).toBe(false);
+  });
+
+  it("fades sparks from full and dust from its own alpha", () => {
+    expect(particleAlpha({ glow: true, age: 0 })).toBe(1);
+    expect(particleAlpha({ glow: false, age: 0 })).toBe(PARTICLE_DUST_ALPHA);
+    expect(particleAlpha({ glow: true, age: 1 })).toBe(0);
+    expect(particleAlpha({ glow: false, age: 0.5 })).toBeCloseTo(PARTICLE_DUST_ALPHA / 2, 9);
+  });
+
+  it("casts a shadow only where there is one worth drawing", () => {
+    expect(hamsterShadow(flying({ hamster: { ...flying().hamster, y: 950 } }))).toBeCloseTo(
+      shadowScale(950),
+      9,
+    );
+    // High up the scale drops under the threshold, and the outcome clip casts none.
+    expect(hamsterShadow(flying({ hamster: { ...flying().hamster, y: 600 } }))).toBeNull();
+    expect(hamsterShadow(flying({ phaseKind: "settling", outcome: "cheer" }))).toBeNull();
+  });
+
+  it("places a hit box around its point", () => {
+    expect(boxRect(100, 200, { cx: 3, cy: -4, hw: 10, hh: 5 })).toEqual([93, 191, 20, 10]);
+  });
+
+  it("lays the launch meter's bands inside its track", () => {
+    const m = HUD.meter;
+    const bands = meterBands(launchZones());
+    expect(bands).toHaveLength(2);
+    for (const band of bands) {
+      expect(band.x).toBeGreaterThanOrEqual(m.x);
+      expect(band.x + band.w).toBeLessThanOrEqual(m.x + m.w + 1e-9);
+    }
+    expect(meterBands({ band: null, sweet: null })).toEqual([]);
   });
 });

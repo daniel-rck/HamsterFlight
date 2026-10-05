@@ -295,6 +295,29 @@ export function launchZones(tuning: Tuning = DEFAULT_TUNING): LaunchZones {
   return { band, sweet };
 }
 
+export interface MeterBand {
+  /** Left edge and width on the stage; the band spans the track's height. */
+  readonly x: number;
+  readonly w: number;
+  readonly colour: number;
+  readonly alpha: number;
+}
+
+/** The swing's reach and the best of it, as strips across the meter's track. */
+export function meterBands(zones: LaunchZones): readonly MeterBand[] {
+  const meter = HUD.meter;
+  const bands: MeterBand[] = [];
+  for (const [span, colour, alpha] of [
+    [zones.band, HUD_COLOURS.meterBand, 0.8],
+    [zones.sweet, HUD_COLOURS.meterSweet, 0.9],
+  ] as const) {
+    if (span === null) continue;
+    const x = meter.x + meter.w * Math.min(...span);
+    bands.push({ x, w: meter.w * Math.abs(span[1] - span[0]), colour, alpha });
+  }
+  return bands;
+}
+
 export interface MeterReading {
   /** Up for exactly the two phases before the hamster is away, as the original's. */
   readonly up: boolean;

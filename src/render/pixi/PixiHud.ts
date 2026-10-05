@@ -13,6 +13,7 @@ import {
   type HudStrings,
   ITEM_COLOURS,
   type LaunchZones,
+  meterBands,
   meterReading,
   minimapModel,
   panelFields,
@@ -131,19 +132,9 @@ export class PixiHud {
       .roundRect(meter.x, meter.y, meter.w, meter.h, meter.radius)
       .fill({ color: 0x000000, alpha: 0.32 });
     const bands = new Graphics();
-    const zone = (span: readonly [number, number] | null, colour: number, alpha: number): void => {
-      if (span === null) return;
-      bands
-        .rect(
-          meter.x + meter.w * Math.min(...span),
-          meter.y,
-          meter.w * Math.abs(span[1] - span[0]),
-          meter.h,
-        )
-        .fill({ color: colour, alpha });
-    };
-    zone(zones.band, HUD_COLOURS.meterBand, 0.8);
-    zone(zones.sweet, HUD_COLOURS.meterSweet, 0.9);
+    for (const band of meterBands(zones)) {
+      bands.rect(band.x, meter.y, band.w, meter.h).fill({ color: band.colour, alpha: band.alpha });
+    }
     const clip = new Graphics()
       .roundRect(meter.x, meter.y, meter.w, meter.h, meter.radius)
       .fill(0xffffff);

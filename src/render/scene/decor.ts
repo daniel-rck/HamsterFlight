@@ -38,6 +38,13 @@ export const BUBBLE_ALPHA = 0.62;
 export const SHADOW_ALPHA = 0.45;
 /** Dust is see-through even when fresh; sparks are not. */
 export const PARTICLE_DUST_ALPHA = 0.75;
+/** An item already taken is still drawn, faded, until the simulation drops it. */
+export const POWERUP_TAKEN_ALPHA = 0.25;
+
+/** A particle's opacity as it ages: a spark fades from full, dust from `PARTICLE_DUST_ALPHA`. */
+export function particleAlpha(p: { readonly glow: boolean; readonly age: number }): number {
+  return p.glow ? 1 - p.age : PARTICLE_DUST_ALPHA * (1 - p.age);
+}
 
 /**
  * The ground: two slabs the width of the whole course.
@@ -72,6 +79,30 @@ export const GROUND_BANDS = [
   { dy: 46, colour: 0x528d3d },
   { dy: 84, colour: 0x477f34 },
 ] as const;
+
+export interface Slab {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly colour: number;
+}
+
+/** The ground as both backends paint it, back to front: the field, its bands, the lit edge. */
+export const GROUND_SLABS: readonly Slab[] = [
+  { x: GROUND.x, y: GROUND.y, w: GROUND.width, h: GROUND.height, colour: GROUND.colour },
+  ...GROUND_BANDS.map((band, i) => {
+    const end = GROUND_BANDS[i + 1]?.dy ?? GROUND.height;
+    return {
+      x: GROUND.x,
+      y: GROUND.y + band.dy,
+      w: GROUND.width,
+      h: end - band.dy,
+      colour: band.colour,
+    };
+  }),
+  { x: GROUND.x, y: GROUND.y, w: GROUND.width, h: GROUND.lip, colour: GROUND.lipColour },
+];
 
 /** Grass tufts standing on the edge: one tile of them, repeated along the course. */
 export const TUFT_TILE = 600;
@@ -462,6 +493,16 @@ export const HORIZON_GLOW = {
 /** Full by day, gone by the time the stars are coming in. */
 export function horizonGlowAlpha(altitude: number): number {
   return HORIZON_GLOW.alpha * (1 - clamp(altitude / STARS_FROM, 0, 1));
+}
+
+/** Whether the glow shows: some of it left, and its band on the stage. */
+export function horizonGlowVisible(alpha: number, horizon: number): boolean {
+  return alpha > 0 && horizon > 0 && horizon - HORIZON_GLOW.height < C.VIEW_H;
+}
+
+/** Whether a hill layer shows: the horizon on the stage, and the hill's top above its foot. */
+export function hillVisible(layer: HillLayer, horizon: number): boolean {
+  return horizon > 0 && horizon - layer.height < C.VIEW_H;
 }
 
 export interface BushPlacement {
