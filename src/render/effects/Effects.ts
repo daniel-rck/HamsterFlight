@@ -9,7 +9,9 @@ import {
   trailSegments,
   trailStrength,
 } from "@/render/scene/trail.ts";
+import { C } from "@/sim/constants.ts";
 import type { FxId, SimEvent } from "@/sim/events.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
 import type { PowerupKind } from "@/sim/types.ts";
 
 /** The three impact clips the original played and this port never drew. */
@@ -280,6 +282,21 @@ export class Effects {
   /** The hamster is not in flight: the streak goes with it. */
   endFlight(): void {
     this.#trail.length = 0;
+  }
+
+  /**
+   * One tick's snapshot, for what follows the hamster around: grit off the
+   * ground while it slides, and the streak behind it while it flies.
+   */
+  follow(s: SimSnapshot, nowMs: number): void {
+    const h = s.hamster;
+    // Grit comes off whenever the hamster is dragging along the ground, not
+    // only during the `skidding` predicate - that one is a two-tick window
+    // and fires in 2 runs out of 40, which is not an effect anyone would see.
+    const dragging = s.phaseKind === "flying" && h.y >= C.SKID_Y && Math.abs(h.xvel) > 2;
+    if (dragging) this.emitSkidDust(h.x, C.GROUND_Y, nowMs);
+    if (s.phaseKind === "flying" && h.visible) this.noteFlight(h.x, h.y, h.xvel, h.yvel);
+    else this.endFlight();
   }
 
   /**

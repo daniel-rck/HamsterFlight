@@ -673,24 +673,7 @@ async function boot(): Promise<void> {
         audio.consume(events);
       }
       haptics?.(vibrationFor(events));
-      // Grit comes off whenever the hamster is dragging along the ground, not
-      // only during the `skidding` predicate - that one is a two-tick window
-      // and fires in 2 runs out of 40, which is not an effect anyone would see.
-      const dragging =
-        current.phaseKind === "flying" &&
-        current.hamster.y >= C.SKID_Y &&
-        Math.abs(current.hamster.xvel) > 2;
-      if (dragging) effects.emitSkidDust(current.hamster.x, C.GROUND_Y, now);
-      if (current.phaseKind === "flying" && current.hamster.visible) {
-        effects.noteFlight(
-          current.hamster.x,
-          current.hamster.y,
-          current.hamster.xvel,
-          current.hamster.yvel,
-        );
-      } else {
-        effects.endFlight();
-      }
+      effects.follow(current, now);
     },
     // Physics snaps at 20 Hz; the picture does not. Every frame is drawn, with
     // the hamster and the camera placed between the last two ticks by how far
