@@ -110,7 +110,8 @@ not its numbers. Run `bun run bench` for the current table.
 There is one game, and it runs on PixiJS, because WebGL is what can carry
 shaders and particle effects. The Canvas2D renderer draws the same scene
 without the shaders; it is what a machine without WebGL gets, and
-`?renderer=canvas2d` forces it. An earlier `?mode=faithful` - the Canvas2D
+`?renderer=canvas2d` forces it. Each backend is a chunk of its own, fetched
+only where it is the one that draws. An earlier `?mode=faithful` - the Canvas2D
 renderer drawing only what the original stage drew - is gone.
 
 That was not the first answer. `reference/doc/renderer-evaluation.md` records a

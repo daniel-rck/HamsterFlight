@@ -1,7 +1,12 @@
 import { renderAchievements, wireAbout } from "@/app/about.ts";
 import { hideBootPanel, setBootMessage, showFailure } from "@/app/bootPanel.ts";
 import { versionLabel } from "@/app/build.ts";
-import { pickRenderer, startAudioImport, startIntroImport, startPixiImport } from "@/app/chunks.ts";
+import {
+  pickRenderer,
+  startAudioImport,
+  startIntroImport,
+  startRendererImport,
+} from "@/app/chunks.ts";
 import { wireControls } from "@/app/controls.ts";
 import { dayKey } from "@/app/daily.ts";
 import { fontsReady, loadFonts } from "@/app/fonts.ts";
@@ -76,7 +81,7 @@ async function boot(): Promise<void> {
   // The HUD is canvas text, so the face is waited for - alongside the atlas,
   // not after it, and never for long: the fallback stack is a fine HUD too.
   const fonts = loadFonts();
-  const pixiImport = startPixiImport(rendererName);
+  const backends = startRendererImport(rendererName);
   const introImport = startIntroImport(instructionsFromUrl(params));
   const audioImport = startAudioImport();
   const progress = ({ fraction }: LoadProgress): void => {
@@ -114,7 +119,7 @@ async function boot(): Promise<void> {
     { signal },
   );
   const fontLoaded = await fonts;
-  const { renderer, backend } = await pickRenderer(await pixiImport, canvas, assets, effects, {
+  const { renderer, backend } = await pickRenderer(backends, canvas, assets, effects, {
     showHitboxes: params.has("debug"),
     stress,
     tuning: DEFAULT_TUNING,

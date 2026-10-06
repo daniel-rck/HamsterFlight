@@ -62,6 +62,10 @@ const CHUNK_WARN_KB = 400;
  * WebGL visit fetches 11.6 kB gzip less, in two fewer requests, but this
  * table still lists `browserAll`, which Pixi references and nothing loads:
  * lazy 168.7 -> 167.8 kB as counted here. Lowered to 181.
+ * The Canvas2D backend is a chunk of its own, fetched only where WebGL is out:
+ * eager 37.8 -> 33.5 kB gzip, lowered to 35. What it shares with the Pixi
+ * backend is a small chunk both fetch (1.1 kB), so a WebGL visit loads 3.2 kB
+ * less; the lazy table gains the backend (4.3 kB) and moves to 173.3 kB.
  */
 const BUDGET_KB: {
   eager: number;
@@ -71,7 +75,7 @@ const BUDGET_KB: {
   fonts: number;
 } = {
   // Every visitor pays this.
-  eager: 39,
+  eager: 35,
   // The WebGL backend. Lazy in the bundle, but it is the default, so every
   // visitor with WebGL pays this too.
   lazy: 181,
@@ -151,7 +155,7 @@ async function main(): Promise<void> {
     if (groupRows.length === 0) continue;
     console.log(
       group
-        ? "\nlazy - the WebGL backend; the default, skipped only without WebGL"
+        ? "\nlazy - fetched when needed: the WebGL backend (the default) or the Canvas2D one, sound, the opening screen"
         : "eager - every visitor",
     );
     console.log(head);
