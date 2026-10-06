@@ -12,6 +12,7 @@ import {
   Texture,
 } from "pixi.js";
 // The one part of Pixi's browser environment this scene needs; see `create`.
+// oxlint-disable-next-line import/no-unassigned-import -- registers the filter pipes; nothing to bind
 import "pixi.js/filters";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
 import type { SpriteId } from "@/assets/sprites.generated.ts";

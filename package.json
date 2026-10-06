@@ -66,6 +66,6 @@
     "pixi.js": "^8.21.0"
   },
   "webBase": {
-    "version": "0.5.0"
+    "version": "0.6.0"
   }
 }

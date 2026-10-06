@@ -9,16 +9,23 @@ on:
 # deploys every push to `main` through the dashboard's Git integration, the
 # same way as the other apps in this family - see SETUP.md.
 jobs:
-  # Lint, typecheck, test, build - shared with the other apps.
+  # Lint, typecheck, test, build - shared with the other apps. Both reusable
+  # workflows are pinned to a web-base tag, so a change there reaches this repo
+  # as a Dependabot PR (github-actions bumps workflow refs too), not on the
+  # next push.
   ci:
-    uses: daniel-rck/web-base/.github/workflows/web-app-ci.yml@main
+    uses: daniel-rck/web-base/.github/workflows/web-app-ci.yml@v0.6.0
 
   # Guards the owned web-base building blocks this repo actually uses. It does
-  # NOT use layout, storage, router or pwa — a pixi canvas game has no React
-  # shell — and `check` reports those as "not adopted" rather than as drift.
-  # Never run it with --strict here for the same reason.
+  # NOT use layout, storage, router, pwa, testing or worker — a pixi canvas
+  # game has no React shell and serves static assets only — and `check`
+  # reports those as "not adopted" rather than as drift. Never run it with
+  # --strict here for the same reason. The CLI it runs is the one at
+  # `webBase.version` in package.json, not this tag. `pins` stays off: the
+  # devDependencies run ahead of the fleet's pin table, and `pins --apply`
+  # would downgrade them.
   web-base-check:
-    uses: daniel-rck/web-base/.github/workflows/web-base-check.yml@main
+    uses: daniel-rck/web-base/.github/workflows/web-base-check.yml@v0.6.0
 
   # What only this app checks: the simulation stays pure, the atlas and its
   # manifest agree, and the bundle stays inside its budget. Cheap, so it runs
