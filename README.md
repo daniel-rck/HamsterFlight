@@ -75,6 +75,8 @@ src/sim/          pure, deterministic simulation - no DOM, no clock, no Math.ran
   systems/          ground collision, powerup spawn and pickup, camera
   drive.ts          plays whole shots under a button policy; the golden tests and the bench share it
 src/app/          the fixed-timestep loop (the only place that reads a clock), URL parameters, build stamp
+  play.ts           the running game: the loop, the two snapshots it draws between, what a tick hands on
+  controls.ts       sound, pause, full screen and the settings panel; lifecycle.ts, blur and hidden tabs
 src/render/       Renderer interface plus two backends; read snapshots, cannot reach the simulation
   scene/            what to draw, as pure functions of the snapshot - both backends consume it
   pixi/             the Pixi backend's texture cache, HUD, filters and pools
@@ -108,7 +110,8 @@ not its numbers. Run `bun run bench` for the current table.
 There is one game, and it runs on PixiJS, because WebGL is what can carry
 shaders and particle effects. The Canvas2D renderer draws the same scene
 without the shaders; it is what a machine without WebGL gets, and
-`?renderer=canvas2d` forces it. An earlier `?mode=faithful` - the Canvas2D
+`?renderer=canvas2d` forces it. Each backend is a chunk of its own, fetched
+only where it is the one that draws. An earlier `?mode=faithful` - the Canvas2D
 renderer drawing only what the original stage drew - is gone.
 
 That was not the first answer. `reference/doc/renderer-evaluation.md` records a

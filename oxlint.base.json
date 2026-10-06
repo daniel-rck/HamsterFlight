@@ -16,6 +16,7 @@
     "no-console": ["warn", { "allow": ["error", "warn"] }],
     "no-underscore-dangle": "off",
     "unicorn/require-post-message-target-origin": "off",
-    "jsx-a11y/prefer-tag-over-role": "off"
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "import/no-unassigned-import": ["warn", { "allow": ["**/*.css"] }]
   }
 }

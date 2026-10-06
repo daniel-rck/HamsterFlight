@@ -47,15 +47,17 @@ bun run smoke    # öffnet die gebaute Seite in Chromium (Shader, Asset-404s)
   Builds deployt jeden Push auf `main` über die Git-Integration. Kein
   Doppel-Deploy mehr, den man abwehren müsste.
 - **Ein falscher Input an einem reusable Workflow bricht die *ganze* CI
-  lautlos.** `web-base-check.yml` nimmt `template`, `ref` und `strict` — sonst
-  nichts. Wer ihm z. B. `bun-version` übergibt (das nur `web-app-ci.yml`
-  kennt), bekommt `startup_failure` für den kompletten Workflow: keine Jobs,
-  keine Check-Runs, und ein PR, der ohne rote Markierung aussieht, als sei
-  alles in Ordnung. Nach jeder Änderung an `ci.yml` prüfen, dass die Läufe
+  lautlos.** `web-base-check.yml` nimmt (Stand `@v0.6.0`) `template`, `ref`,
+  `strict`, `pins` und `bun-version` — sonst nichts. Wer ihm z. B. `run-tests`
+  übergibt (das nur `web-app-ci.yml` kennt), bekommt `startup_failure` für den
+  kompletten Workflow: keine Jobs, keine Check-Runs, und ein PR, der ohne rote
+  Markierung aussieht, als sei alles in Ordnung. Nach jeder Änderung an `ci.yml` prüfen, dass die Läufe
   tatsächlich *starten*, nicht nur, dass nichts rot ist.
-- **`check --strict` hier nie ausführen.** `layout`, `storage`, `router` und
-  `pwa` sind bewusst nicht adoptiert; `web-base check` meldet sie korrekt als
-  „not adopted" und ist grün.
+- **`check --strict` hier nie ausführen.** `layout`, `storage`, `router`,
+  `pwa`, `testing` und `worker` sind bewusst nicht adoptiert; `web-base check`
+  meldet sie korrekt als „not adopted" und ist grün.
+- **`web-base pins` bleibt aus.** Die devDependencies laufen dem Pin-Table der
+  Flotte voraus (Dependabot); `pins --apply` würde sie zurückstufen.
 - **Strengere Lint-Regeln als die Basis**: `no-unused-vars` (deckt auch
   unbenutzte Imports ab) und `typescript/no-explicit-any` stehen in
   `.oxlintrc.json` auf `error` statt `warn`. Bewusst — nicht an die Basis

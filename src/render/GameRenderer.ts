@@ -3,7 +3,7 @@ import type { SpriteId } from "@/assets/sprites.generated.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
 import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
-import { stageScale } from "@/render/resolution.ts";
+import { elementScale } from "@/render/resolution.ts";
 import {
   altitudeOf,
   BUBBLE_ALPHA,
@@ -16,23 +16,24 @@ import {
   cloudColours,
   clouds,
   GROUND,
-  GROUND_BANDS,
-  PARTICLE_DUST_ALPHA,
+  GROUND_SLABS,
   HILL_LAYERS,
   HILL_TILE,
   HORIZON_GLOW,
   hillColour,
   hillProfile,
+  hillVisible,
   horizonGlowAlpha,
+  horizonGlowVisible,
   horizonY,
   markers,
   POWERUP_IDLE_FRAME,
   POWERUP_SPRITE,
+  POWERUP_TAKEN_ALPHA,
+  particleAlpha,
   rgbCss,
   SHADOW_ALPHA,
-  SHADOW_MIN_SCALE,
   type Star,
-  shadowScale,
   skyColours,
   TUFT_COLOUR,
   TUFT_TILE,
@@ -57,6 +58,8 @@ import {
   ITEM_COLOURS,
   launchZones,
   type LaunchZones,
+  type MeterBand,
+  meterBands,
   meterReading,
   minimapModel,
   panelFields,
@@ -75,8 +78,9 @@ import {
   visibleFlags,
 } from "@/render/scene/overlay.ts";
 import {
-  castsShadow,
+  boxRect,
   hamsterBox,
+  hamsterShadow,
   hamsterRotation,
   isBallPose,
   outcomeOffsetY,
@@ -183,11 +187,16 @@ export class GameRenderer implements Renderer {
   readonly #effects: Effects;
   readonly #tuning: Tuning;
   readonly #zones: LaunchZones;
+  readonly #bands: readonly MeterBand[];
   readonly #stress: number;
   /** A fixed hash, so it is built once; rebuilding it every frame allocated
    *  `70 * stress` objects per draw for a picture that never changes. */
   readonly #stars: readonly Star[];
-  readonly #tufts = tufts();
+  /** The tuft tile's blades and each hill's silhouette depend on nothing that
+   *  changes, so they are worked out once; per frame they were the two largest
+   *  sources of garbage in this backend. */
+  readonly #blades = tufts().flatMap(tuftBlades);
+  readonly #hills = HILL_LAYERS.map((layer) => ({ layer, profile: hillProfile(layer) }));
   /** The soft dot for particles: undefined until first wanted, null where it cannot be painted. */
   #dot: HTMLCanvasElement | null | undefined;
   readonly #dots = new Map<number, HTMLCanvasElement>();
@@ -213,6 +222,7 @@ export class GameRenderer implements Renderer {
     this.#effects = effects;
     this.#tuning = options.tuning ?? DEFAULT_TUNING;
     this.#zones = launchZones(this.#tuning);
+    this.#bands = meterBands(this.#zones);
     this.#showHitboxes = options.showHitboxes ?? false;
     this.#touch = options.touch ?? false;
     this.#strings = options.strings ?? EN_HUD;
@@ -222,7 +232,7 @@ export class GameRenderer implements Renderer {
   }
 
   resize(): void {
-    this.#dpr = stageScale(this.#canvas.getBoundingClientRect().width, window.devicePixelRatio);
+    this.#dpr = elementScale(this.#canvas);
     this.#canvas.width = Math.round(C.VIEW_W * this.#dpr);
     this.#canvas.height = Math.round(C.VIEW_H * this.#dpr);
     this.#ctx.imageSmoothingQuality = "high";
@@ -319,9 +329,8 @@ export class GameRenderer implements Renderer {
     }
 
     const horizon = horizonY(s.camera);
-    if (horizon <= 0) return;
     const glow = horizonGlowAlpha(altitudeOf(s));
-    if (glow > 0 && horizon - HORIZON_GLOW.height < C.VIEW_H) {
+    if (horizonGlowVisible(glow, horizon)) {
       const [r, g, b] = HORIZON_GLOW.colour;
       const fade = ctx.createLinearGradient(0, horizon - HORIZON_GLOW.height, 0, horizon);
       fade.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0)`);
@@ -329,9 +338,8 @@ export class GameRenderer implements Renderer {
       ctx.fillStyle = fade;
       ctx.fillRect(0, horizon - HORIZON_GLOW.height, C.VIEW_W, HORIZON_GLOW.height);
     }
-    for (const layer of HILL_LAYERS) {
-      if (horizon - layer.height >= C.VIEW_H) continue;
-      const profile = hillProfile(layer);
+    for (const { layer, profile } of this.#hills) {
+      if (!hillVisible(layer, horizon)) continue;
       ctx.fillStyle = rgbCss(hillColour(layer, sky));
       for (const origin of tileOrigins(s.camera.x, layer.parallax, HILL_TILE)) {
         ctx.beginPath();
@@ -366,26 +374,19 @@ export class GameRenderer implements Renderer {
   }
 
   #ground(ctx: CanvasRenderingContext2D, s: SimSnapshot, scene: PreLaunchLayout): void {
-    ctx.fillStyle = hex(GROUND.colour);
-    ctx.fillRect(GROUND.x, GROUND.y, GROUND.width, GROUND.height);
-    for (const [i, band] of GROUND_BANDS.entries()) {
-      const end = GROUND_BANDS[i + 1]?.dy ?? GROUND.height;
-      ctx.fillStyle = hex(band.colour);
-      ctx.fillRect(GROUND.x, GROUND.y + band.dy, GROUND.width, end - band.dy);
+    for (const slab of GROUND_SLABS) {
+      ctx.fillStyle = hex(slab.colour);
+      ctx.fillRect(slab.x, slab.y, slab.w, slab.h);
     }
-    ctx.fillStyle = hex(GROUND.lipColour);
-    ctx.fillRect(GROUND.x, GROUND.y, GROUND.width, GROUND.lip);
 
     ctx.fillStyle = hex(TUFT_COLOUR);
     ctx.beginPath();
     for (const origin of worldTileOrigins(s.camera.x, TUFT_TILE)) {
-      for (const tuft of this.#tufts) {
-        for (const blade of tuftBlades(tuft)) {
-          ctx.moveTo(origin + (blade[0] ?? 0), GROUND.y + 1 + (blade[1] ?? 0));
-          ctx.lineTo(origin + (blade[2] ?? 0), GROUND.y + 1 + (blade[3] ?? 0));
-          ctx.lineTo(origin + (blade[4] ?? 0), GROUND.y + 1 + (blade[5] ?? 0));
-          ctx.closePath();
-        }
+      for (const blade of this.#blades) {
+        ctx.moveTo(origin + (blade[0] ?? 0), GROUND.y + 1 + (blade[1] ?? 0));
+        ctx.lineTo(origin + (blade[2] ?? 0), GROUND.y + 1 + (blade[3] ?? 0));
+        ctx.lineTo(origin + (blade[4] ?? 0), GROUND.y + 1 + (blade[5] ?? 0));
+        ctx.closePath();
       }
     }
     ctx.fill();
@@ -461,7 +462,7 @@ export class GameRenderer implements Renderer {
   #particles(ctx: CanvasRenderingContext2D, now: number): void {
     const dot = this.#dot === undefined ? (this.#dot = softDotCanvas()) : this.#dot;
     for (const p of this.#effects.particles(now)) {
-      ctx.globalAlpha = p.glow ? 1 - p.age : PARTICLE_DUST_ALPHA * (1 - p.age);
+      ctx.globalAlpha = particleAlpha(p);
       ctx.globalCompositeOperation = p.glow ? "lighter" : "source-over";
       if (dot === null) {
         ctx.fillStyle = hex(p.tint);
@@ -517,17 +518,16 @@ export class GameRenderer implements Renderer {
     for (const item of s.powerups) {
       const sprite = this.#assets.get(POWERUP_SPRITE[item.kind]);
       if (sprite === undefined) continue;
-      ctx.globalAlpha = item.taken ? 0.25 : 1;
+      ctx.globalAlpha = item.taken ? POWERUP_TAKEN_ALPHA : 1;
       for (let i = 0; i < this.#stress; i++) {
         this.#blit(ctx, sprite, POWERUP_IDLE_FRAME, item.x + i * 3, item.y + i * 3);
       }
       ctx.globalAlpha = 1;
 
       if (this.#showHitboxes) {
-        const box = this.#tuning.boxes.powerups[item.kind];
         ctx.strokeStyle = hex(HUD_COLOURS.hitboxPowerup);
         ctx.lineWidth = 1;
-        ctx.strokeRect(item.x + box.cx - box.hw, item.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
+        ctx.strokeRect(...boxRect(item.x, item.y, this.#tuning.boxes.powerups[item.kind]));
       }
     }
   }
@@ -537,8 +537,8 @@ export class GameRenderer implements Renderer {
     if (!h.visible && s.phaseKind !== "settling") return;
 
     const shadow = this.#assets.get("shadow");
-    const scale = castsShadow(s) ? shadowScale(h.y) : 0;
-    if (shadow !== undefined && scale > SHADOW_MIN_SCALE) {
+    const scale = hamsterShadow(s);
+    if (shadow !== undefined && scale !== null) {
       ctx.save();
       ctx.translate(h.x, C.SHADOW_Y);
       ctx.scale(scale, scale);
@@ -593,10 +593,9 @@ export class GameRenderer implements Renderer {
     }
 
     if (this.#showHitboxes) {
-      const box = hamsterBox(s, this.#tuning);
       ctx.strokeStyle = hex(HUD_COLOURS.hitboxHamster);
       ctx.lineWidth = 1;
-      ctx.strokeRect(h.x + box.cx - box.hw, h.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
+      ctx.strokeRect(...boxRect(h.x, h.y, hamsterBox(s, this.#tuning)));
     }
   }
 
@@ -682,14 +681,10 @@ export class GameRenderer implements Renderer {
     ctx.fill();
     ctx.save();
     ctx.clip();
-    const zone = (span: readonly [number, number] | null, colour: number, alpha: number): void => {
-      if (span === null) return;
-      const from = meter.x + meter.w * Math.min(...span);
-      ctx.fillStyle = rgba(colour, alpha * dim);
-      ctx.fillRect(from, meter.y, meter.w * Math.abs(span[1] - span[0]), meter.h);
-    };
-    zone(this.#zones.band, HUD_COLOURS.meterBand, 0.8);
-    zone(this.#zones.sweet, HUD_COLOURS.meterSweet, 0.9);
+    for (const band of this.#bands) {
+      ctx.fillStyle = rgba(band.colour, band.alpha * dim);
+      ctx.fillRect(band.x, meter.y, band.w, meter.h);
+    }
     ctx.restore();
     if (reading.up) {
       const kx = meter.x + meter.w * reading.fraction;

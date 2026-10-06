@@ -23,9 +23,10 @@ src/
 ├── input/        # DOM events to discrete press/release/confirm/pause commands
 ├── assets/       # atlas sheets, sounds, generated manifests
 ├── audio/        # the Web Audio player - reads the sim's sound cues, never writes
-├── app/          # boot (main.ts), the loop, URL params, and the game around the game:
-│                 #   recording/replay, session, records, daily, ghost, achievements,
-│                 #   i18n, the opening screen, the typeface
+├── app/          # boot (main.ts) and the parts it wires - play (the loop and the
+│                 #   snapshots), controls, lifecycle, stage, chunks - URL params, and
+│                 #   the game around the game: recording/replay, session, records,
+│                 #   daily, ghost, achievements, i18n, the opening screen, the typeface
 reference/        # vendored: decompiled bytecode and frame scripts, extraction tools, notes
 ```
 
@@ -59,7 +60,7 @@ original's sprites cut from the atlas, in a lazy chunk fetched alongside it.
 ### Look
 
 One typeface, Fredoka (SIL OFL, self-hosted, `font-src 'self'`), and one set
-of colour tokens (`:root` in `index.html`, `HUD_COLOURS` in
+of colour tokens (`:root` in `src/page.css`, `HUD_COLOURS` in
 `src/render/scene/hud.ts`) for everything the port draws over the original's
 picture: the HUD cards, the opening screen, the results, the help, the toasts.
 The HUD's geometry and type sizes live in `scene/hud.ts`, so both backends
@@ -141,7 +142,7 @@ PR. See `reference/doc/porting-notes.md`.
 
 | Deviation | Reason |
 |---|---|
-| No React / router / storage / layout / PWA | It is a canvas game. One `localStorage` key in `src/app/` is not the storage layer. |
+| No React / router / storage / layout / PWA / testing / worker block | It is a canvas game that serves static assets. One `localStorage` key in `src/app/` is not the storage layer; its Vitest runs in Node without jsdom. |
 | `wrangler.jsonc`, not `wrangler.toml` | Functionally equivalent; the repo predates the convention. |
 | `not_found_handling: "404-page"` | Correct for a single-page game — the SPA fallback would mask real 404s. |
 | English README | It is a technical port write-up whose audience is the emulation community, not an end-user app README. |
@@ -156,11 +157,13 @@ Cloudflare Workers Builds deploys every push to `main` through the Git
 integration, so there is no second deploy path to guard against; see
 `SETUP.md`. The workflow gates pull requests and nothing else.
 
-One more thing the workflow file has to get right: `web-base-check.yml` takes
-`template`, `ref` and `strict` and no other input. Passing it anything else
-(`bun-version`, say) is a `startup_failure` for the whole run - no jobs, no
-check runs, a PR that looks clean. After any change to `ci.yml`, confirm the
-runs actually start.
+One more thing the workflow file has to get right: `web-base-check.yml` (at
+`@v0.6.0`) takes `template`, `ref`, `strict`, `pins` and `bun-version` and no
+other input. Passing it anything else (`run-tests`, which only `web-app-ci.yml`
+knows, say) is a `startup_failure` for the whole run - no jobs, no check runs,
+a PR that looks clean. After any change to `ci.yml`, confirm the runs actually
+start. `pins` stays off: the devDependencies run ahead of the fleet's pin
+table, and `pins --apply` would downgrade them.
 
 ## Quality gates
 

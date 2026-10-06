@@ -295,6 +295,29 @@ export function launchZones(tuning: Tuning = DEFAULT_TUNING): LaunchZones {
   return { band, sweet };
 }
 
+export interface MeterBand {
+  /** Left edge and width on the stage; the band spans the track's height. */
+  readonly x: number;
+  readonly w: number;
+  readonly colour: number;
+  readonly alpha: number;
+}
+
+/** The swing's reach and the best of it, as strips across the meter's track. */
+export function meterBands(zones: LaunchZones): readonly MeterBand[] {
+  const meter = HUD.meter;
+  const bands: MeterBand[] = [];
+  for (const [span, colour, alpha] of [
+    [zones.band, HUD_COLOURS.meterBand, 0.8],
+    [zones.sweet, HUD_COLOURS.meterSweet, 0.9],
+  ] as const) {
+    if (span === null) continue;
+    const x = meter.x + meter.w * Math.min(...span);
+    bands.push({ x, w: meter.w * Math.abs(span[1] - span[0]), colour, alpha });
+  }
+  return bands;
+}
+
 export interface MeterReading {
   /** Up for exactly the two phases before the hamster is away, as the original's. */
   readonly up: boolean;
@@ -351,35 +374,46 @@ export interface MinimapModel {
   readonly items: readonly MapItem[];
 }
 
+/** The map's inner box and scale. It is laid out around the view, so none of this moves. */
+const MAP_LEFT = HUD.minimap.x + HUD.minimap.pad;
+const MAP_TOP = HUD.minimap.y + HUD.minimap.pad;
+const MAP_W = HUD.minimap.w - HUD.minimap.pad * 2;
+const MAP_H = HUD.minimap.h - HUD.minimap.pad * 2;
+const MAP_SX = MAP_W / (MINIMAP_SPAN.right - MINIMAP_SPAN.left);
+const MAP_SY = MAP_H / (MINIMAP_SPAN.above + C.VIEW_H + MINIMAP_SPAN.below);
+
+/**
+ * The view, as a frame on the map. Map coordinates are world + camera, so the
+ * view's own corner, at world -camera, lands on the same spot whatever the
+ * camera does: `-c + c` is exactly zero.
+ */
+export const MINIMAP_VIEW = {
+  x: MAP_LEFT + (0 - MINIMAP_SPAN.left) * MAP_SX,
+  y: MAP_TOP + (0 + MINIMAP_SPAN.above) * MAP_SY,
+  w: C.VIEW_W * MAP_SX,
+  h: C.VIEW_H * MAP_SY,
+} as const;
+
 /** The minimap in stage pixels, or null when there is no flight to map. */
 export function minimapModel(s: SimSnapshot): MinimapModel | null {
   if (s.phaseKind !== "flying") return null;
-  const m = HUD.minimap;
   const span = MINIMAP_SPAN;
-  const left = m.x + m.pad;
-  const top = m.y + m.pad;
-  const innerW = m.w - m.pad * 2;
-  const innerH = m.h - m.pad * 2;
   // Map coordinates run over screen coordinates: world + camera.
-  const sx = innerW / (span.right - span.left);
-  const sy = innerH / (span.above + C.VIEW_H + span.below);
-  const rawX = (worldX: number): number => left + (worldX + s.camera.x - span.left) * sx;
-  const rawY = (worldY: number): number => top + (worldY + s.camera.y + span.above) * sy;
+  const rawX = (worldX: number): number => MAP_LEFT + (worldX + s.camera.x - span.left) * MAP_SX;
+  const rawY = (worldY: number): number => MAP_TOP + (worldY + s.camera.y + span.above) * MAP_SY;
   const clamp = (v: number, lo: number, hi: number): number => Math.min(hi, Math.max(lo, v));
   const point = (x: number, y: number): MapPoint & { beyond: boolean } => {
     const px = rawX(x);
     const py = rawY(y);
-    const cx = clamp(px, left, left + innerW);
-    const cy = clamp(py, top, top + innerH);
+    const cx = clamp(px, MAP_LEFT, MAP_LEFT + MAP_W);
+    const cy = clamp(py, MAP_TOP, MAP_TOP + MAP_H);
     return { x: cx, y: cy, beyond: cx !== px || cy !== py };
   };
   const ground = rawY(C.GROUND_Y);
-  const viewX = rawX(-s.camera.x);
-  const viewY = rawY(-s.camera.y);
   const hamster = point(s.hamster.x, s.hamster.y);
   return {
-    view: { x: viewX, y: viewY, w: C.VIEW_W * sx, h: C.VIEW_H * sy },
-    groundY: ground >= top && ground <= top + innerH ? ground : null,
+    view: MINIMAP_VIEW,
+    groundY: ground >= MAP_TOP && ground <= MAP_TOP + MAP_H ? ground : null,
     hamster: { x: hamster.x, y: hamster.y },
     items: s.powerups.filter((p) => !p.taken).map((p) => ({ kind: p.kind, ...point(p.x, p.y) })),
   };

@@ -1,4 +1,5 @@
 import type { SpriteId, SpriteMeta } from "@/assets/sprites.generated.ts";
+import { SHADOW_MIN_SCALE, shadowScale } from "@/render/scene/decor.ts";
 import { type Box, rotateBox } from "@/sim/math/aabb.ts";
 import type { SimSnapshot } from "@/sim/state.ts";
 import type { Tuning } from "@/sim/tuning.ts";
@@ -76,6 +77,12 @@ export function castsShadow(s: SimSnapshot): boolean {
   return !(s.phaseKind === "jumping" && s.windup !== null);
 }
 
+/** The shadow's scale under the hamster, or null when there is none worth drawing. */
+export function hamsterShadow(s: SimSnapshot): number | null {
+  const scale = castsShadow(s) ? shadowScale(s.hamster.y) : 0;
+  return scale > SHADOW_MIN_SCALE ? scale : null;
+}
+
 /**
  * `Bullet.update()` - Bullet.as:42-50. The rule itself (face the velocity,
  * except crawling along the ground or with rotation switched off) lives in
@@ -125,6 +132,11 @@ export function poseAlpha(meta: SpriteMeta): number {
 /** Either bounce ball - the poses the flier is drawn inside. */
 export function isBallPose(id: SpriteId): boolean {
   return id === "hamster/ball" || id === "hamster/superball";
+}
+
+/** A hit box placed at a point, as the `[x, y, w, h]` both backends stroke. */
+export function boxRect(x: number, y: number, box: Box): readonly [number, number, number, number] {
+  return [x + box.cx - box.hw, y + box.cy - box.hh, box.hw * 2, box.hh * 2];
 }
 
 /** The hamster's hit box as the sim tests it: the flight core turns with the clip. */

@@ -53,6 +53,21 @@ const CHUNK_WARN_KB = 400;
  * Raised to 1100 / 3050, the measured size plus 10%.
  * The typeface: Fredoka's two Latin subsets as variable woff2, 34 KiB, of
  * which a visitor fetches the 30 KiB Latin file and the rest only on demand.
+ * Boot split into parts (controls, play, lifecycle) and the scene's shared
+ * rules moved into scene/: eager 37.4 -> 37.8 kB gzip, the property names of
+ * the new interfaces. Within 39, not raised.
+ * Pixi no longer manages its own imports: its browser environment chunk -
+ * events, accessibility, DOM - was fetched during `app.init()` and is not
+ * now; only the filters it carried moved into the Pixi chunk (+3.8 kB). A
+ * WebGL visit fetches 11.6 kB gzip less, in two fewer requests, but this
+ * table still lists `browserAll`, which Pixi references and nothing loads:
+ * lazy 168.7 -> 167.8 kB as counted here. Lowered to 181.
+ * The Canvas2D backend is a chunk of its own, fetched only where WebGL is out:
+ * eager 37.8 -> 33.5 kB gzip, lowered to 35. What it shares with the Pixi
+ * backend is a small chunk both fetch (1.1 kB), so a WebGL visit loads 3.2 kB
+ * less; the lazy table gains the backend (4.3 kB) and moves to 173.3 kB.
+ * The stylesheet moved out of index.html into a file of its own, which Vite
+ * minifies: 14.1 kB raw, 4.1 kB gzip, budget 5. The built HTML went from 26 kB to 12.
  */
 const BUDGET_KB: {
   eager: number;
@@ -60,12 +75,13 @@ const BUDGET_KB: {
   atlas: Record<number, number>;
   audio: number;
   fonts: number;
+  styles: number;
 } = {
   // Every visitor pays this.
-  eager: 39,
+  eager: 35,
   // The WebGL backend. Lazy in the bundle, but it is the default, so every
   // visitor with WebGL pays this too.
-  lazy: 182,
+  lazy: 181,
   // Per atlas sheet, per density. Raised from 850/2250 for the gold ball
   // (`hamster/superball`, 11 frames of 175 x 219 - its pickup flash fills the
   // box), keeping the headroom the sheets had before it.
@@ -74,6 +90,8 @@ const BUDGET_KB: {
   audio: 800,
   // The woff2 files, raw - already compressed.
   fonts: 45,
+  // The stylesheet, gzipped: every visitor fetches it before the first paint.
+  styles: 5,
 };
 
 interface Row {
@@ -142,7 +160,7 @@ async function main(): Promise<void> {
     if (groupRows.length === 0) continue;
     console.log(
       group
-        ? "\nlazy - the WebGL backend; the default, skipped only without WebGL"
+        ? "\nlazy - fetched when needed: the WebGL backend (the default) or the Canvas2D one, sound, the opening screen"
         : "eager - every visitor",
     );
     console.log(head);
@@ -203,6 +221,20 @@ async function main(): Promise<void> {
   }
   if (fontBytes > 0) console.log(`\nfonts - every subset\n${kb(fontBytes)}`);
 
+  // Gzipped like the JS. It used to be inline in index.html, where nothing
+  // counted it; as its own file every visitor still fetches it, before the
+  // first paint, so it gets a line and a budget of its own.
+  const styles = { raw: 0, gzip: 0 };
+  for (const name of names.filter((item) => item.endsWith(".css"))) {
+    const source = await readFile(join(ASSETS, name));
+    styles.raw += source.byteLength;
+    styles.gzip += gzipSync(source, { level: 9 }).byteLength;
+  }
+  if (styles.raw > 0) {
+    console.log(`\nstyles - every visitor, before the first paint`);
+    console.log(`${kb(styles.raw)} raw, ${kb(styles.gzip)} gzip`);
+  }
+
   if (!process.argv.includes("--check")) return;
 
   const over: string[] = [];
@@ -221,6 +253,7 @@ async function main(): Promise<void> {
   }
   budget("audio", audioBytes, BUDGET_KB.audio);
   budget("fonts", fontBytes, BUDGET_KB.fonts);
+  budget("styles (gzip)", styles.gzip, BUDGET_KB.styles);
 
   console.log("");
   if (over.length === 0) {

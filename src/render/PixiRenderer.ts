@@ -11,6 +11,9 @@ import {
   TextStyle,
   Texture,
 } from "pixi.js";
+// The one part of Pixi's browser environment this scene needs; see `create`.
+// oxlint-disable-next-line import/no-unassigned-import -- registers the filter pipes; nothing to bind
+import "pixi.js/filters";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
 import type { SpriteId } from "@/assets/sprites.generated.ts";
 import type { Effects } from "@/render/effects/Effects.ts";
@@ -29,7 +32,7 @@ import { SceneFilters } from "@/render/pixi/SceneFilters.ts";
 import { TextureCache } from "@/render/pixi/TextureCache.ts";
 import type { PreLaunchLayout } from "@/render/PreLaunchScene.ts";
 import type { Renderer, RendererOptions } from "@/render/Renderer.ts";
-import { stageScale } from "@/render/resolution.ts";
+import { elementScale } from "@/render/resolution.ts";
 import {
   altitudeOf,
   BUBBLE_ALPHA,
@@ -43,24 +46,25 @@ import {
   cloudColours,
   clouds,
   GROUND,
-  GROUND_BANDS,
+  GROUND_SLABS,
   HILL_LAYERS,
   HILL_TILE,
   HORIZON_GLOW,
   type HillLayer,
   hillColour,
   hillProfile,
+  hillVisible,
   horizonGlowAlpha,
+  horizonGlowVisible,
   horizonY,
   markers,
   POWERUP_IDLE_FRAME,
   POWERUP_SPRITE,
+  POWERUP_TAKEN_ALPHA,
+  particleAlpha,
   rgbInt,
   SHADOW_ALPHA,
-  PARTICLE_DUST_ALPHA,
-  SHADOW_MIN_SCALE,
   STAR_LAYERS,
-  shadowScale,
   skyColours,
   starField,
   starOffset,
@@ -92,9 +96,10 @@ import {
   visibleFlags,
 } from "@/render/scene/overlay.ts";
 import {
-  castsShadow,
+  boxRect,
   hamsterBox,
   hamsterRotation,
+  hamsterShadow,
   isBallPose,
   outcomeOffsetY,
   poseAlpha,
@@ -284,10 +289,18 @@ export class PixiRenderer implements Renderer {
       // The Canvas2D renderer pins its backing store to VIEW_W/H * dpr and lets
       // CSS upscale. autoDensity: false reproduces that instead of resizing CSS.
       autoDensity: false,
-      resolution: dpr(canvas),
+      resolution: elementScale(canvas),
       backgroundAlpha: 1,
       // The sim never reads the pointer; input is bound to the canvas element.
       eventMode: "none",
+      // Only what this game uses. Left to manage its own imports, Pixi fetches
+      // its browser environment chunk: an accessibility layer that switches on
+      // at a Tab press, and an event system that runs a second frame loop of
+      // its own, hit-tests the scene on every pointermove anywhere in the
+      // document and cancels pointerdown on the canvas - for a scene that
+      // takes no pointer input. `InputController` does that, on the canvas,
+      // the same for both backends. The filters are imported above.
+      skipExtensionImports: true,
       // `SceneFilter` ships a GLSL program only. Auto-detection tries WebGL
       // first anyway, but a machine where WebGL fails and WebGPU succeeds
       // would boot and then throw on the first impact; pin it so it fails
@@ -328,12 +341,7 @@ export class PixiRenderer implements Renderer {
 
     // Ground is two slabs the width of the whole course; static, so built once.
     const ground = new Container();
-    ground.addChild(slab(GROUND.x, GROUND.y, GROUND.width, GROUND.height, GROUND.colour));
-    for (const [i, band] of GROUND_BANDS.entries()) {
-      const end = GROUND_BANDS[i + 1]?.dy ?? GROUND.height;
-      ground.addChild(slab(GROUND.x, GROUND.y + band.dy, GROUND.width, end - band.dy, band.colour));
-    }
-    ground.addChild(slab(GROUND.x, GROUND.y, GROUND.width, GROUND.lip, GROUND.lipColour));
+    for (const g of GROUND_SLABS) ground.addChild(slab(g.x, g.y, g.w, g.h, g.colour));
     ground.addChild(...this.#tuftTiles);
 
     this.#shadowPivot.addChild(this.#shadow);
@@ -429,7 +437,7 @@ export class PixiRenderer implements Renderer {
     if (this.#destroyed) return;
     // One call: setting `resolution` separately re-sized the render target
     // twice. `autoDensity` is off, so Pixi never touches the CSS size here.
-    this.#app.renderer.resize(C.VIEW_W, C.VIEW_H, dpr(this.#canvas));
+    this.#app.renderer.resize(C.VIEW_W, C.VIEW_H, elementScale(this.#canvas));
   }
 
   resync(): void {
@@ -466,6 +474,7 @@ export class PixiRenderer implements Renderer {
     for (const shape of this.#cloudShapes) shape.destroy();
     this.#clothShapes.record.destroy();
     this.#clothShapes.ghost.destroy();
+    this.#hud.destroy();
     this.#app.destroy({ removeView: false }, { children: true });
   }
 
@@ -539,14 +548,14 @@ export class PixiRenderer implements Renderer {
     const horizon = horizonY(s.camera);
     if (this.#glow !== null) {
       const alpha = horizonGlowAlpha(altitudeOf(s));
-      this.#glow.visible = alpha > 0 && horizon > 0 && horizon - HORIZON_GLOW.height < C.VIEW_H;
+      this.#glow.visible = horizonGlowVisible(alpha, horizon);
       this.#glow.alpha = alpha;
       this.#glow.position.set(0, horizon);
     }
     for (const [i, layer] of HILL_LAYERS.entries()) {
       const origins = tileOrigins(s.camera.x, layer.parallax, HILL_TILE);
       const colour = rgbInt(hillColour(layer, sky));
-      const visible = horizon - layer.height < C.VIEW_H && horizon > 0;
+      const visible = hillVisible(layer, horizon);
       for (const [k, tile] of (this.#hillTiles[i] ?? []).entries()) {
         tile.visible = visible;
         tile.position.set(origins[k] ?? 0, horizon);
@@ -645,7 +654,7 @@ export class PixiRenderer implements Renderer {
         const sprite = poolAt(this.#powerupPool, used++, this.#powerups, () => new Sprite());
         sprite.texture = texture;
         place(sprite, asset, item.x + i * 3, item.y + i * 3);
-        sprite.alpha = item.taken ? 0.25 : 1;
+        sprite.alpha = item.taken ? POWERUP_TAKEN_ALPHA : 1;
         sprite.visible = true;
       }
     }
@@ -686,7 +695,7 @@ export class PixiRenderer implements Renderer {
       sprite.height = d;
       sprite.tint = p.tint;
       sprite.blendMode = p.glow ? "add" : "normal";
-      sprite.alpha = p.glow ? 1 - p.age : PARTICLE_DUST_ALPHA * (1 - p.age);
+      sprite.alpha = particleAlpha(p);
       sprite.visible = true;
     }
     hideFrom(this.#particlePool, used);
@@ -713,8 +722,8 @@ export class PixiRenderer implements Renderer {
       return;
     }
 
-    const scale = castsShadow(s) ? shadowScale(h.y) : 0;
-    const showShadow = this.#assets.get("shadow") !== undefined && scale > SHADOW_MIN_SCALE;
+    const scale = hamsterShadow(s);
+    const showShadow = this.#assets.get("shadow") !== undefined && scale !== null;
     this.#shadowPivot.visible = showShadow;
     if (showShadow) {
       this.#shadowPivot.position.set(h.x, C.SHADOW_Y);
@@ -788,14 +797,11 @@ export class PixiRenderer implements Renderer {
     const g = this.#debugBoxes;
     g.clear();
     for (const item of s.powerups) {
-      const box = this.#tuning.boxes.powerups[item.kind];
-      g.rect(item.x + box.cx - box.hw, item.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
+      g.rect(...boxRect(item.x, item.y, this.#tuning.boxes.powerups[item.kind]));
     }
     g.stroke({ color: HUD_COLOURS.hitboxPowerup, width: 1 });
 
-    const h = s.hamster;
-    const box = hamsterBox(s, this.#tuning);
-    g.rect(h.x + box.cx - box.hw, h.y + box.cy - box.hh, box.hw * 2, box.hh * 2);
+    g.rect(...boxRect(s.hamster.x, s.hamster.y, hamsterBox(s, this.#tuning)));
     g.stroke({ color: HUD_COLOURS.hitboxHamster, width: 1 });
   }
 
@@ -911,8 +917,4 @@ export function createPixiRenderer(
   options: RendererOptions = {},
 ): Promise<Renderer> {
   return PixiRenderer.create(canvas, assets, effects, options);
-}
-
-function dpr(canvas: HTMLCanvasElement): number {
-  return stageScale(canvas.getBoundingClientRect().width, window.devicePixelRatio);
 }

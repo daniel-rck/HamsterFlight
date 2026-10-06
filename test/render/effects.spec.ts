@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { Effects } from "@/render/effects/Effects.ts";
+import { C } from "@/sim/constants.ts";
 import type { SimEvent } from "@/sim/events.ts";
+import { Simulation } from "@/sim/Simulation.ts";
+import type { SimSnapshot } from "@/sim/state.ts";
 
 /** fx/break has 4 frames at 19 fps, so it lives about 210 ms. */
 const BREAK: SimEvent = { t: "fx", id: "break", x: 100, y: 955 };
@@ -343,5 +346,38 @@ describe("Effects particles", () => {
     const effects = moving();
     for (let at = 0; at < 20_000; at += DUST_STEP) effects.emitSkidDust(100, 950, at);
     expect(effects.particles(19_999).length).toBeLessThanOrEqual(160);
+  });
+});
+
+describe("Effects following the hamster", () => {
+  const base = new Simulation({ seed: 1 }).snapshot();
+  const flying = (over: Partial<SimSnapshot["hamster"]> = {}): SimSnapshot => ({
+    ...base,
+    phaseKind: "flying",
+    hamster: { ...base.hamster, x: 400, y: 600, xvel: 12, yvel: -3, visible: true, ...over },
+  });
+
+  it("kicks up grit only while dragging along the ground", () => {
+    const effects = new Effects();
+    effects.follow(flying({ y: C.SKID_Y, xvel: 6 }), 0);
+    expect(effects.particles(1).length).toBeGreaterThan(0);
+
+    const slow = new Effects();
+    slow.follow(flying({ y: C.SKID_Y, xvel: 2 }), 0);
+    const aloft = new Effects();
+    aloft.follow(flying({ y: C.SKID_Y - 1, xvel: 6 }), 0);
+    expect(slow.particles(1)).toHaveLength(0);
+    expect(aloft.particles(1)).toHaveLength(0);
+  });
+
+  it("keeps the streak while the hamster flies and drops it when it does not", () => {
+    const effects = new Effects();
+    effects.follow(flying({ x: 400 }), 0);
+    effects.follow(flying({ x: 420 }), 50);
+    effects.follow(flying({ x: 440 }), 100);
+    expect(effects.trail({ x: 450, y: 600 }).length).toBeGreaterThan(0);
+
+    effects.follow(flying({ visible: false }), 150);
+    expect(effects.trail({ x: 450, y: 600 })).toHaveLength(0);
   });
 });
