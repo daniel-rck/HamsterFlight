@@ -1,10 +1,11 @@
-# Applies to every response. The page is one module script and one inline
-# stylesheet from this origin, plus the atlas it fetches from /assets/, so a
-# strict policy costs nothing. `blob:`/`data:` for images cover
+# Applies to every response. The page is one module script and one stylesheet
+# from this origin, plus the atlas it fetches from /assets/, so a strict policy
+# costs nothing - no inline styles either: what the scripts set goes through
+# the CSSOM, which `style-src` does not govern. `blob:`/`data:` for images cover
 # createImageBitmap and the smoke test's screenshot round-trip; `worker-src`
 # covers Pixi's optional decode worker.
 /*
-  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
+  Content-Security-Policy: default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(), microphone=(), camera=()

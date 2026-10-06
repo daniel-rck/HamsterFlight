@@ -60,7 +60,7 @@ original's sprites cut from the atlas, in a lazy chunk fetched alongside it.
 ### Look
 
 One typeface, Fredoka (SIL OFL, self-hosted, `font-src 'self'`), and one set
-of colour tokens (`:root` in `index.html`, `HUD_COLOURS` in
+of colour tokens (`:root` in `src/page.css`, `HUD_COLOURS` in
 `src/render/scene/hud.ts`) for everything the port draws over the original's
 picture: the HUD cards, the opening screen, the results, the help, the toasts.
 The HUD's geometry and type sizes live in `scene/hud.ts`, so both backends

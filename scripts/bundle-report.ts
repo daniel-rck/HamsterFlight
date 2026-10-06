@@ -66,6 +66,8 @@ const CHUNK_WARN_KB = 400;
  * eager 37.8 -> 33.5 kB gzip, lowered to 35. What it shares with the Pixi
  * backend is a small chunk both fetch (1.1 kB), so a WebGL visit loads 3.2 kB
  * less; the lazy table gains the backend (4.3 kB) and moves to 173.3 kB.
+ * The stylesheet moved out of index.html into a file of its own, which Vite
+ * minifies: 14.1 kB raw, 4.1 kB gzip, budget 5. The built HTML went from 26 kB to 12.
  */
 const BUDGET_KB: {
   eager: number;
@@ -73,6 +75,7 @@ const BUDGET_KB: {
   atlas: Record<number, number>;
   audio: number;
   fonts: number;
+  styles: number;
 } = {
   // Every visitor pays this.
   eager: 35,
@@ -87,6 +90,8 @@ const BUDGET_KB: {
   audio: 800,
   // The woff2 files, raw - already compressed.
   fonts: 45,
+  // The stylesheet, gzipped: every visitor fetches it before the first paint.
+  styles: 5,
 };
 
 interface Row {
@@ -216,6 +221,20 @@ async function main(): Promise<void> {
   }
   if (fontBytes > 0) console.log(`\nfonts - every subset\n${kb(fontBytes)}`);
 
+  // Gzipped like the JS. It used to be inline in index.html, where nothing
+  // counted it; as its own file every visitor still fetches it, before the
+  // first paint, so it gets a line and a budget of its own.
+  const styles = { raw: 0, gzip: 0 };
+  for (const name of names.filter((item) => item.endsWith(".css"))) {
+    const source = await readFile(join(ASSETS, name));
+    styles.raw += source.byteLength;
+    styles.gzip += gzipSync(source, { level: 9 }).byteLength;
+  }
+  if (styles.raw > 0) {
+    console.log(`\nstyles - every visitor, before the first paint`);
+    console.log(`${kb(styles.raw)} raw, ${kb(styles.gzip)} gzip`);
+  }
+
   if (!process.argv.includes("--check")) return;
 
   const over: string[] = [];
@@ -234,6 +253,7 @@ async function main(): Promise<void> {
   }
   budget("audio", audioBytes, BUDGET_KB.audio);
   budget("fonts", fontBytes, BUDGET_KB.fonts);
+  budget("styles (gzip)", styles.gzip, BUDGET_KB.styles);
 
   console.log("");
   if (over.length === 0) {
