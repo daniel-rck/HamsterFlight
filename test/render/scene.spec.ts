@@ -29,6 +29,7 @@ import {
   HUD,
   launchZones,
   meterBands,
+  MINIMAP_VIEW,
   minimapModel,
   panelFields,
   promptFor,
@@ -434,6 +435,19 @@ describe("the minimap", () => {
     expect(high?.items[0]?.beyond).toBe(true);
     expect(high?.items[0]?.y).toBeCloseTo(m.y + m.h - m.pad, 6);
     expect(high?.groundY).toBeNull();
+  });
+});
+
+describe("the minimap's view frame", () => {
+  it("is the same rectangle wherever the camera is, so it can be drawn once", () => {
+    for (const camera of [
+      { x: 0, y: 0 },
+      { x: -650, y: -600 },
+      { x: -123_456.789, y: 98_765.4321 },
+      { x: 1e-9, y: -1e-9 },
+    ]) {
+      expect(minimapModel(flying({ camera }))?.view).toEqual(MINIMAP_VIEW);
+    }
   });
 });
 

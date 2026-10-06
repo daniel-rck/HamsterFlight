@@ -1,6 +1,21 @@
-import { CanvasTextMetrics, Container, Graphics, Sprite, type Text } from "pixi.js";
+import {
+  CanvasTextMetrics,
+  Container,
+  Graphics,
+  GraphicsContext,
+  Sprite,
+  type Text,
+} from "pixi.js";
 import type { AssetBundle } from "@/assets/AssetLoader.ts";
-import { drawCard, monoText, place, setText, uiText } from "@/render/pixi/helpers.ts";
+import {
+  drawCard,
+  hideFrom,
+  monoText,
+  place,
+  poolAt,
+  setText,
+  uiText,
+} from "@/render/pixi/helpers.ts";
 import type { TextureCache } from "@/render/pixi/TextureCache.ts";
 import {
   debugLines,
@@ -15,6 +30,7 @@ import {
   type LaunchZones,
   meterBands,
   meterReading,
+  MINIMAP_VIEW,
   minimapModel,
   panelFields,
   pipFrames,
@@ -78,8 +94,19 @@ export class PixiHud {
   readonly #glideFill = new Graphics();
   #glideWidth = -1;
   #glideColour = -1;
+  /**
+   * The minimap, as shapes baked once and moved: the view's frame never moves
+   * at all, and the dots, the hamster and the ground line only change place.
+   * Redrawing them as one Graphics every frame of a flight rebuilt and
+   * re-triangulated its geometry sixty times a second.
+   */
   readonly #map = new Container();
-  readonly #mapMarks = new Graphics();
+  readonly #mapGround: Graphics;
+  /** One white dot, shared by every item's marker and tinted to the item. */
+  readonly #mapDot: GraphicsContext;
+  readonly #mapItems = new Container();
+  readonly #mapDots: Graphics[] = [];
+  readonly #mapHamster: Graphics;
   readonly #debugBg: Graphics;
   readonly #debugLines: [Text, Text, Text];
   readonly #promptShadow = new Graphics();
@@ -141,6 +168,18 @@ export class PixiHud {
     bands.mask = clip;
     this.#meter.addChild(this.#meterLabel, track, bands, clip, this.#knob);
 
+    this.#mapGround = new Graphics()
+      .rect(minimap.x + 2, 0, minimap.w - 4, 1.5)
+      .fill({ color: HUD_COLOURS.mapGround, alpha: 0.55 });
+    const view = MINIMAP_VIEW;
+    const viewFrame = new Graphics()
+      .rect(view.x + 0.5, view.y + 0.5, view.w - 1, view.h - 1)
+      .stroke({ color: HUD_COLOURS.mapView, alpha: HUD_COLOURS.mapViewAlpha, width: 1 });
+    this.#mapDot = new GraphicsContext().circle(0, 0, minimap.dot).fill(0xffffff);
+    this.#mapHamster = new Graphics()
+      .circle(0, 0, minimap.dot + 0.8)
+      .fill(HUD_COLOURS.mapHamster)
+      .stroke({ color: HUD_COLOURS.chrome, width: 1.2 });
     this.#map.addChild(
       drawCard(
         new Graphics(),
@@ -151,7 +190,10 @@ export class PixiHud {
         minimap.radius,
         HUD_COLOURS.mapAlpha,
       ),
-      this.#mapMarks,
+      this.#mapGround,
+      viewFrame,
+      this.#mapItems,
+      this.#mapHamster,
     );
     this.#map.visible = false;
 
@@ -276,28 +318,22 @@ export class PixiHud {
     const map = minimapModel(s);
     this.#map.visible = map !== null;
     if (map === null) return;
-    const m = HUD.minimap;
-    const g = this.#mapMarks.clear();
-    if (map.groundY !== null) {
-      g.rect(m.x + 2, map.groundY, m.w - 4, 1.5).fill({
-        color: HUD_COLOURS.mapGround,
-        alpha: 0.55,
-      });
+    this.#mapGround.visible = map.groundY !== null;
+    if (map.groundY !== null) this.#mapGround.y = map.groundY;
+    for (const [i, item] of map.items.entries()) {
+      const dot = poolAt(this.#mapDots, i, this.#mapItems, () => new Graphics(this.#mapDot));
+      dot.position.set(item.x, item.y);
+      dot.tint = ITEM_COLOURS[item.kind];
+      dot.alpha = item.beyond ? HUD_COLOURS.mapBeyondAlpha : 1;
+      dot.visible = true;
     }
-    g.rect(map.view.x + 0.5, map.view.y + 0.5, map.view.w - 1, map.view.h - 1).stroke({
-      color: HUD_COLOURS.mapView,
-      alpha: HUD_COLOURS.mapViewAlpha,
-      width: 1,
-    });
-    for (const item of map.items) {
-      g.circle(item.x, item.y, m.dot).fill({
-        color: ITEM_COLOURS[item.kind],
-        alpha: item.beyond ? HUD_COLOURS.mapBeyondAlpha : 1,
-      });
-    }
-    g.circle(map.hamster.x, map.hamster.y, m.dot + 0.8)
-      .fill(HUD_COLOURS.mapHamster)
-      .stroke({ color: HUD_COLOURS.chrome, width: 1.2 });
+    hideFrom(this.#mapDots, map.items.length);
+    this.#mapHamster.position.set(map.hamster.x, map.hamster.y);
+  }
+
+  /** The shared shapes; the Graphics using them go with the stage. */
+  destroy(): void {
+    this.#mapDot.destroy();
   }
 
   draw(s: SimSnapshot, showDebug: boolean): void {

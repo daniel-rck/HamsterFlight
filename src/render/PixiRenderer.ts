@@ -473,6 +473,7 @@ export class PixiRenderer implements Renderer {
     for (const shape of this.#cloudShapes) shape.destroy();
     this.#clothShapes.record.destroy();
     this.#clothShapes.ghost.destroy();
+    this.#hud.destroy();
     this.#app.destroy({ removeView: false }, { children: true });
   }
 
