@@ -63,7 +63,7 @@
   },
   "dependencies": {
     "@fontsource-variable/fredoka": "^5.3.0",
-    "pixi.js": "^8.21.0"
+    "pixi.js": "^8.22.0"
   },
   "webBase": {
     "version": "0.6.0"
