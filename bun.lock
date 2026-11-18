@@ -6,7 +6,7 @@
       "name": "hamsterflight",
       "dependencies": {
         "@fontsource-variable/fredoka": "^5.3.0",
-        "pixi.js": "^8.22.0",
+        "pixi.js": "^8.23.0",
       },
       "devDependencies": {
         "@types/node": "^26.6.5",
@@ -231,8 +231,6 @@
 
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.87.0", "", { "os": "win32", "cpu": "x64" }, "sha512-k+m/EShyXE29J/r1fjk0HlAzhN5JhIvj044oSJkXTEkCLrWZQgXb/3r4q5LTw/eaKW/4GuMXG2xmiJs3s5rPNw=="],
 
-    "@pixi/colord": ["@pixi/colord@2.9.6", "", {}, "sha512-nezytU2pw587fQstUu1AsJZDVEynjskwOL+kibwcdxsMBFqPsFFNA7xl0ii/gXuDi6M0xj3mfRJj8pBSc2jCfA=="],
-
     "@poppinss/colors": ["@poppinss/colors@4.1.6", "", { "dependencies": { "kleur": "^4.1.5" } }, "sha512-H9xkIdFswbS8n1d6vmRd8+c10t2Qe+rZITbbDHHkQixH5+2x1FDGmi/0K+WgWiqQFKPSlIYB7jlH6Kpfn6Fleg=="],
 
     "@poppinss/dumper": ["@poppinss/dumper@0.6.5", "", { "dependencies": { "@poppinss/colors": "^4.1.5", "@sindresorhus/is": "^7.0.2", "supports-color": "^10.0.0" } }, "sha512-NBdYIb90J7LfOI32dOewKI1r7wnkiH6m920puQ3qHUeZkxNkQiFnXVWoE6YtFSv6QOiPPf7ys6i+HWWecDz7sw=="],
@@ -339,6 +337,8 @@
 
     "chai": ["chai@6.2.2", "", {}, "sha512-NUPRluOfOiTKBKvWPtSD4PhFvWCqOi0BGStNWs57X9js7XGTprSmFoz5F0tWhR4WPjNeR9jXqdC7/UpSJTnlRg=="],
 
+    "colord": ["colord@2.14.0", "", {}, "sha512-eSdMel9EBvdFxnchObp7gljRoqYQLr+zXhaxjkym7syVphw1FIhfQwgsA5Bv3jArflZPJEa1rmQtGpa7NRc7Rw=="],
+
     "cookie": ["cookie@1.1.1", "", {}, "sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ=="],
 
     "detect-libc": ["detect-libc@2.1.2", "", {}, "sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ=="],
@@ -415,7 +415,7 @@
 
     "picomatch": ["picomatch@4.0.7", "", {}, "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA=="],
 
-    "pixi.js": ["pixi.js@8.22.0", "", { "dependencies": { "@pixi/colord": "^2.9.6", "@types/earcut": "^3.0.0", "@webgpu/types": "^0.1.69", "@xmldom/xmldom": "^0.8.15", "earcut": "^3.0.2", "eventemitter3": "^5.0.1", "gifuct-js": "^2.1.2", "ismobilejs": "^1.1.1", "parse-svg-path": "^0.2.0", "tiny-lru": "^11.4.7" } }, "sha512-QbTANHMZ751MIjLiLSUSM8a7LNMWwMIf0KbRCqlW+SPS9hNLfSVS+cl1O2SEp9g1K/wyLzj/OJHv+1TUfiPr/w=="],
+    "pixi.js": ["pixi.js@8.23.0", "", { "dependencies": { "@types/earcut": "^3.0.0", "@webgpu/types": "^0.1.69", "@xmldom/xmldom": "^0.8.15", "colord": "^2.11.0", "earcut": "^3.0.2", "eventemitter3": "^5.0.1", "gifuct-js": "^2.1.2", "ismobilejs": "^1.1.1", "parse-svg-path": "^0.2.0", "tiny-lru": "^11.4.7" } }, "sha512-RkWSwo+mAR0d7MKnJ20IjKkWGPdFh1C0adBRYYLa+SGdxTfbrr6RnQyZZRwjBaG/bDAIQqgBcTBbiNsN6iKFVQ=="],
 
     "playwright": ["playwright@1.64.0", "", { "dependencies": { "playwright-core": "1.64.0" }, "bin": { "playwright": "cli.js" } }, "sha512-kVzTnYFYEyQ9RGzBjNCd2+yEqWmVbxl3AHPynv3qQ6JTjv4a+kwRcnqQwIpuP3NnrnIrE/Q6wWAIAvMfIE2/Yg=="],
 
